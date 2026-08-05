@@ -1,0 +1,160 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 212 42% 7%;
+  --foreground: 210 40% 98%;
+  --card: 216 36% 10%;
+  --card-foreground: 210 40% 98%;
+  --popover: 216 36% 10%;
+  --popover-foreground: 210 40% 98%;
+  --primary: 18 95% 58%;
+  /* Near-black, not white: white on this orange is 2.78:1 and fails every
+     primary control. Ink reads 6.5:1 and makes the orange louder, not duller.
+     Every `text-primary-foreground` site pairs with solid `bg-primary` —
+     translucent tints (`bg-primary/15`) use `text-primary` instead. */
+  --primary-foreground: 212 42% 7%;
+  --secondary: 210 22% 18%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 214 24% 14%;
+  --muted-foreground: 214 14% 70%;
+  --accent: 190 94% 42%;
+  /* Ink, for the same reason as --primary-foreground above: white on this cyan
+     is 2.51:1. Ink reads 7.20:1. The one `text-accent-foreground` site pairs
+     with solid `bg-accent`; translucent tints use `text-accent` instead. */
+  --accent-foreground: 212 42% 7%;
+  --border: 214 22% 18%;
+  --input: 214 22% 18%;
+  --ring: 18 95% 58%;
+  --success: 146 60% 45%;
+  --warning: 42 96% 54%;
+  --danger: 0 79% 62%;
+  /* Was missing entirely, so `text-danger-foreground` emitted nothing while
+     still out-merging `text-primary-foreground` off the Button base — the
+     destructive confirms fell back to near-white at 3.44:1. Ink is 5.26:1. */
+  --danger-foreground: 212 42% 7%;
+  --font-sans: "Space Grotesk", "Avenir Next", "Segoe UI", sans-serif;
+  --font-mono: "Space Mono", ui-monospace, "SFMono-Regular", monospace;
+}
+
+* {
+  @apply border-border;
+}
+
+html {
+  color-scheme: dark;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  @apply bg-background text-foreground antialiased;
+  min-height: 100vh;
+  background-image:
+    radial-gradient(circle at top, rgba(245, 115, 37, 0.18), transparent 32%),
+    radial-gradient(circle at bottom right, rgba(11, 165, 180, 0.12), transparent 26%);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+.app-safe-bottom {
+  /* The nav measures 88px (5.5rem) exactly, so 5.5rem left the last card's edge
+     flush against it. 6.5rem is the breathing room. */
+  padding-bottom: calc(env(safe-area-inset-bottom) + 6.5rem);
+}
+
+.glass-card {
+  background: rgba(13, 20, 32, 0.88);
+  backdrop-filter: blur(14px);
+}
+
+/* The one moment: the chip stamps as it fills. Applied to the chip that was
+   just logged, so it plays on the tap and nowhere else — not on page load,
+   not as the panel moves down the ledger. */
+/* Overshoot from rest, not a collapse-and-spring: the chip is already full
+   width before the tap, so shrinking it first reads as a glitch. 200ms to
+   match the colour fill underneath — the scale and the fill are one moment. */
+.set-chip-stamp {
+  animation: set-chip-stamp 200ms ease-out;
+}
+
+@keyframes set-chip-stamp {
+  40% {
+    transform: scale(1.3);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .set-chip-stamp {
+    animation: none;
+  }
+}
+
+.scrollbar-hide {
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Body map: the illustration ships every muscle in one salmon fill. Reset the
+   whole figure to neutral, then let the per-muscle rules below repaint only
+   what the day actually worked. Custom properties come from the <svg> root
+   (see features/body/body-map-shared.ts). Every MuscleId needs a rule here — a
+   missing one silently reads as "never worked"; body-map.test.ts checks that. */
+[fill="#C25F60"] {
+  fill: var(--muscle-idle);
+}
+
+[data-muscle] {
+  cursor: pointer;
+  color: var(--muscle-idle);
+  fill: currentColor;
+  transition: color 200ms ease-out, filter 200ms ease-out;
+}
+
+[data-muscle="pecUpper"] { color: var(--m-pecUpper, var(--muscle-idle)); filter: var(--g-pecUpper, none); }
+[data-muscle="pecLower"] { color: var(--m-pecLower, var(--muscle-idle)); filter: var(--g-pecLower, none); }
+[data-muscle="serratus"] { color: var(--m-serratus, var(--muscle-idle)); filter: var(--g-serratus, none); }
+[data-muscle="deltFront"] { color: var(--m-deltFront, var(--muscle-idle)); filter: var(--g-deltFront, none); }
+[data-muscle="deltSide"] { color: var(--m-deltSide, var(--muscle-idle)); filter: var(--g-deltSide, none); }
+[data-muscle="deltRear"] { color: var(--m-deltRear, var(--muscle-idle)); filter: var(--g-deltRear, none); }
+[data-muscle="traps"] { color: var(--m-traps, var(--muscle-idle)); filter: var(--g-traps, none); }
+[data-muscle="rhomboids"] { color: var(--m-rhomboids, var(--muscle-idle)); filter: var(--g-rhomboids, none); }
+[data-muscle="lats"] { color: var(--m-lats, var(--muscle-idle)); filter: var(--g-lats, none); }
+[data-muscle="erectors"] { color: var(--m-erectors, var(--muscle-idle)); filter: var(--g-erectors, none); }
+[data-muscle="biceps"] { color: var(--m-biceps, var(--muscle-idle)); filter: var(--g-biceps, none); }
+[data-muscle="brachialis"] { color: var(--m-brachialis, var(--muscle-idle)); filter: var(--g-brachialis, none); }
+[data-muscle="tricepsLong"] { color: var(--m-tricepsLong, var(--muscle-idle)); filter: var(--g-tricepsLong, none); }
+[data-muscle="tricepsLateral"] { color: var(--m-tricepsLateral, var(--muscle-idle)); filter: var(--g-tricepsLateral, none); }
+[data-muscle="forearmFlexors"] { color: var(--m-forearmFlexors, var(--muscle-idle)); filter: var(--g-forearmFlexors, none); }
+[data-muscle="forearmExtensors"] { color: var(--m-forearmExtensors, var(--muscle-idle)); filter: var(--g-forearmExtensors, none); }
+[data-muscle="abs"] { color: var(--m-abs, var(--muscle-idle)); filter: var(--g-abs, none); }
+[data-muscle="obliques"] { color: var(--m-obliques, var(--muscle-idle)); filter: var(--g-obliques, none); }
+[data-muscle="gluteMax"] { color: var(--m-gluteMax, var(--muscle-idle)); filter: var(--g-gluteMax, none); }
+[data-muscle="gluteMed"] { color: var(--m-gluteMed, var(--muscle-idle)); filter: var(--g-gluteMed, none); }
+[data-muscle="rectusFemoris"] { color: var(--m-rectusFemoris, var(--muscle-idle)); filter: var(--g-rectusFemoris, none); }
+[data-muscle="vastusLateralis"] { color: var(--m-vastusLateralis, var(--muscle-idle)); filter: var(--g-vastusLateralis, none); }
+[data-muscle="vastusMedialis"] { color: var(--m-vastusMedialis, var(--muscle-idle)); filter: var(--g-vastusMedialis, none); }
+[data-muscle="sartorius"] { color: var(--m-sartorius, var(--muscle-idle)); filter: var(--g-sartorius, none); }
+[data-muscle="adductors"] { color: var(--m-adductors, var(--muscle-idle)); filter: var(--g-adductors, none); }
+[data-muscle="hamsOuter"] { color: var(--m-hamsOuter, var(--muscle-idle)); filter: var(--g-hamsOuter, none); }
+[data-muscle="hamsInner"] { color: var(--m-hamsInner, var(--muscle-idle)); filter: var(--g-hamsInner, none); }
+[data-muscle="gastrocnemius"] { color: var(--m-gastrocnemius, var(--muscle-idle)); filter: var(--g-gastrocnemius, none); }
+[data-muscle="soleus"] { color: var(--m-soleus, var(--muscle-idle)); filter: var(--g-soleus, none); }
+[data-muscle="tibialis"] { color: var(--m-tibialis, var(--muscle-idle)); filter: var(--g-tibialis, none); }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-muscle] {
+    transition: none;
+  }
+}

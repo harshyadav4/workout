@@ -1,0 +1,45 @@
+{
+  "muscles": [
+    { "id": "chest", "name": "Chest", "group": "upper", "description": "Push-focused presses and fly patterns.", "color": "#f97316", "intensityWeight": 1 },
+    { "id": "back", "name": "Back", "group": "upper", "description": "Rows, pulldowns, and hinge support.", "color": "#06b6d4", "intensityWeight": 1 },
+    { "id": "shoulders", "name": "Shoulders", "group": "upper", "description": "Pressing and raise variations.", "color": "#fb7185", "intensityWeight": 0.8 },
+    { "id": "biceps", "name": "Biceps", "group": "upper", "description": "Elbow flexion accessory work.", "color": "#22c55e", "intensityWeight": 0.65 },
+    { "id": "triceps", "name": "Triceps", "group": "upper", "description": "Press lockout and extension work.", "color": "#facc15", "intensityWeight": 0.65 },
+    { "id": "quads", "name": "Quads", "group": "lower", "description": "Squat and leg press dominant work.", "color": "#8b5cf6", "intensityWeight": 1 },
+    { "id": "hamstrings", "name": "Hamstrings", "group": "lower", "description": "Posterior chain and leg curl work.", "color": "#14b8a6", "intensityWeight": 0.9 },
+    { "id": "glutes", "name": "Glutes", "group": "lower", "description": "Hip extension and stability work.", "color": "#ef4444", "intensityWeight": 0.8 },
+    { "id": "calves", "name": "Calves", "group": "lower", "description": "Ankle flexion focused work.", "color": "#f59e0b", "intensityWeight": 0.5 },
+    { "id": "core", "name": "Core", "group": "core", "description": "Bracing, anti-rotation, and trunk flexion.", "color": "#38bdf8", "intensityWeight": 0.6 }
+  ],
+  "presetWorkouts": [
+    { "id": "bench-press", "name": "Bench Press", "category": "Push", "isPreset": true, "muscles": [{ "muscleId": "chest", "engagement": 60 }, { "muscleId": "triceps", "engagement": 25 }, { "muscleId": "shoulders", "engagement": 15 }] },
+    { "id": "lat-pulldown", "name": "Lat Pulldown", "category": "Pull", "isPreset": true, "muscles": [{ "muscleId": "back", "engagement": 65 }, { "muscleId": "biceps", "engagement": 25 }, { "muscleId": "shoulders", "engagement": 10 }] },
+    { "id": "back-squat", "name": "Back Squat", "category": "Legs", "isPreset": true, "muscles": [{ "muscleId": "quads", "engagement": 45 }, { "muscleId": "glutes", "engagement": 30 }, { "muscleId": "hamstrings", "engagement": 15 }, { "muscleId": "core", "engagement": 10 }] },
+    { "id": "romanian-deadlift", "name": "Romanian Deadlift", "category": "Legs", "isPreset": true, "muscles": [{ "muscleId": "hamstrings", "engagement": 45 }, { "muscleId": "glutes", "engagement": 35 }, { "muscleId": "back", "engagement": 15 }, { "muscleId": "core", "engagement": 5 }] },
+    { "id": "shoulder-press", "name": "Shoulder Press", "category": "Push", "isPreset": true, "muscles": [{ "muscleId": "shoulders", "engagement": 60 }, { "muscleId": "triceps", "engagement": 25 }, { "muscleId": "chest", "engagement": 15 }] },
+    { "id": "barbell-row", "name": "Barbell Row", "category": "Pull", "isPreset": true, "muscles": [{ "muscleId": "back", "engagement": 70 }, { "muscleId": "biceps", "engagement": 20 }, { "muscleId": "core", "engagement": 10 }] }
+  ],
+  "starterPlanner": [
+    {
+      "dayIndex": 1,
+      "exercises": [
+        { "id": "mon-bench", "workoutId": "bench-press", "templateName": "Bench Press", "sets": [{ "id": "1", "reps": 8, "weight": 60, "type": "normal" }, { "id": "2", "reps": 8, "weight": 60, "type": "normal" }, { "id": "3", "reps": 6, "weight": 65, "type": "normal" }] },
+        { "id": "mon-press", "workoutId": "shoulder-press", "templateName": "Shoulder Press", "sets": [{ "id": "1", "reps": 10, "weight": 22.5, "type": "normal" }, { "id": "2", "reps": 10, "weight": 22.5, "type": "normal" }] }
+      ]
+    },
+    {
+      "dayIndex": 3,
+      "exercises": [
+        { "id": "wed-pull", "workoutId": "lat-pulldown", "templateName": "Lat Pulldown", "sets": [{ "id": "1", "reps": 12, "weight": 45, "type": "normal" }, { "id": "2", "reps": 10, "weight": 50, "type": "normal" }] },
+        { "id": "wed-row", "workoutId": "barbell-row", "templateName": "Barbell Row", "sets": [{ "id": "1", "reps": 10, "weight": 50, "type": "normal" }, { "id": "2", "reps": 8, "weight": 55, "type": "drop" }] }
+      ]
+    },
+    {
+      "dayIndex": 5,
+      "exercises": [
+        { "id": "fri-squat", "workoutId": "back-squat", "templateName": "Back Squat", "sets": [{ "id": "1", "reps": 8, "weight": 80, "type": "normal" }, { "id": "2", "reps": 8, "weight": 80, "type": "normal" }, { "id": "3", "reps": 6, "weight": 85, "type": "normal" }] },
+        { "id": "fri-rdl", "workoutId": "romanian-deadlift", "templateName": "Romanian Deadlift", "sets": [{ "id": "1", "reps": 10, "weight": 70, "type": "normal" }, { "id": "2", "reps": 10, "weight": 70, "type": "normal" }] }
+      ]
+    }
+  ]
+}
