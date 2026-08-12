@@ -388,7 +388,11 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
           <CardTitle className="text-base">Plan your schedule</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+          {/* Stacked, not side-by-side: iOS Safari renders type="date" as full
+              text ("7 Oct 2026") and won't shrink it to fit a half-width column
+              no matter what min-width the wrapper gets — min-w-0 alone didn't
+              stop it overlapping. Full width per field sidesteps that entirely. */}
+          <div className="space-y-3">
             <label className="text-xs text-muted-foreground">
               Start
               <Input
