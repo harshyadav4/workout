@@ -210,7 +210,10 @@ export function ExerciseLedger({
             </p>
           </div>
 
-          <div className="mt-3 grid grid-cols-2 gap-2">
+          {/* Stacked, not side-by-side: two 44px touch targets plus a mono
+              number+suffix ("10 REPS") don't fit a 147px half-column without
+              shoving the + button past the card edge. */}
+          <div className="mt-3 space-y-2">
             <Stepper
               label="Weight"
               suffix="kg"

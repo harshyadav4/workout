@@ -156,7 +156,7 @@ export function ExerciseMediaDialog({ datasetId, name }: ExerciseMediaDialogProp
           <PlayCircle className="h-4 w-4" />
         </button>
       </DialogTrigger>
-      <DialogContent className={`${DRAWER_CONTENT} max-h-[85vh] overflow-y-auto`}>
+      <DialogContent className={`${DRAWER_CONTENT} max-h-[85dvh] overflow-y-auto`}>
         <ExerciseMediaView datasetId={datasetId} name={name} />
       </DialogContent>
     </Dialog>

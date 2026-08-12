@@ -407,8 +407,11 @@ export function PlanBuild() {
             </DialogTrigger>
             {/* The sub-views have their own Back; the dialog's ✕ discards the whole
                 draft, so showing both makes one gesture mean two things. */}
+            {/* dvh, not vh: iOS Safari sizes `vh` off the viewport with the address
+                bar collapsed, so a tall session (many exercises) pushed the ✕ up
+                behind the address bar instead of clamping to what's actually visible. */}
             <DialogContent
-              className="max-h-[88vh] overflow-y-auto"
+              className="max-h-[88dvh] overflow-y-auto"
               hideClose={Boolean(pickerCardId || muscleCardId || media)}
             >
               {pickerCardId ? (
