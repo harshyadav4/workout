@@ -41,13 +41,12 @@ export function removeSetFromExercises(
 
 /**
  * Live counts for the day header. `done`/`volume` are what you have actually
- * logged; `logged*` is what Finish would record, and follows the same
- * nothing-ticked-means-all rule as buildLogFromSession.
+ * logged; `logged*` is what Finish would record — the same completed-only
+ * sets as buildLogFromSession, never the plan.
  */
 export function sessionTotals(session?: ScheduledSession) {
   const sets = (session?.exercises ?? []).flatMap((exercise) => exercise.sets);
   const completed = sets.filter((setItem) => setItem.completed);
-  const counted = completed.length > 0 ? completed : sets;
   const volumeOf = (items: PlannedSet[]) =>
     items.reduce((sum, setItem) => sum + setItem.reps * setItem.weight, 0);
 
@@ -55,32 +54,27 @@ export function sessionTotals(session?: ScheduledSession) {
     done: completed.length,
     total: sets.length,
     volume: volumeOf(completed),
-    loggedSets: counted.length,
-    loggedVolume: volumeOf(counted)
+    loggedSets: completed.length,
+    loggedVolume: volumeOf(completed)
   };
 }
 
 /**
  * Turn a finished session into logs — one per exercise.
  *
- * Home marks each set `completed` as it is logged, so a session you cut short
- * must not report the sets you never did. The rule: if anything in the session
- * was marked, only marked sets count and untouched exercises drop out. If
- * nothing was marked at all, the whole plan counts — that is a session finished
- * without tapping through set by set, and it is still work done.
+ * Home marks each set `completed` as it is logged via its own Log set button.
+ * Finish must not credit sets that button was never tapped for — only
+ * completed sets count, and an exercise with none of them drops out entirely
+ * rather than logging a zero.
  */
 export function buildLogFromSession(
   session: ScheduledSession,
   templates: WorkoutTemplate[]
 ): WorkoutLog[] {
-  const trackedSets = session.exercises.some((exercise) =>
-    exercise.sets.some((setItem) => setItem.completed)
-  );
-
   return session.exercises
     .map((exercise) => ({
       exercise,
-      sets: trackedSets ? exercise.sets.filter((setItem) => setItem.completed) : exercise.sets
+      sets: exercise.sets.filter((setItem) => setItem.completed)
     }))
     .filter((item) => item.sets.length > 0)
     .map(({ exercise, sets }) => ({

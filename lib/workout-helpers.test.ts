@@ -47,18 +47,13 @@ const templates: WorkoutTemplate[] = [
   }
 ];
 
-// Nothing was ticked off: the session was finished in one go, so the whole plan
-// counts as done.
+// Nothing was ticked off: Finish must not credit sets their own Log set
+// button was never tapped for, even though the whole session was planned.
 const untracked = buildLogFromSession(
   session([{ name: "bench", sets: [set(8, 60), set(8, 60), set(6, 65)] }]),
   templates
 );
-assert.equal(untracked.length, 1);
-assert.equal(untracked[0].totalSets, 3);
-assert.equal(untracked[0].totalReps, 22);
-assert.equal(untracked[0].totalVolume, 8 * 60 + 8 * 60 + 6 * 65);
-assert.equal(untracked[0].peakWeight, 65);
-assert.deepEqual(untracked[0].muscles, [{ muscleId: "pecLower", engagement: 80 }]);
+assert.deepEqual(untracked, []);
 
 // Cut short after two sets: the third was never done and must not be logged.
 const partial = buildLogFromSession(
@@ -83,8 +78,8 @@ assert.deepEqual(
   ["bench"]
 );
 
-// Marked in one exercise, unmarked in another, is still "only what was marked" —
-// the fallback is per session, not per exercise.
+// Marked in one exercise, unmarked in another: each exercise counts only its
+// own completed sets.
 const mixed = buildLogFromSession(
   session([
     { name: "bench", sets: [set(8, 60, true), set(8, 60)] },
@@ -126,14 +121,15 @@ assert.equal(live.done, 1);
 assert.equal(live.total, 4);
 assert.equal(live.volume, 8 * 60);
 
-// Finishing without ticking anything still records the session it planned.
+// Finishing without ticking anything logs nothing — Finish cannot promise
+// more than the Log set button actually recorded.
 const untouched = sessionTotals(session([{ name: "bench", sets: [set(8, 60), set(8, 60)] }]));
 assert.equal(untouched.done, 0);
-assert.equal(untouched.loggedSets, 2);
-assert.equal(untouched.loggedVolume, 8 * 60 * 2);
+assert.equal(untouched.loggedSets, 0);
+assert.equal(untouched.loggedVolume, 0);
 
-// Once anything is ticked, only ticked sets are on the books — the same rule
-// buildLogFromSession applies, so the header cannot promise more than it logs.
+// Only ticked sets are on the books — the same rule buildLogFromSession
+// applies, so the header cannot promise more than it logs.
 assert.equal(live.loggedSets, 1);
 assert.equal(live.loggedVolume, 8 * 60);
 assert.deepEqual(sessionTotals(undefined), {
@@ -276,7 +272,9 @@ const heldLog = buildLogFromSession(
     type: "workout",
     status: "completed",
     source: "manual",
-    exercises: [heldExercise]
+    exercises: [
+      { ...heldExercise, sets: heldExercise.sets.map((item) => ({ ...item, completed: true })) }
+    ]
   },
   []
 )[0];

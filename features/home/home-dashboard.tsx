@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarPlus, Check, Moon, PlayCircle } from "lucide-react";
+import { CalendarPlus, Check, Info, Moon, PlayCircle } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
@@ -375,6 +375,17 @@ export function HomeDashboard() {
             ))}
           </div>
         </Card>
+      ) : null}
+
+      {isLogging && totals.done < totals.total ? (
+        <div className="flex items-start gap-2.5 rounded-2xl bg-warning/10 px-4 py-3 text-sm ring-1 ring-warning/25">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+          <p className="text-muted-foreground">
+            {totals.done === 0
+              ? "No sets logged yet — Finish now and nothing from this session is saved."
+              : `Only the ${totals.done} of ${totals.total} sets you logged will be saved. The rest won't count.`}
+          </p>
+        </div>
       ) : null}
 
       {isLogging ? (

@@ -62,6 +62,14 @@ textarea {
   font: inherit;
 }
 
+/* Browsers default <label> to inline. Every "Label\n<Input className="w-full">"
+   pattern in this app needs the label to be the input's containing block for
+   that width:100% — inline breaks that silently: Safari resolved the width
+   against an ancestor wider than the card instead, overflowing past its edge. */
+label {
+  display: block;
+}
+
 .app-safe-bottom {
   /* The nav measures 88px (5.5rem) exactly, so 5.5rem left the last card's edge
      flush against it. 6.5rem is the breathing room. */
