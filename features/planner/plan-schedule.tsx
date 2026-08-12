@@ -1,7 +1,7 @@
 "use client";
 
 import { CalendarDays, Check, ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,11 +14,14 @@ import {
   DRAWER_CONTENT
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { MuscleMapCard } from "@/features/home/muscle-map-card";
 import { buildExercisesFromSessionTemplate, useWorkoutStore } from "@/features/workout/workout-store";
 import { formatDayKey } from "@/lib/progress-metrics";
 import { buildScheduleSessions } from "@/lib/schedule";
-import type { ScheduleConfig, ScheduleMode, ScheduledSession } from "@/lib/types";
+import { muscles } from "@/lib/seed-data";
+import type { MuscleId, ScheduleConfig, ScheduleMode, ScheduledSession } from "@/lib/types";
 import { addDays, buildWeekDates, dateKey, todayKey } from "@/lib/utils";
+import { buildMuscleHighlightsFromWorkoutIds } from "@/lib/workout-helpers";
 
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const DEFAULT_WEEKS = 8;
@@ -54,6 +57,7 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
   const generateSchedule = useWorkoutStore((state) => state.generateSchedule);
   const removeScheduledSession = useWorkoutStore((state) => state.removeScheduledSession);
   const scheduleSession = useWorkoutStore((state) => state.scheduleSession);
+  const templates = useWorkoutStore((state) => state.templates);
 
   const [weekOffset, setWeekOffset] = useState(0);
   const [sessionToRemove, setSessionToRemove] = useState<ScheduledSession | null>(null);
@@ -66,6 +70,10 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
   const [restWeekdays, setRestWeekdays] = useState<number[]>([]);
   const [selectedDate, setSelectedDate] = useState(todayKey);
   const [confirmation, setConfirmation] = useState<string | null>(null);
+  // Own selection, not Home's global `selectedMuscleId` — this previews a
+  // possibly-future day, so picking a muscle here must not also change what
+  // Home highlights for today.
+  const [dayMuscleId, setDayMuscleId] = useState<MuscleId>();
 
   // Seed the form from a saved config once, after the store hydrates.
   const seeded = useRef(false);
@@ -86,6 +94,19 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
   const today = todayKey();
   const sessionsForDay = scheduledSessions.filter((session) => session.date === selectedDate);
   const selectedDay = weekDates.find((item) => item.key === selectedDate) ?? weekDates[0];
+
+  const dayWorkoutIds = useMemo(
+    () =>
+      sessionsForDay
+        .filter((session) => session.type === "workout")
+        .flatMap((session) => session.exercises.map((exercise) => exercise.workoutId)),
+    [sessionsForDay]
+  );
+  const dayHighlights = useMemo(
+    () => buildMuscleHighlightsFromWorkoutIds(dayWorkoutIds, templates),
+    [dayWorkoutIds, templates]
+  );
+  const dayMuscle = muscles.find((muscle) => muscle.id === dayMuscleId);
 
   // Keep the selected day inside the visible week, landing on today whenever
   // that week contains it so stepping away and back returns where you started.
@@ -323,6 +344,20 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
             ) : (
               <p className="text-sm text-muted-foreground">Nothing scheduled this day.</p>
             )}
+
+            {dayWorkoutIds.length > 0 ? (
+              <div className="mt-3">
+                <MuscleMapCard
+                  title="Muscles this day hits"
+                  description={`${selectedDay.dayLabel} ${selectedDay.dayNumber}'s sessions, at a glance.`}
+                  highlights={dayHighlights}
+                  selectedMuscleId={dayMuscleId}
+                  selectedMuscleName={dayMuscle?.name}
+                  selectedMuscleDescription={dayMuscle?.description}
+                  onSelectMuscle={(muscleId) => setDayMuscleId(muscleId as MuscleId | undefined)}
+                />
+              </div>
+            ) : null}
 
             {/* Buttons, not a <select>: this performs an action, it does not pick
                 a value — the select's own first option was a no-op instruction. */}
