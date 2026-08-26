@@ -21,7 +21,16 @@ const spaceMono = Space_Mono({
 export const metadata: Metadata = {
   title: "GymFlow",
   description: "Mobile-first workout tracking for the gym floor",
-  manifest: "/manifest.json"
+  // Next emits this string verbatim and does not resolve it against public/, so
+  // it has to match the file on disk. It said "/manifest.json" and 404'd, which
+  // silently cost the app its install prompt.
+  manifest: "/manifest.webmanifest",
+  // iOS ignores the manifest's icons for the home screen and reads
+  // apple-touch-icon instead, so both are declared.
+  icons: {
+    icon: "/icon-192.png",
+    apple: "/icon-192.png"
+  }
 };
 
 export const viewport: Viewport = {
@@ -37,7 +46,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className="dark">
       <body className={`${spaceGrotesk.variable} ${spaceMono.variable}`}>
         <AppProviders>{children}</AppProviders>
       </body>
