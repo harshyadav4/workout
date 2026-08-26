@@ -1,39 +1,47 @@
 # GymFlow
 
-Production-oriented, mobile-first workout tracker built with Next.js App Router, TypeScript, Tailwind CSS, shadcn-style components, Firebase Auth + Firestore, and a lightweight Three.js muscle map.
+Mobile-first workout tracker: a dated schedule of sessions, tap-first set logging, and a
+per-muscle analytics layer built on a 30-muscle model.
+
+The defining structural choice is that a session is planned before it is logged — the app is
+a calendar, and Home is the cursor pointing at today's entry.
 
 ## Stack
 
-- Next.js App Router
-- TypeScript
-- Tailwind CSS
-- shadcn/ui-style component structure
-- Firebase Authentication (Google SSO)
-- Firestore with offline persistence
-- Three.js via `@react-three/fiber`
-- Recharts for progress charts
-- Zustand for fast local-first interaction state
+- Next.js App Router (every screen a client component — no server components, no API routes,
+  no middleware)
+- TypeScript, strict
+- Tailwind CSS with shadcn-style local primitives in `components/ui/`
+- Supabase — Postgres reached directly from the browser under the user's JWT, with RLS doing
+  the authorization
+- Supabase Google OAuth, redirect flow (not popup — mobile blocks popups)
+- Zustand vanilla store in a React context, persisted to `localStorage` synchronously
+- Recharts for the progress charts
+- Inline SVG for the body map (`features/body/front.tsx`, `back.tsx`)
 
 ## Mobile-first choices
 
-- Bottom navigation for one-handed use
-- Large tap targets and rounded cards
-- Today’s workout is the default landing screen
-- Fast increment controls for reps and weight
-- Local-first store for low-latency edits
-- Firestore IndexedDB persistence enabled in browser
-- 3D body is lazy loaded and capped to low DPR
+- Bottom navigation with `env(safe-area-inset-bottom)`, one-handed reach
+- 44–48px touch targets; `tabular-nums` on every changing number so digits don't jitter
+- Today's session is the default landing screen
+- Set logging is a strip of tappable chips with one set open at a time
+- The store writes `localStorage` synchronously, so the UI never waits on the network;
+  Supabase sync runs behind it, debounced
 
 ## Project structure
 
-- `app/`
-- `components/`
-- `features/auth`
-- `features/home`
-- `features/workout`
-- `features/planner`
-- `features/progress`
-- `lib/`
+- `app/` — routes: `/` (Home), `/plan`, `/progress`, `/profile`, `/login`
+- `components/ui/` — thin local primitives
+- `components/layout/` — shell, bottom nav, providers
+- `features/auth` — `AuthGuard`, `use-auth`
+- `features/home` — today's session, the set ledger, streak, muscle map
+- `features/workout` — the Zustand store and the Supabase sync boundary
+- `features/planner` — session builder (Build) and schedule generator (Schedule)
+- `features/progress` — the analytics cards and the per-muscle drill-down
+- `features/body` — the SVG body map
+- `features/profile` — profile and body measurements
+- `lib/` — domain logic, all pure and separately tested
+- `supabase/migrations/` — schema, RLS enabled in the same migration that creates the tables
 
 ## Setup
 
@@ -43,23 +51,21 @@ Production-oriented, mobile-first workout tracker built with Next.js App Router,
 npm install
 ```
 
-2. Create local env file:
+2. Create a local env file:
 
 ```bash
-cp .env.example .env.local
+cp .env.example .env
 ```
 
-3. Fill these Firebase values in `.env.local`:
+3. Fill in the Supabase values from **project settings → API**:
 
 ```env
-NEXT_PUBLIC_FIREBASE_API_KEY=
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
-NEXT_PUBLIC_FIREBASE_APP_ID=
-NEXT_PUBLIC_USE_FIREBASE_EMULATOR=false
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
 ```
+
+The anon key is public by design — RLS decides what it can reach. There is no service-role
+key anywhere in the client.
 
 4. Start the app:
 
@@ -67,47 +73,65 @@ NEXT_PUBLIC_USE_FIREBASE_EMULATOR=false
 npm run dev
 ```
 
-## Firebase setup
+## Supabase setup
 
-1. Create a Firebase project.
-2. Enable Authentication:
-   Use `Authentication -> Sign-in method -> Google`.
-3. Create Firestore in production mode.
-4. Add a web app in Firebase project settings and copy the config into `.env.local`.
-5. In Firebase console, add your local dev origin and deployed domain to authorized domains.
+1. Create a Supabase project.
+2. Run the migrations in `supabase/migrations/` in order (`0001_init.sql`, then
+   `0002_body_measurements.sql`).
+3. Enable the Google provider under **Authentication → Providers**.
+4. Add your local dev origin and deployed domain to the allowed redirect URLs.
 
-## Firestore data shape
+`0001_init.sql` also installs a `security definer` trigger that seeds a `profiles` row on
+signup, so the app never has to branch on "profile missing".
 
-Each user writes under:
+## Data shape
 
-- `users/{uid}/workouts/templates`
-- `users/{uid}/planner/weekly`
-- `users/{uid}/logs/history`
+Six tables, all user-owned, all with RLS using both `using` and `with check`:
 
-Documents store arrays:
+- `profiles` — name, height, weight, measurement cadences, and the schedule config
+- `workout_templates` — user-added exercises (presets ship with the app and are not stored)
+- `session_templates` — named sessions with their exercises
+- `scheduled_sessions` — dated sessions; `exercises` stays `jsonb` because the app loads a
+  whole session, mutates it in memory and writes it back, and never queries inside one
+- `workout_logs` — one row per exercise per session, with real columns because it is read as
+  an aggregated series
+- `body_measurements` — 11 sites, left and right kept separate
 
-- `templates.items`
-- `weekly.days`
-- `history.items`
+## Exercise library
+
+1,324 exercises in `public/exercises.json`, fetched client-side on first open of the picker
+and cached for the page load. The dataset names a `target` and `secondary` muscles but no
+engagement percentages, so `lib/exercises.ts` derives them: `MUSCLE_MAP` widens each coarse
+dataset name to every app muscle it could mean, then `HEAD_RULES` narrows it back down by
+matching the exercise name. This is inference, not measurement, and the UI is written to say
+so.
+
+## Checks
+
+```bash
+npm run check      # the logic-layer test suite
+npx tsc --noEmit   # types
+npm run build      # production build
+```
+
+`npm run check` enumerates its test files explicitly — a new `*.test.ts` has to be added to
+the script in `package.json` or it is silently never run.
 
 ## Seed data
 
-Preset muscles, workouts, and a starter weekly plan live in:
-
-- `lib/seed-data.ts`
-
-Export a static seed artifact with:
+Preset muscles, workouts and development fixtures live in `lib/seed-data.ts`. The `starter*`
+fixtures are for local development and are not handed to real accounts — a new account starts
+empty and lands in Home's `setup` state.
 
 ```bash
-npm run seed
+npm run seed       # writes public/seed-data.json
+npm run seed:year  # fills a year of logs against a real Supabase project
 ```
-
-This writes:
-
-- `public/seed-data.json`
 
 ## Notes
 
-- Route protection is handled on the client via auth state guard.
-- Firebase sync is debounced so tapping through sets stays responsive.
-- The 3D body is intentionally low poly to stay mobile-safe.
+- Route protection is client-side via `AuthGuard`; RLS is what actually enforces access.
+- Supabase sync is debounced so tapping through sets stays responsive. The store knows
+  nothing about Supabase — `features/workout/supabase-sync.tsx` subscribes from outside.
+- Dates are `YYYY-MM-DD` keys parsed as `${key}T00:00:00Z` throughout.
+- Planned work is tracked in `product-plan.md`, alongside the review it answers.
