@@ -18,13 +18,49 @@ stats cannot be changed by any code path in the app, and its single action can f
 [body-metrics-plan.md](body-metrics-plan.md), which is what actually resolves #2. `heightCm` is now
 editable and `setProfile` finally has callers. `tsc`, 9 test suites and `npm run build` all pass.
 
-Still open, deliberately:
-- **#5 — sync status.** Needs state lifted out of `SupabaseSync`, which is more than a line and
-  touches the sync design rather than this page. The nav dot added for measurement cadence is *not*
-  this; it says nothing about whether your data reached Supabase.
-- **#9 — `next-themes` forced to dark.** App-wide, and only worth doing alongside a decision about
-  whether a light theme is ever wanted.
-- **#10 — no export or delete-account.** Unchanged.
+**Status (2026-08-26): closed out.** #5, #9 and the export half of #10 are done too, so every
+finding above is now either fixed or explicitly declined below. `tsc`, `npm run check` and
+`npm run build` all pass — `check` runs **eight** suites, not the nine the line above claims.
+
+- **#5 — sync status.** `features/workout/sync-status.ts` is a module-level store held *outside* the
+  workout store on purpose: `supabase-sync` subscribes to every change in that store, so writing
+  status back into it would push, set state, and push again forever. Profile now renders
+  "Synced at 14:32", or the failure. Time only, no date — the store resets on reload, so it is
+  always today.
+
+  **Building it surfaced a worse bug than the finding named.** `unsubscribe = store.subscribe(...)`
+  is assigned inside `loadUserState().then()`, so a failed *load* never subscribes at all and that
+  tab never pushes again for the rest of its life. That is terminal, not eventually-consistent like
+  a failed push. So the two now read differently and offer different things: a failed push says it
+  will go up with your next change and offers nothing, a failed load says nothing will be saved
+  until this succeeds and offers **Retry**, which bumps an `attempt` counter in the effect deps.
+
+  Retry is deliberately *not* offered on push failures. Re-running the effect re-reads, and
+  `hydrateRemote` lets the remote copy win outright — it would throw away the very changes that
+  failed to go up. The `flush()` early-return while `syncedRef` is undefined, which *What holds up*
+  credits below, is untouched.
+
+- **#9 — `next-themes` dropped.** `ThemeProvider` gone, `class="dark"` on `<html>`, dependency
+  uninstalled. `suppressHydrationWarning` went with it: its only reason was next-themes mutating
+  that class, and leaving it would hide real mismatches. No toggle — nothing asked for a light
+  theme, and the tokens all live on bare `:root` with no `.dark` selector and not one `dark:`
+  utility in the app, so the class is a formality that keeps `darkMode: ["class"]` honest.
+
+- **#10 — export built, delete-account not.** *Export my data* writes the user's own half of the
+  store to JSON. `buildExport` lives in `lib/sync.ts` and shares `snapshotState` with `pushChanges`
+  so the two cannot drift; presets are filtered for the same reason `pushChanges` filters them, and
+  `lib/sync.test.ts` pins that. Two things the type checker could not have caught: the object URL is
+  **not** revoked in the same tick (that race cancels the download on iOS Safari, which is the
+  browser this app is for) and the anchor is appended before the click, because a detached one does
+  not fire there. `syncErrorMessage` reads the thrown value by shape rather than `instanceof Error`,
+  and appends PostgREST's `hint` — its own docs say the actionable fix is usually there, not in
+  `message`.
+
+  **Delete-account is still open, on purpose.** The client SDK cannot delete a Supabase user, so it
+  is either a truthfully-labelled "delete all my data" (wipe rows, clear localStorage, sign out) or
+  a `security definer` RPC in a new migration that reaches `auth.users`. Materially different work,
+  one of it schema that cannot be verified locally, and a destructive button under the wrong label
+  costs more than it saves. It waits for that call.
 
 One finding partly survives its own fix: `heightCm` is now editable but still has no consumer beyond
 being displayed. It is recorded, not used.
@@ -76,7 +112,9 @@ one model for both, entry on Profile, charts on Progress inside the existing mus
 
 - Whether "0 cm / 0 kg" is what you actually see on a fresh account, or whether your own account has
   a seeded `profiles` row masking it. Finding #2 is read off the initial state, not a live account.
-- Sign-out failure (#1) needs the network throttled to reproduce.
+- Sign-out failure (#1) needs the network throttled to reproduce. So does the sync line (#5), and
+  the load failure specifically needs the network down *at sign-in* — throttling it later hits the
+  push path instead, which looks and offers something different.
 - The account bleed (#4) needs two Google accounts on one device, and only shows when the second has
   no `full_name` in its metadata.
 
