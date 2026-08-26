@@ -282,6 +282,7 @@ const GROUP_LABELS: Record<MuscleGroup, string> = {
 };
 
 const GROUP_BY_MUSCLE = new Map(muscles.map((muscle) => [muscle.id, muscle.group]));
+const MUSCLE_NAMES = new Map(muscles.map((muscle) => [muscle.id, muscle.name]));
 
 /**
  * A log's muscle targets, with the legacy coarse ids expanded.
@@ -490,6 +491,63 @@ export function muscleWeeklySets(logs: WorkoutLog[], muscleId: MuscleId, window:
   }, 0);
 
   return sets / Math.max(windowDays(window) / 7, 1);
+}
+
+/**
+ * Weekly sets per **head**, and the one that is getting least.
+ *
+ * `buildWeeklySetsByGroup` bands at group level — "chest: 14 sets" — which hides
+ * the thing the per-muscle model exists to see: that all fourteen were flat
+ * pressing and the upper pec got none of them.
+ *
+ * **The hedging is load-bearing.** Per-head engagement is derived by regex
+ * against exercise names in `deriveEngagement`, not measured. The honest claim
+ * is which region your *exercise selection* is biased toward — never that a
+ * muscle "received" a share of stimulus. This codebase already refuses to call
+ * ACWR injury risk, and overclaiming here forfeits the same credibility.
+ */
+export interface HeadSets {
+  muscleId: MuscleId;
+  name: string;
+  setsPerWeek: number;
+}
+
+export interface HeadStimulusReport {
+  heads: HeadSets[];
+  /**
+   * The trained head getting the fewest sets, when there is a real gap. Absent
+   * when nothing is trained, or when everything already clears the band's floor
+   * — "your lowest" is not a finding when the lowest is fine.
+   */
+  lowest?: HeadSets;
+}
+
+/** Heads with less than this a week are worth naming. Matches WEEKLY_SET_TARGET.low. */
+const UNDER_STIMULATED = WEEKLY_SET_TARGET.low;
+
+export function buildHeadStimulus(
+  logs: WorkoutLog[],
+  window: DateWindow,
+  muscleIds: MuscleId[]
+): HeadStimulusReport {
+  const heads = muscleIds
+    .map((muscleId) => ({
+      muscleId,
+      name: MUSCLE_NAMES.get(muscleId) ?? muscleId,
+      setsPerWeek: muscleWeeklySets(logs, muscleId, window)
+    }))
+    // Only heads you actually train. A muscle you have never worked is not
+    // "under-stimulated", it is simply not part of your programme, and calling
+    // it out would bury the real gap under thirty false ones.
+    .filter((head) => head.setsPerWeek > 0)
+    .sort((a, b) => a.setsPerWeek - b.setsPerWeek);
+
+  const lowest = heads[0];
+
+  return {
+    heads,
+    lowest: lowest && lowest.setsPerWeek < UNDER_STIMULATED ? lowest : undefined
+  };
 }
 
 export interface ExerciseTotal {
@@ -703,6 +761,73 @@ export function summarize(logs: WorkoutLog[], window: DateWindow): ProgressSumma
     weightPerRep: ratio(volume, reps),
     repsPerSet: ratio(reps, sets),
     setsPerSession: ratio(sets, sessions)
+  };
+}
+
+/**
+ * What a session just earned you, for the finish screen.
+ *
+ * That screen said "Logged. It is on your progress charts." — the emotional peak
+ * of a session spent pointing at another tab. This is the one moment the
+ * per-muscle model has both a reason and the right to show off.
+ *
+ * Every field is optional on purpose. A first session has no comparison and no
+ * PR, and the screen must say nothing rather than "+0%" — a fabricated zero is
+ * the same class of lie as the "last 60kg × 8" that came from the template.
+ */
+export interface SessionSummary {
+  sets: number;
+  reps: number;
+  volume: number;
+  /** Percent against the last time this same session ran. Absent on a first run. */
+  volumeChange?: number;
+  /** The muscles this session actually loaded, heaviest first, at head level. */
+  muscles: { muscleId: MuscleId; name: string; share: number }[];
+  /** Exercises whose top set beat everything before it. */
+  personalRecords: { name: string; weight: number }[];
+}
+
+export function summarizeSession(
+  sessionLogs: WorkoutLog[],
+  history: WorkoutLog[]
+): SessionSummary | undefined {
+  if (sessionLogs.length === 0) {
+    return undefined;
+  }
+
+  const volume = sessionLogs.reduce((sum, log) => sum + log.totalVolume, 0);
+  const date = sessionLogs[0].date;
+  const sessionId = sessionLogs[0].sessionId;
+
+  // The same session, the last time it ran — not the last session of any kind.
+  // "You lifted 12% more than last time" only means anything like-for-like.
+  const earlier = history.filter((log) => log.sessionId === sessionId && log.date < date);
+  const previousDate = earlier.reduce((newest, log) => (log.date > newest ? log.date : newest), "");
+  const previousVolume = earlier
+    .filter((log) => log.date === previousDate)
+    .reduce((sum, log) => sum + log.totalVolume, 0);
+
+  const before = history.filter((log) => log.date < date);
+
+  return {
+    sets: sessionLogs.reduce((sum, log) => sum + (log.totalSets ?? 0), 0),
+    reps: sessionLogs.reduce((sum, log) => sum + (log.totalReps ?? 0), 0),
+    volume,
+    volumeChange: percentChange(volume, previousVolume),
+    muscles: buildMuscleVolume(sessionLogs)
+      .filter((item) => item.volume > 0)
+      .slice(0, 5)
+      .map((item) => ({ muscleId: item.muscleId, name: item.name, share: item.share })),
+    personalRecords: sessionLogs
+      .filter((log) => {
+        const best = before
+          .filter((item) => item.workoutId === log.workoutId)
+          .reduce((peak, item) => Math.max(peak, item.peakWeight ?? 0), 0);
+        // Strictly greater, and never a PR on a lift with no history — the
+        // first time you do something is not a record, it is a baseline.
+        return best > 0 && (log.peakWeight ?? 0) > best;
+      })
+      .map((log) => ({ name: log.name, weight: log.peakWeight ?? 0 }))
   };
 }
 

@@ -3,7 +3,9 @@ import assert from "node:assert/strict";
 
 import {
   CHRONIC_WEEKS,
+  GIRTH_CALLOUT_WEEKS,
   buildCumulativeVolume,
+  buildGirthCallout,
   buildMuscleMatrix,
   buildPRLedger,
   buildRollingLoad,
@@ -255,5 +257,66 @@ assert.equal(
   0,
   "a completed week with no sessions ends the streak"
 );
+
+// --- the volume-girth callout ---
+//
+// The easiest place in this product to overclaim, so the assertions here are
+// mostly about what it refuses to say.
+{
+  const session = (date: string, volume: number) => ({
+    id: date,
+    date,
+    workoutId: "curl",
+    name: "Curl",
+    totalVolume: volume,
+    totalSets: 4,
+    totalReps: 40,
+    peakWeight: 20,
+    muscles: [{ muscleId: "biceps" as const, engagement: 80 }]
+  });
+  const tape = (date: string, value: number) => ({
+    id: date,
+    date,
+    metric: "armR" as const,
+    value
+  });
+
+  assert.equal(buildGirthCallout([], []), undefined, "nothing measured is nothing to say");
+  assert.equal(
+    buildGirthCallout([session("2026-06-01", 100)], [tape("2026-06-01", 35)]),
+    undefined,
+    "one reading is not a change"
+  );
+
+  // Six weeks of real data, and it still says nothing — this is the gate.
+  assert.equal(
+    buildGirthCallout(
+      [session("2026-06-01", 1000), session("2026-07-10", 2000)],
+      [tape("2026-06-01", 35), tape("2026-07-13", 36)]
+    ),
+    undefined,
+    `under ${GIRTH_CALLOUT_WEEKS} weeks it returns nothing at all — not a hedged statement`
+  );
+
+  const spanned = buildGirthCallout(
+    [
+      session("2026-06-01", 1000),
+      session("2026-06-15", 1000),
+      session("2026-07-20", 3000),
+      session("2026-08-01", 1000)
+    ],
+    [tape("2026-06-01", 35), tape("2026-08-03", 36.5)]
+  );
+  assert.ok(spanned, "past the threshold it speaks");
+  assert.equal(spanned?.weeks, 9);
+  assert.equal(spanned?.girthChangeCm.toFixed(1), "1.5");
+  assert.ok(spanned!.volumeChangePct > 0, "the second half carried more volume than the first");
+
+  assert.equal(
+    buildGirthCallout([], [tape("2026-06-01", 35), tape("2026-08-03", 36.5)]),
+    undefined,
+    "no volume in the first half means no percentage to report, rather than a division by zero"
+  );
+}
 
 console.log("progress-trends: ok");

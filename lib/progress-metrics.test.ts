@@ -15,6 +15,7 @@ import {
   buildWeeklySetsByGroup,
   attributeToMuscle,
   buildExerciseTotals,
+  buildHeadStimulus,
   daysBetween,
   filterByMuscle,
   muscleEngagement,
@@ -23,6 +24,7 @@ import {
   previousWindow,
   rangeWindow,
   summarize,
+  summarizeSession,
   weekStartKey,
   windowDays
 } from "@/lib/progress-metrics";
@@ -382,5 +384,144 @@ const totals = buildExerciseTotals([
 ]);
 assert.equal(totals[0].sessions, 2, "two dates, three logged entries");
 assert.equal(totals[0].topSet, 95);
+
+// --- the finish screen ---
+//
+// It said "Logged. It is on your progress charts." The rule that matters here is
+// what it does NOT say: no comparison on a first run, no PR on a first lift.
+{
+  const bench = (date: string, volume: number, peak: number, sessionId = "push") => ({
+    id: `${date}-bench`,
+    date,
+    sessionId,
+    workoutId: "bench",
+    name: "Bench press",
+    totalVolume: volume,
+    totalSets: 3,
+    totalReps: 24,
+    peakWeight: peak,
+    muscles: [{ muscleId: "pecLower" as const, engagement: 60 }]
+  });
+
+  assert.equal(summarizeSession([], []), undefined, "a session with nothing logged has no summary");
+
+  const firstRun = bench("2026-08-10", 1000, 60);
+  const first = summarizeSession([firstRun], [firstRun]);
+  assert.equal(
+    first?.volumeChange,
+    undefined,
+    "a first run compares against nothing — not against zero, which would read +0%"
+  );
+  assert.deepEqual(first?.personalRecords, [], "a first-ever lift is a baseline, not a record");
+  assert.equal(first?.sets, 3);
+  assert.equal(first?.volume, 1000);
+
+  const secondRun = bench("2026-08-17", 1200, 65);
+  const second = summarizeSession([secondRun], [firstRun, secondRun]);
+  assert.equal(Math.round(second?.volumeChange ?? 0), 20, "1200 against 1000 is +20%");
+  assert.deepEqual(
+    second?.personalRecords.map((record) => record.weight),
+    [65],
+    "65 beats the standing 60"
+  );
+
+  // A different session on a heavier day must not become the comparison — the
+  // number only means something like-for-like.
+  const otherSession = bench("2026-08-16", 9000, 60, "legs");
+  const third = summarizeSession([secondRun], [firstRun, otherSession, secondRun]);
+  assert.equal(
+    Math.round(third?.volumeChange ?? 0),
+    20,
+    "compared against the last run of THIS session, not the last session of any kind"
+  );
+}
+
+// Warm-ups and the weekly set band.
+//
+// `buildWeeklySetsByGroup` counts `log.totalSets`, and the 10-20 band is what
+// the whole per-muscle comparison rests on — so the exclusion of warm-ups in
+// `buildLogFromSession` has to survive the trip into this number. Nothing else
+// pins that link.
+{
+  const window = { start: "2026-08-24", end: "2026-08-30" };
+  const chest = [{ muscleId: "pecLower" as const, engagement: 60 }];
+
+  const withWarmUp = {
+    id: "l1",
+    date: "2026-08-26",
+    workoutId: "bench",
+    name: "Bench press",
+    totalVolume: 960,
+    // Three sets were performed; one was a warm-up, so the rollup carries two.
+    totalSets: 2,
+    totalReps: 16,
+    peakWeight: 60,
+    muscles: chest
+  };
+
+  const counted = buildWeeklySetsByGroup([withWarmUp], window).find(
+    (item) => item.group === "chest"
+  );
+  assert.equal(
+    counted?.setsPerWeek,
+    2,
+    "the weekly count is the rollup's working sets — a warm-up must not inflate the band"
+  );
+
+  const asIfCounted = buildWeeklySetsByGroup([{ ...withWarmUp, totalSets: 3 }], window).find(
+    (item) => item.group === "chest"
+  );
+  assert.equal(asIfCounted?.setsPerWeek, 3, "and the difference is real, not rounded away");
+}
+
+// --- per-head stimulus, and what it is allowed to claim ---
+{
+  const window = { start: "2026-08-24", end: "2026-08-30" };
+  const flatPressing = {
+    id: "l1",
+    date: "2026-08-26",
+    workoutId: "bench",
+    name: "Bench press",
+    totalVolume: 5000,
+    totalSets: 14,
+    totalReps: 100,
+    peakWeight: 80,
+    muscles: [
+      { muscleId: "pecLower" as const, engagement: 70 },
+      { muscleId: "pecUpper" as const, engagement: 30 }
+    ]
+  };
+
+  const report = buildHeadStimulus([flatPressing], window, ["pecLower", "pecUpper", "lats"]);
+
+  assert.deepEqual(
+    report.heads.map((head) => head.muscleId),
+    ["pecUpper", "pecLower"],
+    "lowest first, and a head that was never trained does not appear at all"
+  );
+  assert.equal(report.heads[1].setsPerWeek, 14, "engagement 70 is a full set");
+  assert.equal(report.heads[0].setsPerWeek, 7, "engagement 30 is an indirect half-set");
+  assert.equal(
+    report.lowest?.muscleId,
+    "pecUpper",
+    "all fourteen were flat pressing — that is the finding group level hides"
+  );
+
+  // "Your lowest" is not a finding when the lowest is already fine. Naming one
+  // every time trains people to ignore it.
+  const balanced = buildHeadStimulus(
+    [{ ...flatPressing, muscles: [{ muscleId: "pecLower" as const, engagement: 70 }] }],
+    window,
+    ["pecLower"]
+  );
+  assert.equal(balanced.heads[0].setsPerWeek, 14);
+  assert.equal(balanced.lowest, undefined, "14 sets a week clears the floor — say nothing");
+
+  assert.deepEqual(
+    buildHeadStimulus([], window, ["pecLower"]),
+    { heads: [], lowest: undefined },
+    "nothing trained is not an under-stimulation finding"
+  );
+}
 
 console.log("progress-metrics: ok");

@@ -7,7 +7,7 @@ import {
   windowDays,
   type DateWindow
 } from "@/lib/progress-metrics";
-import type { MuscleGroup, MuscleId, WorkoutLog } from "@/lib/types";
+import type { BodyMeasurement, MuscleGroup, MuscleId, WorkoutLog } from "@/lib/types";
 
 /**
  * The year-scale half of /progress.
@@ -329,6 +329,72 @@ export function buildMuscleMatrix(logs: WorkoutLog[], window: DateWindow): Muscl
 }
 
 // -- 4. cumulative tonnage -------------------------------------------------
+
+/**
+ * The one sentence no competitor writes: *you trained this muscle this much, and
+ * it measured this much.*
+ *
+ * The loop the whole app is pointed at — volume above, girth below, and until
+ * now nothing joining them. But it is also the easiest place in the product to
+ * lie, so the gate is hard rather than hedged:
+ *
+ * - Under {@link GIRTH_CALLOUT_WEEKS} weeks of span it returns **nothing at
+ *   all**. Not a softened claim, not a correlation over three points — tape
+ *   readings move by a centimetre and a meal, and a statement built on two
+ *   months of nothing is worse than silence.
+ * - It reports direction and magnitude, and never a cause. Volume is one input
+ *   among sleep, food and genetics; "trained more, measured more" is an
+ *   observation and is phrased as one.
+ */
+export const GIRTH_CALLOUT_WEEKS = 8;
+
+export interface GirthCallout {
+  weeks: number;
+  volumeChangePct: number;
+  girthChangeCm: number;
+}
+
+export function buildGirthCallout(
+  logs: WorkoutLog[],
+  measurements: BodyMeasurement[]
+): GirthCallout | undefined {
+  const readings = [...measurements].sort((a, b) => a.date.localeCompare(b.date));
+  if (readings.length < 2) {
+    return undefined;
+  }
+
+  const first = readings[0];
+  const last = readings[readings.length - 1];
+  const spanDays = daysBetween(first.date, last.date);
+  const weeks = Math.floor(spanDays / 7);
+
+  if (weeks < GIRTH_CALLOUT_WEEKS) {
+    return undefined;
+  }
+
+  // Split the span down the middle and compare the two halves. Not a regression:
+  // with a monthly tape cadence there are perhaps three points, and a slope
+  // fitted to three points dressed up as a trend is the overclaim this gate
+  // exists to prevent.
+  const midpoint = shiftKey(first.date, Math.floor(spanDays / 2));
+  const volumeIn = (from: string, to: string) =>
+    logs
+      .filter((log) => log.date >= from && log.date <= to)
+      .reduce((sum, log) => sum + log.totalVolume, 0);
+
+  const early = volumeIn(first.date, midpoint);
+  const late = volumeIn(midpoint, last.date);
+
+  if (early <= 0) {
+    return undefined;
+  }
+
+  return {
+    weeks,
+    volumeChangePct: ((late - early) / early) * 100,
+    girthChangeCm: last.value - first.value
+  };
+}
 
 export interface CumulativePoint {
   key: string;

@@ -20,7 +20,8 @@ import {
 import { Panel } from "@/features/progress/panel";
 import { hasAny, labelFor, mergeSeries, sitesForMuscle } from "@/lib/body-metrics";
 import { formatDayKey } from "@/lib/progress-metrics";
-import type { BodyMeasurement, MuscleId } from "@/lib/types";
+import { buildGirthCallout } from "@/lib/progress-trends";
+import type { BodyMeasurement, MuscleId, WorkoutLog } from "@/lib/types";
 
 /**
  * The tape measurement for the muscle you drilled into — the physical answer to
@@ -32,11 +33,14 @@ import type { BodyMeasurement, MuscleId } from "@/lib/types";
 export function MuscleGirthCard({
   name,
   muscleId,
-  measurements
+  measurements,
+  logs
 }: {
   name: string;
   muscleId: MuscleId;
   measurements: BodyMeasurement[];
+  /** Volume for this muscle, for the callout. Omitted, the callout is absent. */
+  logs?: WorkoutLog[];
 }) {
   const sites = sitesForMuscle(muscleId);
 
@@ -45,6 +49,14 @@ export function MuscleGirthCard({
   }
 
   const rows = mergeSeries(measurements, sites);
+  // The loop no competitor closes. Absent entirely below the data threshold —
+  // see buildGirthCallout for why that is a hard gate and not a hedge.
+  const callout = logs
+    ? buildGirthCallout(
+        logs,
+        measurements.filter((item) => sites.includes(item.metric))
+      )
+    : undefined;
 
   return (
     <Panel
@@ -96,6 +108,20 @@ export function MuscleGirthCard({
           ))}
         </LineChart>
       </ResponsiveContainer>
+
+      {callout ? (
+        <p className="mt-3 rounded-xl bg-accent/10 px-3 py-2 text-xs leading-relaxed ring-1 ring-accent/25">
+          <span className="font-semibold text-accent">
+            Over {callout.weeks} weeks: volume {callout.volumeChangePct >= 0 ? "up" : "down"}{" "}
+            {Math.abs(Math.round(callout.volumeChangePct))}%, {name.toLowerCase()}{" "}
+            {callout.girthChangeCm >= 0 ? "up" : "down"}{" "}
+            {Math.abs(callout.girthChangeCm).toFixed(1)}cm
+          </span>{" "}
+          <span className="text-muted-foreground">
+            — what happened, not why. Sleep, food and genetics moved this tape too.
+          </span>
+        </p>
+      ) : null}
     </Panel>
   );
 }

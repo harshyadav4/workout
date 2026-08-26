@@ -7,7 +7,11 @@ import { BodyWeightCard } from "@/features/progress/body-weight-card";
 import { ConsistencyCard, RhythmCard } from "@/features/progress/consistency-cards";
 import { CumulativeCard } from "@/features/progress/cumulative-card";
 import { LoadCard } from "@/features/progress/load-card";
-import { MuscleSplitCard, WeeklySetsCard } from "@/features/progress/muscle-cards";
+import {
+  HeadStimulusCard,
+  MuscleSplitCard,
+  WeeklySetsCard
+} from "@/features/progress/muscle-cards";
 import {
   MuscleDoseCard,
   MuscleHeroFooter,
@@ -17,7 +21,7 @@ import { MuscleGirthCard } from "@/features/progress/muscle-girth-card";
 import { MuscleLiftsCard } from "@/features/progress/muscle-lifts-card";
 import { MuscleMatrixCard } from "@/features/progress/muscle-matrix-card";
 import { MuscleRankCard } from "@/features/progress/muscle-rank-card";
-import { Panel, SectionRule } from "@/features/progress/panel";
+import { Panel, Reveal, SectionRule } from "@/features/progress/panel";
 import { PRLedgerCard } from "@/features/progress/pr-ledger-card";
 import { ProgressFilters } from "@/features/progress/progress-filters";
 import { ProgressHeadline } from "@/features/progress/progress-headline";
@@ -42,6 +46,8 @@ import {
   buildWeekdayRhythm,
   buildWeeklySetsByGroup,
   earliestLogDate,
+  buildHeadStimulus,
+  daysBetween,
   filterByMuscle,
   filterByWindow,
   muscleWeeklySets,
@@ -51,6 +57,11 @@ import {
   type DateWindow,
   type ProgressRange
 } from "@/lib/progress-metrics";
+import { equipmentInUse, suggestForHead } from "@/lib/suggestions";
+import { todayKey } from "@/lib/utils";
+
+// The baseline an acute:chronic ratio needs before it means anything.
+const LOAD_BASELINE_WEEKS = 4;
 import {
   MATRIX_MIN_COLUMNS,
   buildCumulativeVolume,
@@ -69,6 +80,7 @@ export function ProgressDashboard() {
   const measurements = useWorkoutStore((state) => state.measurements);
   const activeDate = useWorkoutStore((state) => state.activeDate);
   const muscles = useWorkoutStore((state) => state.muscles);
+  const templates = useWorkoutStore((state) => state.templates);
   const selectedMuscleId = useWorkoutStore((state) => state.selectedMuscleId);
   const setSelectedMuscle = useWorkoutStore((state) => state.setSelectedMuscle);
 
@@ -76,6 +88,17 @@ export function ProgressDashboard() {
   const [range, setRange] = useState<ProgressRange>("1y");
   const [custom, setCustom] = useState<DateWindow>();
   const [workoutId, setWorkoutId] = useState<string>();
+
+  // Distinct training days, and the span they cover — the two units every
+  // threshold below is expressed in.
+  const sessionCount = useMemo(() => new Set(logs.map((log) => log.date)).size, [logs]);
+  const weeksOfHistory = useMemo(() => {
+    if (logs.length === 0) {
+      return 0;
+    }
+    const dates = logs.map((log) => log.date).sort();
+    return Math.floor(daysBetween(dates[0], todayKey()) / 7);
+  }, [logs]);
 
   const view = useMemo(() => {
     const window = rangeWindow(range, activeDate, earliestLogDate(logs), custom);
@@ -125,6 +148,30 @@ export function ProgressDashboard() {
    * stops someone wiring a scoped slice into a builder that cannot take one. A
    * PR filtered to twelve weeks is not a PR.
    */
+  const headStimulus = useMemo(
+    () =>
+      buildHeadStimulus(
+        view.scoped,
+        view.window,
+        muscles.map((muscle) => muscle.id)
+      ),
+    [view.scoped, view.window]
+  );
+
+  // Only for the head that was actually called out. Suggestions for a head that
+  // is already well served are noise, and the callout is what earns the advice.
+  const headSuggestions = useMemo(() => {
+    if (!headStimulus.lowest) {
+      return [];
+    }
+    return suggestForHead(headStimulus.lowest.muscleId, templates, {
+      equipmentInUse: equipmentInUse(
+        view.scoped.map((log) => log.workoutId),
+        templates
+      )
+    });
+  }, [headStimulus.lowest, templates, view.scoped]);
+
   const lifetime = useMemo(() => {
     const window = rangeWindow(range, activeDate, earliestLogDate(logs), custom);
     const ledger = buildPRLedger(logs);
@@ -221,6 +268,9 @@ export function ProgressDashboard() {
             name={drilldown.name}
             muscleId={drilldown.muscleId}
             measurements={measurements}
+            // Volume attributed to this muscle, so the callout compares the two
+            // halves of the same claim.
+            logs={attributeToMuscle(logs, drilldown.muscleId)}
           />
 
           {/* Four empty cards is the complaint that started this page. One is enough. */}
@@ -266,21 +316,42 @@ export function ProgressDashboard() {
 
       <SectionRule label="Getting stronger" hint="per lift" />
 
+      {/* Thresholds are in sessions, not logs: two exercises on a Tuesday is
+          one session, and it is sessions the charts need more of. */}
+
       <TopSetWall logs={view.scoped} exercises={view.scopedExercises} />
 
-      <StrengthGrowthCard growth={view.growth} />
+      <Reveal
+        ready={sessionCount >= 2}
+        title="Strength growth"
+        need={`${2 - sessionCount} more session${sessionCount === 1 ? "" : "s"} — growth needs two points`}
+      >
+        <StrengthGrowthCard growth={view.growth} />
+      </Reveal>
 
-      <PRLedgerCard entries={lifetime.ledger} days={lifetime.sincePR} />
+      <Reveal
+        ready={sessionCount >= 2}
+        title="Personal records"
+        need="a second session — the first time you lift something is a baseline, not a record"
+      >
+        <PRLedgerCard entries={lifetime.ledger} days={lifetime.sincePR} />
+      </Reveal>
 
       <SectionRule label="Where it goes" hint="the split" />
 
-      {view.matrix.columns.length >= MATRIX_MIN_COLUMNS ? (
+      <Reveal
+        ready={view.matrix.columns.length >= MATRIX_MIN_COLUMNS}
+        title="Muscle matrix"
+        need={`${MATRIX_MIN_COLUMNS - view.matrix.columns.length} more period${
+          MATRIX_MIN_COLUMNS - view.matrix.columns.length === 1 ? "" : "s"
+        } of training — a matrix needs columns to compare`}
+      >
         <MuscleMatrixCard
           matrix={view.matrix}
           selectedMuscleId={selected?.id}
           onSelectMuscle={(muscleId: MuscleId) => setSelectedMuscle(muscleId)}
         />
-      ) : null}
+      </Reveal>
 
       <MuscleRankCard
         muscleVolume={view.muscleVolume}
@@ -288,27 +359,65 @@ export function ProgressDashboard() {
         onSelectMuscle={(muscleId: MuscleId) => setSelectedMuscle(muscleId)}
       />
 
-      {view.drift.rows.length >= MATRIX_MIN_COLUMNS ? (
+      <Reveal
+        ready={view.drift.rows.length >= MATRIX_MIN_COLUMNS}
+        title="Split drift"
+        need={`${MATRIX_MIN_COLUMNS - view.drift.rows.length} more period${
+          MATRIX_MIN_COLUMNS - view.drift.rows.length === 1 ? "" : "s"
+        } — drift is a comparison between them`}
+      >
         <SplitDriftCard drift={view.drift} />
-      ) : null}
+      </Reveal>
 
       <MuscleSplitCard groups={view.groups} />
 
       <WeeklySetsCard sets={view.weeklySets} />
 
+      {/* One level below the group band, which is where the finding actually
+          lives: fourteen chest sets that were all flat pressing. */}
+      <Reveal
+        ready={sessionCount >= 3}
+        title="Weekly sets per head"
+        need={`${3 - sessionCount} more session${3 - sessionCount === 1 ? "" : "s"} — a bias needs a few sessions to show`}
+      >
+        <HeadStimulusCard report={headStimulus} suggestions={headSuggestions} />
+      </Reveal>
+
       <SectionRule label="How hard" hint="load and rhythm" />
 
-      <VolumeTrendCard points={view.trend} bucket={view.bucket} />
+      <Reveal
+        ready={sessionCount >= 3}
+        title="Volume trend"
+        need={`${3 - sessionCount} more session${3 - sessionCount === 1 ? "" : "s"}`}
+      >
+        <VolumeTrendCard points={view.trend} bucket={view.bucket} />
+      </Reveal>
 
       {/* Full history, not the selected range: a monthly measurement inside a
           one-month window is a single point and no trend at all. */}
       <BodyWeightCard measurements={measurements} />
 
-      <LoadCard points={lifetime.load} />
+      {/* ACWR compares the last week against a four-week baseline. Before that
+          baseline exists the ratio is arithmetic on nothing. */}
+      <Reveal
+        ready={weeksOfHistory >= LOAD_BASELINE_WEEKS}
+        title="Training load"
+        need={`${LOAD_BASELINE_WEEKS - weeksOfHistory} more week${
+          LOAD_BASELINE_WEEKS - weeksOfHistory === 1 ? "" : "s"
+        } of training — the ratio needs a baseline to compare against`}
+      >
+        <LoadCard points={lifetime.load} />
+      </Reveal>
 
       <VolumeDetailCard summary={view.summary} previous={view.previousSummary} />
 
-      <RhythmCard rhythm={view.rhythm} rest={view.rest} />
+      <Reveal
+        ready={sessionCount >= 6}
+        title="Rhythm and rest"
+        need={`${6 - sessionCount} more session${6 - sessionCount === 1 ? "" : "s"} — a pattern needs repeats`}
+      >
+        <RhythmCard rhythm={view.rhythm} rest={view.rest} />
+      </Reveal>
 
       <CumulativeCard
         points={lifetime.cumulative.points}

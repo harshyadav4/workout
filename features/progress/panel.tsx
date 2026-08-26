@@ -94,3 +94,38 @@ export function SectionRule({ label, hint }: { label: string; hint?: string }) {
     </div>
   );
 }
+
+/**
+ * Hold a panel back until its data can say something.
+ *
+ * Twenty-odd charts is right at month six and a wall of near-empty axes at week
+ * one — which is exactly the week a new user decides whether this app is worth
+ * opening again. Each card already knew its own threshold internally and
+ * rendered a flat line anyway; this states the threshold instead.
+ *
+ * It deliberately does **not** hide the card. A tab that silently has fewer
+ * things on it than it did last week is worse than empty charts: the user
+ * cannot tell whether the feature is missing, broken, or waiting on them.
+ */
+export function Reveal({
+  ready,
+  title,
+  need,
+  children
+}: {
+  ready: boolean;
+  title: string;
+  /** What is still missing, in the user's terms — "3 more sessions". */
+  need: string;
+  children: React.ReactNode;
+}) {
+  if (ready) {
+    return <>{children}</>;
+  }
+
+  return (
+    <Panel title={title}>
+      <p className="py-2 text-xs text-muted-foreground">After {need}.</p>
+    </Panel>
+  );
+}
