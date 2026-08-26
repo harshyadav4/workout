@@ -7,6 +7,7 @@ import type {
   ScheduleConfig,
   ScheduledSession,
   SessionTemplate,
+  SetLog,
   WorkoutLog,
   WorkoutTemplate
 } from "@/lib/types";
@@ -27,6 +28,9 @@ const TABLES = [
   "session_templates",
   "scheduled_sessions",
   "workout_logs",
+  // After workout_logs: `log_id` references it, so a set row written first has
+  // nothing to point at.
+  "set_logs",
   "body_measurements"
 ] as const;
 
@@ -143,6 +147,33 @@ function rowToLog(row: Row): WorkoutLog {
   };
 }
 
+function setLogToRow(setLog: SetLog, userId: string): Row {
+  return {
+    id: setLog.id,
+    user_id: userId,
+    log_id: setLog.logId,
+    workout_id: setLog.workoutId,
+    date: setLog.date,
+    set_index: setLog.setIndex,
+    reps: setLog.reps,
+    weight: setLog.weight,
+    completed_at: setLog.completedAt ?? null
+  };
+}
+
+function rowToSetLog(row: Row): SetLog {
+  return {
+    id: row.id as string,
+    logId: row.log_id as string,
+    workoutId: row.workout_id as string,
+    date: row.date as string,
+    setIndex: Number(row.set_index ?? 0),
+    reps: Number(row.reps ?? 0),
+    weight: Number(row.weight ?? 0),
+    completedAt: (row.completed_at as string) ?? undefined
+  };
+}
+
 function measurementToRow(measurement: BodyMeasurement, userId: string): Row {
   return {
     id: measurement.id,
@@ -169,6 +200,7 @@ export interface RemoteState {
   sessionTemplates: SessionTemplate[];
   scheduledSessions: ScheduledSession[];
   logs: WorkoutLog[];
+  setLogs: SetLog[];
   measurements: BodyMeasurement[];
   profile?: ProfileInfo;
   scheduleConfig?: ScheduleConfig;
@@ -185,20 +217,31 @@ export async function loadUserState(): Promise<RemoteState> {
       sessionTemplates: [],
       scheduledSessions: [],
       logs: [],
+      setLogs: [],
       measurements: []
     };
   }
 
-  const [templates, sessionTemplates, sessions, logs, measurements, profile] = await Promise.all([
+  const [templates, sessionTemplates, sessions, logs, setLogs, measurements, profile] =
+    await Promise.all([
     supabase.from("workout_templates").select("*"),
     supabase.from("session_templates").select("*"),
     supabase.from("scheduled_sessions").select("*").order("date"),
     supabase.from("workout_logs").select("*").order("date", { ascending: false }),
-    supabase.from("body_measurements").select("*").order("date"),
-    supabase.from("profiles").select("*").maybeSingle()
-  ]);
+      supabase.from("set_logs").select("*").order("date", { ascending: false }),
+      supabase.from("body_measurements").select("*").order("date"),
+      supabase.from("profiles").select("*").maybeSingle()
+    ]);
 
-  const failure = [templates, sessionTemplates, sessions, logs, measurements, profile].find(
+  const failure = [
+    templates,
+    sessionTemplates,
+    sessions,
+    logs,
+    setLogs,
+    measurements,
+    profile
+  ].find(
     (result) => result.error
   );
   if (failure?.error) {
@@ -212,6 +255,7 @@ export async function loadUserState(): Promise<RemoteState> {
     sessionTemplates: (sessionTemplates.data ?? []).map(rowToSessionTemplate),
     scheduledSessions: (sessions.data ?? []).map(rowToSession),
     logs: (logs.data ?? []).map(rowToLog),
+    setLogs: (setLogs.data ?? []).map(rowToSetLog),
     measurements: (measurements.data ?? []).map(rowToMeasurement),
     profile: profileRow
       ? {
@@ -283,9 +327,59 @@ export interface SyncableState {
   sessionTemplates: SessionTemplate[];
   scheduledSessions: ScheduledSession[];
   logs: WorkoutLog[];
+  setLogs: SetLog[];
   measurements: BodyMeasurement[];
   profile: ProfileInfo;
   scheduleConfig?: ScheduleConfig;
+}
+
+/**
+ * The user's half of the store — everything `pushChanges` writes and an export
+ * hands back. `muscles` and the preset workouts ship with the app and are not
+ * anyone's data, so they are not here.
+ */
+export function snapshotState(state: SyncableState): SyncableState {
+  return {
+    templates: state.templates,
+    sessionTemplates: state.sessionTemplates,
+    scheduledSessions: state.scheduledSessions,
+    logs: state.logs,
+    setLogs: state.setLogs,
+    measurements: state.measurements,
+    profile: state.profile,
+    scheduleConfig: state.scheduleConfig
+  };
+}
+
+/**
+ * A sync failure in words the user can act on.
+ *
+ * Read by shape rather than `instanceof Error`: a rejected fetch does not always
+ * arrive as an `Error` subclass. `hint` is appended because PostgrestError's own
+ * docs say Postgres usually puts the actionable fix there, not in `message`.
+ */
+export function syncErrorMessage(error: unknown): string {
+  const shape = error as { message?: unknown; hint?: unknown } | null | undefined;
+  const message = typeof shape?.message === "string" ? shape.message.trim() : "";
+  const hint = typeof shape?.hint === "string" ? shape.hint.trim() : "";
+
+  if (!message) {
+    return "Unknown error";
+  }
+
+  return hint ? `${message} — ${hint}` : message;
+}
+
+/**
+ * What "Export my data" writes to disk. Presets are dropped for the same reason
+ * `pushChanges` drops them — they ship with the app and are not the user's.
+ */
+export function buildExport(state: SyncableState) {
+  return {
+    exportedAt: new Date().toISOString(),
+    ...snapshotState(state),
+    templates: state.templates.filter((template) => !template.isPreset)
+  };
 }
 
 /**
@@ -314,6 +408,9 @@ export async function pushChanges(
     sessionToRow(item, userId)
   );
   await writeTable("workout_logs", previous.logs, next.logs, (item) => logToRow(item, userId));
+  await writeTable("set_logs", previous.setLogs, next.setLogs, (item) =>
+    setLogToRow(item, userId)
+  );
   await writeTable("body_measurements", previous.measurements, next.measurements, (item) =>
     measurementToRow(item, userId)
   );

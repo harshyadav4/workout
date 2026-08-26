@@ -1,15 +1,15 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useRef } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef } from "react";
 import { createStore, type StoreApi } from "zustand/vanilla";
 import { useStore } from "zustand";
 
 import { upsertMeasurement } from "@/lib/body-metrics";
+import { reconcile } from "@/lib/reconcile";
 import { muscles, presetWorkouts } from "@/lib/seed-data";
 import type {
   BodyMeasurement,
   BodyMetric,
-  DailyPlan,
   Muscle,
   PlannedExercise,
   PlannedSet,
@@ -18,13 +18,16 @@ import type {
   ScheduledSession,
   ScheduleRule,
   SessionTemplate,
+  SetLog,
   WorkoutLog,
   WorkoutTemplate
 } from "@/lib/types";
+import type { RemoteState } from "@/lib/sync";
 import { buildScheduleSessions, mergeGeneratedSessions } from "@/lib/schedule";
 import {
   buildLogFromSession,
   plannedExercisesFromTemplate,
+  type PerformanceHistory,
   removeSetFromExercises
 } from "@/lib/workout-helpers";
 import { dateKey, todayKey, weekdayIndex } from "@/lib/utils";
@@ -35,14 +38,20 @@ interface WorkoutState {
   sessionTemplates: SessionTemplate[];
   scheduledSessions: ScheduledSession[];
   scheduleConfig?: ScheduleConfig;
-  planner: DailyPlan[];
   logs: WorkoutLog[];
+  /** Per-set grain beneath `logs`. Written once, never edited. */
+  setLogs: SetLog[];
   profile: ProfileInfo;
   measurements: BodyMeasurement[];
   activeDate: string;
-  plannerMode: "fixed" | "smart";
   selectedMuscleId?: string;
   selectedSessionId?: string;
+  /**
+   * Which account the persisted copy belongs to. Local-only — never synced, and
+   * the reason the offline-recovery push in `supabase-sync` cannot send one
+   * user's workouts to another's account on a shared device.
+   */
+  owner?: string;
   addTemplate: (template: WorkoutTemplate) => boolean;
   createSessionTemplate: (template: SessionTemplate) => boolean;
   updateSessionTemplate: (id: string, template: SessionTemplate) => boolean;
@@ -57,6 +66,8 @@ interface WorkoutState {
     rule?: ScheduleRule;
   }) => void;
   removeScheduledSession: (id: string) => void;
+  /** Today's session, built on the spot and started immediately. */
+  startAdHocSession: (payload: { name: string; exercises: PlannedExercise[] }) => void;
   generateSchedule: (config: ScheduleConfig) => void;
   selectSession: (sessionId?: string) => void;
   startSession: (sessionId: string) => void;
@@ -67,35 +78,24 @@ interface WorkoutState {
     patch: Partial<PlannedSet>
   ) => void;
   addSetToSession: (sessionId: string, exerciseId: string) => void;
+  /** The rack was taken. Adds to a session already under way. */
+  addExerciseToSession: (sessionId: string, exercises: PlannedExercise[]) => void;
   removeSetFromSession: (sessionId: string, exerciseId: string, setId: string) => void;
   setSelectedMuscle: (muscleId?: string) => void;
-  setPlannerMode: (mode: "fixed" | "smart") => void;
-  setPlannerDay: (dayIndex: number, exercises: PlannedExercise[]) => void;
-  addExerciseToDay: (dayIndex: number, exercise: PlannedExercise) => void;
-  updateSet: (
-    dayIndex: number,
-    exerciseId: string,
-    setId: string,
-    patch: Partial<PlannedSet>
-  ) => void;
-  addSet: (dayIndex: number, exerciseId: string) => void;
-  removeExercise: (dayIndex: number, exerciseId: string) => void;
   logTodayWorkout: () => void;
   setActiveDate: (date: string) => void;
   setProfile: (patch: Partial<ProfileInfo>) => void;
+  claimFor: (userId: string) => void;
   logMeasurement: (metric: BodyMetric, value: number, date?: string) => void;
-  hydrateRemote: (payload: {
-    templates?: WorkoutTemplate[];
-    sessionTemplates?: SessionTemplate[];
-    scheduledSessions?: ScheduledSession[];
-    logs?: WorkoutLog[];
-    measurements?: BodyMeasurement[];
-    profile?: ProfileInfo;
-    scheduleConfig?: ScheduleConfig;
-  }) => void;
+  hydrateRemote: (payload: RemoteState) => void;
 }
 
-const STORAGE_KEY = "gymflow-state-v3";
+// v4 adds `owner`. v3 is not migrated on purpose: an untagged blob cannot be
+// proved to belong to whoever signs in next, and adopting it on a shared device
+// is the account bleed this whole mechanism exists to prevent. Anyone already
+// synced gets their data back from the first read.
+const STORAGE_KEY = "gymflow-state-v4";
+const RETIRED_STORAGE_KEY = "gymflow-state-v3";
 
 function normalizeName(value: string) {
   return value.trim().toLowerCase().replace(/\s+/g, " ");
@@ -108,12 +108,11 @@ function cloneExercise(exercise: PlannedExercise): PlannedExercise {
   };
 }
 
-function exerciseFromSessionTemplate(template: SessionTemplate): PlannedExercise[] {
-  return plannedExercisesFromTemplate(template);
-}
-
-function calculateExerciseVolume(exercise: PlannedExercise) {
-  return exercise.sets.reduce((sum, setItem) => sum + setItem.reps * setItem.weight, 0);
+function exerciseFromSessionTemplate(
+  template: SessionTemplate,
+  history: PerformanceHistory
+): PlannedExercise[] {
+  return plannedExercisesFromTemplate(template, history);
 }
 
 function createInitialState(): Omit<
@@ -124,22 +123,19 @@ function createInitialState(): Omit<
   | "deleteSessionTemplate"
   | "scheduleSession"
   | "removeScheduledSession"
+  | "startAdHocSession"
   | "generateSchedule"
   | "selectSession"
   | "startSession"
   | "updateSessionSet"
   | "addSetToSession"
+  | "addExerciseToSession"
   | "removeSetFromSession"
   | "setSelectedMuscle"
-  | "setPlannerMode"
-  | "setPlannerDay"
-  | "addExerciseToDay"
-  | "updateSet"
-  | "addSet"
-  | "removeExercise"
   | "logTodayWorkout"
   | "setActiveDate"
   | "setProfile"
+  | "claimFor"
   | "logMeasurement"
   | "hydrateRemote"
 > {
@@ -153,12 +149,11 @@ function createInitialState(): Omit<
     sessionTemplates: [],
     scheduledSessions: [],
     scheduleConfig: undefined,
-    planner: [],
     logs: [],
+    setLogs: [],
     profile: { name: "", email: "", heightCm: 0, weightKg: 0 },
     measurements: [],
     activeDate: todayKey(),
-    plannerMode: "fixed",
     selectedMuscleId: undefined,
     selectedSessionId: undefined
   };
@@ -177,14 +172,14 @@ function persist(state: WorkoutState) {
       sessionTemplates: state.sessionTemplates,
       scheduledSessions: state.scheduledSessions,
       scheduleConfig: state.scheduleConfig,
-      planner: state.planner,
       logs: state.logs,
+      setLogs: state.setLogs,
       profile: state.profile,
       measurements: state.measurements,
       activeDate: state.activeDate,
-      plannerMode: state.plannerMode,
       selectedMuscleId: state.selectedMuscleId,
-      selectedSessionId: state.selectedSessionId
+      selectedSessionId: state.selectedSessionId,
+      owner: state.owner
     })
   );
 }
@@ -193,6 +188,10 @@ function loadState() {
   if (typeof window === "undefined") {
     return createInitialState();
   }
+
+  // Not read, so not left lying around either — it is a full copy of whoever
+  // last used this device.
+  localStorage.removeItem(RETIRED_STORAGE_KEY);
 
   const raw = localStorage.getItem(STORAGE_KEY);
   if (!raw) {
@@ -213,211 +212,225 @@ function getTodayScheduledSessions(state: Pick<WorkoutState, "scheduledSessions"
   return state.scheduledSessions.filter((session) => session.date === state.activeDate);
 }
 
-function getSelectedOrFirstTodaySession(state: Pick<
-  WorkoutState,
-  "scheduledSessions" | "activeDate" | "selectedSessionId"
->) {
+function getSelectedOrFirstTodaySession(
+  state: Pick<WorkoutState, "scheduledSessions" | "activeDate" | "selectedSessionId">
+) {
   const todaySessions = getTodayScheduledSessions(state);
 
   return (
-    todaySessions.find((session) => session.id === state.selectedSessionId) ??
-    todaySessions[0]
+    todaySessions.find((session) => session.id === state.selectedSessionId) ?? todaySessions[0]
   );
 }
-
-function getTodayPlan(planner: DailyPlan[]) {
-  const index = weekdayIndex();
-  return planner.find((item) => item.dayIndex === index) ?? { dayIndex: index, exercises: [] };
-}
-
 
 function createWorkoutStore() {
   const initial = loadState();
 
-  return createStore<WorkoutState>()((set, get) => ({
-    ...initial,
-    addTemplate: (template) => {
-      const exists = get().templates.some(
-        (item) => normalizeName(item.name) === normalizeName(template.name)
-      );
-
-      if (exists) {
-        return false;
-      }
-
+  return createStore<WorkoutState>()((set, get) => {
+    // Every action ended with the same three lines: build `next`, `persist` it,
+    // return it. Stating that once is what makes an action's actual work
+    // visible — the deleted planner subsystem hid two unreachable branches
+    // inside that boilerplate.
+    const setAndPersist = (updater: (state: WorkoutState) => WorkoutState) =>
       set((state) => {
-        const next = { ...state, templates: [template, ...state.templates] };
+        const next = updater(state);
         persist(next);
         return next;
       });
 
-      return true;
-    },
-    createSessionTemplate: (template) => {
-      const exists = get().sessionTemplates.some(
-        (item) => normalizeName(item.name) === normalizeName(template.name)
-      );
+    return {
+      ...initial,
+      addTemplate: (template) => {
+        const exists = get().templates.some(
+          (item) => normalizeName(item.name) === normalizeName(template.name)
+        );
 
-      if (exists) {
-        return false;
-      }
+        if (exists) {
+          return false;
+        }
 
-      set((state) => {
-        const next = {
+        setAndPersist((state) => ({
+          ...state,
+          templates: [template, ...state.templates]
+        }));
+
+        return true;
+      },
+      createSessionTemplate: (template) => {
+        const exists = get().sessionTemplates.some(
+          (item) => normalizeName(item.name) === normalizeName(template.name)
+        );
+
+        if (exists) {
+          return false;
+        }
+
+        setAndPersist((state) => ({
           ...state,
           sessionTemplates: [template, ...state.sessionTemplates]
-        };
-        persist(next);
-        return next;
-      });
+        }));
 
-      return true;
-    },
-    // Keeps the template's id so schedule configs and scheduled sessions
-    // pointing at it stay valid across a rename.
-    updateSessionTemplate: (id, template) => {
-      const taken = get().sessionTemplates.some(
-        (item) => item.id !== id && normalizeName(item.name) === normalizeName(template.name)
-      );
+        return true;
+      },
+      // Keeps the template's id so schedule configs and scheduled sessions
+      // pointing at it stay valid across a rename.
+      updateSessionTemplate: (id, template) => {
+        const taken = get().sessionTemplates.some(
+          (item) => item.id !== id && normalizeName(item.name) === normalizeName(template.name)
+        );
 
-      if (taken) {
-        return false;
-      }
+        if (taken) {
+          return false;
+        }
 
-      set((state) => {
-        const next = {
+        setAndPersist((state) => ({
           ...state,
           sessionTemplates: state.sessionTemplates.map((item) =>
             item.id === id ? { ...template, id } : item
           )
-        };
-        persist(next);
-        return next;
-      });
+        }));
 
-      return true;
-    },
-    deleteSessionTemplate: (id) =>
-      set((state) => {
-        const next = {
+        return true;
+      },
+      deleteSessionTemplate: (id) =>
+        setAndPersist((state) => ({
           ...state,
           sessionTemplates: state.sessionTemplates.filter((template) => template.id !== id)
-        };
-        persist(next);
-        return next;
-      }),
-    scheduleSession: ({ date, sessionTemplateId, sessionName, exercises, type = "workout", source = "manual", rule }) =>
-      set((state) => {
-        const parsed = new Date(`${date}T00:00:00`);
-        const sessions: ScheduledSession[] = [];
-        const makeSession = (targetDate: string) => ({
-          id: crypto.randomUUID(),
-          date: targetDate,
-          dayIndex: weekdayIndex(new Date(`${targetDate}T00:00:00`)),
-          sessionTemplateId,
-          sessionName,
-          exercises: exercises.map(cloneExercise),
-          type,
-          status: "planned" as const,
-          source
-        });
+        })),
+      scheduleSession: ({
+        date,
+        sessionTemplateId,
+        sessionName,
+        exercises,
+        type = "workout",
+        source = "manual",
+        rule
+      }) =>
+        setAndPersist((state) => {
+          const parsed = new Date(`${date}T00:00:00`);
+          const sessions: ScheduledSession[] = [];
+          const makeSession = (targetDate: string) => ({
+            id: crypto.randomUUID(),
+            date: targetDate,
+            dayIndex: weekdayIndex(new Date(`${targetDate}T00:00:00`)),
+            sessionTemplateId,
+            sessionName,
+            exercises: exercises.map(cloneExercise),
+            type,
+            status: "planned" as const,
+            source
+          });
 
-        sessions.push(makeSession(date));
+          sessions.push(makeSession(date));
 
-        if (rule?.repeatMode === "weekly" && rule.weekdays?.length) {
-          for (let offset = 1; offset <= 21; offset += 1) {
-            const nextDate = new Date(parsed);
-            nextDate.setDate(parsed.getDate() + offset);
-            if (rule.weekdays.includes(nextDate.getDay())) {
+          if (rule?.repeatMode === "weekly" && rule.weekdays?.length) {
+            for (let offset = 1; offset <= 21; offset += 1) {
+              const nextDate = new Date(parsed);
+              nextDate.setDate(parsed.getDate() + offset);
+              if (rule.weekdays.includes(nextDate.getDay())) {
+                sessions.push(makeSession(dateKey(nextDate)));
+              }
+            }
+          }
+
+          if (rule?.repeatMode === "every_n_days" && rule.intervalDays) {
+            for (
+              let step = rule.intervalDays;
+              step <= rule.intervalDays * 4;
+              step += rule.intervalDays
+            ) {
+              const nextDate = new Date(parsed);
+              nextDate.setDate(parsed.getDate() + step);
               sessions.push(makeSession(dateKey(nextDate)));
             }
           }
-        }
 
-        if (rule?.repeatMode === "every_n_days" && rule.intervalDays) {
-          for (let step = rule.intervalDays; step <= rule.intervalDays * 4; step += rule.intervalDays) {
-            const nextDate = new Date(parsed);
-            nextDate.setDate(parsed.getDate() + step);
-            sessions.push(makeSession(dateKey(nextDate)));
-          }
-        }
-
-        const explicitRestDates = new Set<string>(rule?.restDates ?? []);
-        if (rule?.restWeekdays?.length) {
-          for (let offset = 0; offset <= 21; offset += 1) {
-            const nextDate = new Date(parsed);
-            nextDate.setDate(parsed.getDate() + offset);
-            if (rule.restWeekdays.includes(nextDate.getDay())) {
-              explicitRestDates.add(dateKey(nextDate));
+          const explicitRestDates = new Set<string>(rule?.restDates ?? []);
+          if (rule?.restWeekdays?.length) {
+            for (let offset = 0; offset <= 21; offset += 1) {
+              const nextDate = new Date(parsed);
+              nextDate.setDate(parsed.getDate() + offset);
+              if (rule.restWeekdays.includes(nextDate.getDay())) {
+                explicitRestDates.add(dateKey(nextDate));
+              }
             }
           }
-        }
 
-        explicitRestDates.forEach((restDate) => {
-          sessions.push({
-            id: crypto.randomUUID(),
-            date: restDate,
-            dayIndex: weekdayIndex(new Date(`${restDate}T00:00:00`)),
-            sessionName: "Rest Day",
-            exercises: [],
-            type: "rest",
-            status: "planned",
-            source: "repeat"
+          explicitRestDates.forEach((restDate) => {
+            sessions.push({
+              id: crypto.randomUUID(),
+              date: restDate,
+              dayIndex: weekdayIndex(new Date(`${restDate}T00:00:00`)),
+              sessionName: "Rest Day",
+              exercises: [],
+              type: "rest",
+              status: "planned",
+              source: "repeat"
+            });
           });
-        });
 
-        const deduped = [...state.scheduledSessions];
-        sessions.forEach((session) => {
-          const exists = deduped.some(
-            (item) =>
-              item.date === session.date &&
-              normalizeName(item.sessionName) === normalizeName(session.sessionName)
-          );
-          if (!exists) {
-            deduped.push(session);
-          }
-        });
+          const deduped = [...state.scheduledSessions];
+          sessions.forEach((session) => {
+            const exists = deduped.some(
+              (item) =>
+                item.date === session.date &&
+                normalizeName(item.sessionName) === normalizeName(session.sessionName)
+            );
+            if (!exists) {
+              deduped.push(session);
+            }
+          });
 
-        const next = {
-          ...state,
-          scheduledSessions: deduped.sort((a, b) => a.date.localeCompare(b.date)),
-          selectedSessionId: sessions[0]?.id ?? state.selectedSessionId
-        };
-        persist(next);
-        return next;
-      }),
-    removeScheduledSession: (id) =>
-      set((state) => {
-        const next = {
+          return {
+            ...state,
+            scheduledSessions: deduped.sort((a, b) => a.date.localeCompare(b.date)),
+            selectedSessionId: sessions[0]?.id ?? state.selectedSessionId
+          };
+        }),
+      removeScheduledSession: (id) =>
+        setAndPersist((state) => ({
           ...state,
           scheduledSessions: state.scheduledSessions.filter((session) => session.id !== id)
-        };
-        persist(next);
-        return next;
-      }),
-    generateSchedule: (config) =>
-      set((state) => {
-        const next = {
+        })),
+      startAdHocSession: ({ name, exercises }) =>
+        setAndPersist((state) => {
+          const session: ScheduledSession = {
+            id: crypto.randomUUID(),
+            date: state.activeDate,
+            dayIndex: weekdayIndex(new Date(`${state.activeDate}T00:00:00`)),
+            sessionName: name,
+            exercises,
+            type: "workout",
+            // Started, not planned — there is nothing to "start" later, you are
+            // already in the gym. And `manual`, so regenerating the schedule
+            // leaves it alone; see mergeGeneratedSessions.
+            status: "active",
+            source: "manual"
+          };
+
+          return {
+            ...state,
+            scheduledSessions: [...state.scheduledSessions, session].sort((a, b) =>
+              a.date.localeCompare(b.date)
+            ),
+            selectedSessionId: session.id
+          };
+        }),
+      generateSchedule: (config) =>
+        setAndPersist((state) => ({
           ...state,
           scheduleConfig: config,
           scheduledSessions: mergeGeneratedSessions(
             state.scheduledSessions,
-            buildScheduleSessions(config, state.sessionTemplates, plannedExercisesFromTemplate)
+            buildScheduleSessions(config, state.sessionTemplates, (template) =>
+              plannedExercisesFromTemplate(template, state)
+            )
           ),
           selectedSessionId: undefined
-        };
-        persist(next);
-        return next;
-      }),
-    selectSession: (sessionId) =>
-      set((state) => {
-        const next = { ...state, selectedSessionId: sessionId };
-        persist(next);
-        return next;
-      }),
-    startSession: (sessionId) =>
-      set((state) => {
-        const next = {
+        })),
+      selectSession: (sessionId) =>
+        setAndPersist((state) => ({ ...state, selectedSessionId: sessionId })),
+      startSession: (sessionId) =>
+        setAndPersist((state) => ({
           ...state,
           selectedSessionId: sessionId,
           scheduledSessions: state.scheduledSessions.map((session) =>
@@ -425,13 +438,9 @@ function createWorkoutStore() {
               ? { ...session, status: "active" as const }
               : session
           )
-        };
-        persist(next);
-        return next;
-      }),
-    updateSessionSet: (sessionId, exerciseId, setId, patch) =>
-      set((state) => {
-        const next = {
+        })),
+      updateSessionSet: (sessionId, exerciseId, setId, patch) =>
+        setAndPersist((state) => ({
           ...state,
           scheduledSessions: state.scheduledSessions.map((session) =>
             session.id === sessionId
@@ -450,13 +459,9 @@ function createWorkoutStore() {
                 }
               : session
           )
-        };
-        persist(next);
-        return next;
-      }),
-    addSetToSession: (sessionId, exerciseId) =>
-      set((state) => {
-        const next = {
+        })),
+      addSetToSession: (sessionId, exerciseId) =>
+        setAndPersist((state) => ({
           ...state,
           scheduledSessions: state.scheduledSessions.map((session) =>
             session.id === sessionId
@@ -475,8 +480,10 @@ function createWorkoutStore() {
                               // Without this a 4th set on a hold clones reps 0
                               // and no duration — a silent zero-second set.
                               durationSeconds: exercise.sets.at(-1)?.durationSeconds,
-                              previousReps: exercise.sets.at(-1)?.reps ?? 8,
-                              previousWeight: exercise.sets.at(-1)?.weight ?? 20,
+                              // The set you just did, genuinely. Undefined when
+                              // this is the first — no invented 8 × 20kg.
+                              previousReps: exercise.sets.at(-1)?.reps,
+                              previousWeight: exercise.sets.at(-1)?.weight,
                               type: "normal" as const
                             }
                           ]
@@ -486,13 +493,18 @@ function createWorkoutStore() {
                 }
               : session
           )
-        };
-        persist(next);
-        return next;
-      }),
-    removeSetFromSession: (sessionId, exerciseId, setId) =>
-      set((state) => {
-        const next = {
+        })),
+      addExerciseToSession: (sessionId, exercises) =>
+        setAndPersist((state) => ({
+          ...state,
+          scheduledSessions: state.scheduledSessions.map((session) =>
+            session.id === sessionId
+              ? { ...session, exercises: [...session.exercises, ...exercises] }
+              : session
+          )
+        })),
+      removeSetFromSession: (sessionId, exerciseId, setId) =>
+        setAndPersist((state) => ({
           ...state,
           scheduledSessions: state.scheduledSessions.map((session) =>
             session.id === sessionId
@@ -502,300 +514,90 @@ function createWorkoutStore() {
                 }
               : session
           )
-        };
-        persist(next);
-        return next;
-      }),
-    setSelectedMuscle: (muscleId) =>
-      set((state) => {
-        const next = { ...state, selectedMuscleId: muscleId };
-        persist(next);
-        return next;
-      }),
-    setPlannerMode: (mode) =>
-      set((state) => {
-        const next = { ...state, plannerMode: mode };
-        persist(next);
-        return next;
-      }),
-    setPlannerDay: (dayIndex, exercises) =>
-      set((state) => {
-        const nextPlanner = [
-          ...state.planner.filter((item) => item.dayIndex !== dayIndex),
-          { dayIndex, exercises }
-        ].sort((a, b) => a.dayIndex - b.dayIndex);
-        const next = { ...state, planner: nextPlanner };
-        persist(next);
-        return next;
-      }),
-    addExerciseToDay: (dayIndex, exercise) =>
-      set((state) => {
-        const existing = state.planner.find((item) => item.dayIndex === dayIndex);
-        const planner = existing
-          ? state.planner.map((item) =>
-              item.dayIndex === dayIndex
-                ? { ...item, exercises: [...item.exercises, exercise] }
-                : item
-            )
-          : [...state.planner, { dayIndex, exercises: [exercise] }];
-        const next = { ...state, planner };
-        persist(next);
-        return next;
-      }),
-    updateSet: (dayIndex, exerciseId, setId, patch) =>
-      set((state) => {
-        const selectedSession = getSelectedOrFirstTodaySession(state);
-        if (selectedSession) {
-          const next = {
-            ...state,
-            scheduledSessions: state.scheduledSessions.map((session) =>
-              session.id === selectedSession.id
-                ? {
-                    ...session,
-                    exercises: session.exercises.map((exercise) =>
-                      exercise.id === exerciseId
-                        ? {
-                            ...exercise,
-                            sets: exercise.sets.map((setItem) =>
-                              setItem.id === setId ? { ...setItem, ...patch } : setItem
-                            )
-                          }
-                        : exercise
-                    )
-                  }
-                : session
-            )
-          };
-          persist(next);
-          return next;
-        }
+        })),
+      setSelectedMuscle: (muscleId) =>
+        setAndPersist((state) => ({ ...state, selectedMuscleId: muscleId })),
+      logTodayWorkout: () =>
+        setAndPersist((state) => {
+          const selectedSession = getSelectedOrFirstTodaySession(state);
+          if (!selectedSession) {
+            return state;
+          }
 
-        const planner = state.planner.map((day) =>
-          day.dayIndex === dayIndex
-            ? {
-                ...day,
-                exercises: day.exercises.map((exercise) =>
-                  exercise.id === exerciseId
-                    ? {
-                        ...exercise,
-                        sets: exercise.sets.map((setItem) =>
-                          setItem.id === setId ? { ...setItem, ...patch } : setItem
-                        )
-                      }
-                    : exercise
-                )
-              }
-            : day
-        );
-        const next = { ...state, planner };
-        persist(next);
-        return next;
-      }),
-    addSet: (dayIndex, exerciseId) =>
-      set((state) => {
-        const selectedSession = getSelectedOrFirstTodaySession(state);
-        if (selectedSession) {
-          const next = {
-            ...state,
-            scheduledSessions: state.scheduledSessions.map((session) =>
-              session.id === selectedSession.id
-                ? {
-                    ...session,
-                    exercises: session.exercises.map((exercise) =>
-                      exercise.id === exerciseId
-                        ? {
-                            ...exercise,
-                            sets: [
-                              ...exercise.sets,
-                              {
-                                id: crypto.randomUUID(),
-                                reps: exercise.sets.at(-1)?.reps ?? 8,
-                                weight: exercise.sets.at(-1)?.weight ?? 20,
-                                previousReps: exercise.sets.at(-1)?.reps ?? 8,
-                                previousWeight: exercise.sets.at(-1)?.weight ?? 20,
-                                type: "normal" as const
-                              }
-                            ]
-                          }
-                        : exercise
-                    )
-                  }
-                : session
-            )
-          };
-          persist(next);
-          return next;
-        }
+          // Bodyweight movements score reps × (you + added), so the profile weight
+          // is part of the volume figure.
+          const logged = buildLogFromSession(
+            selectedSession,
+            state.templates,
+            state.profile.weightKg
+          );
 
-        const planner = state.planner.map((day) =>
-          day.dayIndex === dayIndex
-            ? {
-                ...day,
-                exercises: day.exercises.map((exercise) =>
-                  exercise.id === exerciseId
-                    ? {
-                        ...exercise,
-                        sets: [
-                          ...exercise.sets,
-                          {
-                            id: crypto.randomUUID(),
-                            reps: exercise.sets.at(-1)?.reps ?? 8,
-                            weight: exercise.sets.at(-1)?.weight ?? 20,
-                            previousReps: exercise.sets.at(-1)?.reps ?? 8,
-                            previousWeight: exercise.sets.at(-1)?.weight ?? 20,
-                            type: "normal" as const
-                          }
-                        ]
-                      }
-                    : exercise
-                )
-              }
-            : day
-        );
-        const next = { ...state, planner };
-        persist(next);
-        return next;
-      }),
-    removeExercise: (dayIndex, exerciseId) =>
-      set((state) => {
-        const selectedSession = getSelectedOrFirstTodaySession(state);
-        if (selectedSession) {
-          const next = {
+          return {
             ...state,
-            scheduledSessions: state.scheduledSessions.map((session) =>
-              session.id === selectedSession.id
-                ? {
-                    ...session,
-                    exercises: session.exercises.filter((exercise) => exercise.id !== exerciseId)
-                  }
-                : session
-            )
-          };
-          persist(next);
-          return next;
-        }
-
-        const planner = state.planner.map((day) =>
-          day.dayIndex === dayIndex
-            ? {
-                ...day,
-                exercises: day.exercises.filter((exercise) => exercise.id !== exerciseId)
-              }
-            : day
-        );
-        const next = { ...state, planner };
-        persist(next);
-        return next;
-      }),
-    logTodayWorkout: () =>
-      set((state) => {
-        const selectedSession = getSelectedOrFirstTodaySession(state);
-        if (selectedSession) {
-          const newLogs = buildLogFromSession(selectedSession, state.templates);
-          const next = {
-            ...state,
-            logs: [...newLogs, ...state.logs],
+            logs: [...logged.logs, ...state.logs],
+            setLogs: [...logged.setLogs, ...state.setLogs],
             scheduledSessions: state.scheduledSessions.map((session) =>
               session.id === selectedSession.id
                 ? { ...session, status: "completed" as const }
                 : session
             )
           };
-          persist(next);
-          return next;
-        }
-
-        const todayPlan = getTodayPlan(state.planner);
-        const logs = todayPlan.exercises.map((exercise) => {
-          const template = state.templates.find((item) => item.id === exercise.workoutId);
-          return {
-            id: crypto.randomUUID(),
-            date: state.activeDate,
-            workoutId: exercise.workoutId,
-            name: exercise.templateName,
-            totalVolume: calculateExerciseVolume(exercise),
-            totalSets: exercise.sets.length,
-            totalReps: exercise.sets.reduce((sum, setItem) => sum + setItem.reps, 0),
-            peakWeight: exercise.sets.reduce((peak, setItem) => Math.max(peak, setItem.weight), 0),
-            muscles: template?.muscles ?? []
-          };
-        });
-        const next = { ...state, logs: [...logs, ...state.logs] };
-        persist(next);
-        return next;
-      }),
-    setActiveDate: (date) =>
-      set((state) => {
-        const next = {
+        }),
+      setActiveDate: (date) =>
+        setAndPersist((state) => ({
           ...state,
           activeDate: date,
           selectedSessionId:
             state.scheduledSessions.find((session) => session.date === date)?.id ??
             state.selectedSessionId
-        };
-        persist(next);
-        return next;
-      }),
-    setProfile: (patch) =>
-      set((state) => {
-        const next = { ...state, profile: { ...state.profile, ...patch } };
-        persist(next);
-        return next;
-      }),
-    // profile.weightKg follows the newest weigh-in rather than being a second
-    // source of truth that can disagree with the series.
-    logMeasurement: (metric, value, date = todayKey()) =>
-      set((state) => {
-        const measurements = upsertMeasurement(state.measurements, {
-          id: crypto.randomUUID(),
-          date,
-          metric,
-          value
-        });
-        const latestWeight = measurements.filter((item) => item.metric === "weight").at(-1);
-        const next = {
+        })),
+      setProfile: (patch) =>
+        setAndPersist((state) => ({
           ...state,
-          measurements,
-          profile: latestWeight
-            ? { ...state.profile, weightKg: latestWeight.value }
-            : state.profile
-        };
-        persist(next);
-        return next;
-      }),
-    // The remote copy wins outright — it is the durable one, and an empty
-    // result means a genuinely empty account, not a failed read (sync throws on
-    // failure and never calls this). Falling back to local on empty would
-    // resurrect deleted sessions on every sign-in.
-    //
-    // `templates` merges instead: presets ship with the app and are not stored,
-    // so the remote list holds only what the user added.
-    hydrateRemote: (payload) =>
-      set((state) => {
-        const presets = state.templates.filter((template) => template.isPreset);
-        const remoteTemplates = payload.templates ?? [];
-        const next = {
-          ...state,
-          templates: [
-            ...presets,
-            ...remoteTemplates.filter(
-              (template) => !presets.some((preset) => preset.id === template.id)
-            )
-          ],
-          sessionTemplates: payload.sessionTemplates ?? [],
-          scheduledSessions: payload.scheduledSessions ?? [],
-          scheduleConfig: payload.scheduleConfig ?? state.scheduleConfig,
-          logs: payload.logs ?? [],
-          measurements: payload.measurements ?? [],
-          // Was `?? state.profile`, which kept the *previous* signed-in user's
-          // name on a shared device when the new account had no profiles row.
-          // Every other field here already lets the remote win outright.
-          profile: payload.profile ?? createInitialState().profile
-        };
-        persist(next);
-        return next;
-      })
-  }));
+          profile: { ...state.profile, ...patch }
+        })),
+      // profile.weightKg follows the newest weigh-in rather than being a second
+      // source of truth that can disagree with the series.
+      logMeasurement: (metric, value, date = todayKey()) =>
+        setAndPersist((state) => {
+          const measurements = upsertMeasurement(state.measurements, {
+            id: crypto.randomUUID(),
+            date,
+            metric,
+            value
+          });
+          const latestWeight = measurements.filter((item) => item.metric === "weight").at(-1);
+
+          return {
+            ...state,
+            measurements,
+            profile: latestWeight
+              ? { ...state.profile, weightKg: latestWeight.value }
+              : state.profile
+          };
+        }),
+      /**
+       * Establish that the persisted copy belongs to `userId` before anything
+       * is pushed from it.
+       *
+       * A different owner — or none, which is every v3 blob and every fresh
+       * install — means this data is not theirs, so it is dropped rather than
+       * merged or uploaded. Signing *out* deliberately does not clear it: work
+       * done offline should survive signing back in on your own device. It is
+       * the change of owner that matters, not the absence of a session.
+       */
+      claimFor: (userId) =>
+        setAndPersist((state) =>
+          state.owner === userId
+            ? state
+            : { ...state, ...createInitialState(), owner: userId }
+        ),
+      // Was a replace-outright, which destroyed every local write that had not
+      // reached Supabase yet — the failure `lib/reconcile.ts` exists to end.
+      hydrateRemote: (payload) =>
+        setAndPersist((state) => ({ ...state, ...reconcile(state, payload) }))
+    };
+  });
 }
 
 const WorkoutStoreContext = createContext<StoreApi<WorkoutState> | null>(null);
@@ -817,9 +619,7 @@ export function WorkoutStoreProvider({ children }: { children: React.ReactNode }
   }, []);
 
   return (
-    <WorkoutStoreContext.Provider value={storeRef.current}>
-      {children}
-    </WorkoutStoreContext.Provider>
+    <WorkoutStoreContext.Provider value={storeRef.current}>{children}</WorkoutStoreContext.Provider>
   );
 }
 
@@ -842,29 +642,6 @@ export function useWorkoutStoreApi() {
   }
 
   return store;
-}
-
-export function useTodayPlan() {
-  const scheduledSessions = useWorkoutStore((state) => state.scheduledSessions);
-  const activeDate = useWorkoutStore((state) => state.activeDate);
-  const selectedSessionId = useWorkoutStore((state) => state.selectedSessionId);
-  const planner = useWorkoutStore((state) => state.planner);
-
-  const scheduledSession = useMemo(
-    () =>
-      getSelectedOrFirstTodaySession({
-        scheduledSessions,
-        activeDate,
-        selectedSessionId
-      }),
-    [activeDate, scheduledSessions, selectedSessionId]
-  );
-
-  if (scheduledSession) {
-    return { dayIndex: scheduledSession.dayIndex, exercises: scheduledSession.exercises };
-  }
-
-  return getTodayPlan(planner);
 }
 
 export function useTodaySessions() {
@@ -893,6 +670,17 @@ export function useSelectedTodaySession() {
   );
 }
 
-export function buildExercisesFromSessionTemplate(template: SessionTemplate) {
-  return exerciseFromSessionTemplate(template);
+/**
+ * Needs the store's history, so it is a hook rather than a bare function — the
+ * numbers it writes into `previousWeight`/`previousReps` are read off what this
+ * account has actually logged.
+ */
+export function useExercisesFromSessionTemplate() {
+  const logs = useWorkoutStore((state) => state.logs);
+  const setLogs = useWorkoutStore((state) => state.setLogs);
+
+  return useCallback(
+    (template: SessionTemplate) => exerciseFromSessionTemplate(template, { logs, setLogs }),
+    [logs, setLogs]
+  );
 }

@@ -90,7 +90,14 @@ export interface PlannedSet {
   weight: number;
   /** Seconds held or run, when the parent exercise is `metric: "time"`. */
   durationSeconds?: number;
-  type: "normal" | "drop";
+  /**
+   * A warm-up is not working volume. It must never reach the weekly set count
+   * the 10–20 band compares against, or the volume charts.
+   *
+   * This replaced `"drop"`, which `plannedExercisesFromTemplate` auto-assigned to
+   * the last set of any exercise with more than three and which no UI ever read.
+   */
+  type: "normal" | "warmup";
   completed?: boolean;
   previousReps?: number;
   previousWeight?: number;
@@ -106,11 +113,6 @@ export interface PlannedExercise {
   metric?: ExerciseMetric;
 }
 
-export interface DailyPlan {
-  dayIndex: number;
-  exercises: PlannedExercise[];
-}
-
 export interface WorkoutLog {
   id?: string;
   date: string;
@@ -122,6 +124,24 @@ export interface WorkoutLog {
   totalReps?: number;
   peakWeight?: number;
   muscles: WorkoutMuscleTarget[];
+}
+
+/**
+ * One performed set. `WorkoutLog` above stays the per-exercise rollup and every
+ * aggregation still reads it; this is the grain underneath, and the only thing
+ * that can answer "what did I actually lift last time".
+ */
+export interface SetLog {
+  id: string;
+  /** The `WorkoutLog` this set rolls up into. Cascades on delete. */
+  logId: string;
+  workoutId: string;
+  date: string;
+  /** Position within the exercise, 0-based. */
+  setIndex: number;
+  reps: number;
+  weight: number;
+  completedAt?: string;
 }
 
 export interface ExerciseSetTemplate {
