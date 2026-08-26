@@ -1,5 +1,4 @@
 import {
-  DailyPlan,
   Muscle,
   PlannedExercise,
   PlannedSet,
@@ -907,7 +906,7 @@ const plannedExercise = (
 });
 
 // Mon 1 · Tue 2 · Thu 4 · Fri 5 (optional) · Sat 6 — heavy/hypertrophy undulating.
-export const starterPlanner: DailyPlan[] = [
+export const starterPlanner = [
   {
     dayIndex: 1,
     exercises: [
@@ -966,9 +965,7 @@ export const starterPlanner: DailyPlan[] = [
   }
 ];
 
-const todayDate = new Intl.DateTimeFormat("en-CA", {
-  timeZone: "Asia/Kolkata"
-}).format(new Date());
+const todayDate = new Intl.DateTimeFormat("en-CA").format(new Date());
 
 // Today lands on the plan's session for the current weekday (falls back to Upper · Heavy on rest days).
 const weekdayToSession: Record<number, { id: string; name: string; exercises: PlannedExercise[] }> = {

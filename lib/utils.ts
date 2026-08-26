@@ -11,10 +11,14 @@ export function formatVolume(value: number) {
   }).format(value);
 }
 
+/**
+ * Every date in this app is a local calendar day, so no `timeZone` option is
+ * passed anywhere below: `Intl` already resolves to the runtime's own zone.
+ * These six sites were pinned to "Asia/Kolkata", which put a user in New York
+ * a day ahead of their own calendar for five hours out of every twenty-four.
+ */
 export function dateKey(date = new Date()) {
-  return date.toLocaleDateString("en-CA", {
-    timeZone: "Asia/Kolkata"
-  });
+  return date.toLocaleDateString("en-CA");
 }
 
 export function todayKey() {
@@ -23,8 +27,7 @@ export function todayKey() {
 
 export function weekdayIndex(date = new Date()) {
   const parts = new Intl.DateTimeFormat("en-US", {
-    weekday: "short",
-    timeZone: "Asia/Kolkata"
+    weekday: "short"
   }).formatToParts(date);
   const day = parts.find((part) => part.type === "weekday")?.value ?? "Sun";
   return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(day);
@@ -49,17 +52,14 @@ export function buildWeekDates(weekOffset = 0) {
       date,
       dayIndex: weekdayIndex(date),
       dayLabel: new Intl.DateTimeFormat("en-US", {
-        weekday: "short",
-        timeZone: "Asia/Kolkata"
+        weekday: "short"
       }).format(date),
       key: dateKey(date),
       dayNumber: new Intl.DateTimeFormat("en-US", {
-        day: "numeric",
-        timeZone: "Asia/Kolkata"
+        day: "numeric"
       }).format(date),
       monthLabel: new Intl.DateTimeFormat("en-US", {
-        month: "short",
-        timeZone: "Asia/Kolkata"
+        month: "short"
       }).format(date)
     };
   });
