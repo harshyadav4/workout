@@ -6,6 +6,7 @@ import {
   buildLogFromSession,
   firstPendingSetId,
   normalizeMuscleHeat,
+  lastPerformance,
   plannedExercisesFromTemplate,
   removeSetFromExercises,
   sessionTotals
@@ -53,17 +54,18 @@ const untracked = buildLogFromSession(
   session([{ name: "bench", sets: [set(8, 60), set(8, 60), set(6, 65)] }]),
   templates
 );
-assert.deepEqual(untracked, []);
+assert.deepEqual(untracked.logs, []);
+assert.deepEqual(untracked.setLogs, [], "and no set rows either");
 
 // Cut short after two sets: the third was never done and must not be logged.
 const partial = buildLogFromSession(
   session([{ name: "bench", sets: [set(8, 60, true), set(8, 60, true), set(6, 65)] }]),
   templates
 );
-assert.equal(partial[0].totalSets, 2);
-assert.equal(partial[0].totalReps, 16);
-assert.equal(partial[0].totalVolume, 8 * 60 * 2);
-assert.equal(partial[0].peakWeight, 60);
+assert.equal(partial.logs[0].totalSets, 2);
+assert.equal(partial.logs[0].totalReps, 16);
+assert.equal(partial.logs[0].totalVolume, 8 * 60 * 2);
+assert.equal(partial.logs[0].peakWeight, 60);
 
 // An exercise you never started drops out entirely rather than logging a zero.
 const skipped = buildLogFromSession(
@@ -74,7 +76,7 @@ const skipped = buildLogFromSession(
   templates
 );
 assert.deepEqual(
-  skipped.map((log) => log.name),
+  skipped.logs.map((log) => log.name),
   ["bench"]
 );
 
@@ -88,12 +90,136 @@ const mixed = buildLogFromSession(
   templates
 );
 assert.deepEqual(
-  mixed.map((log) => log.totalSets),
+  mixed.logs.map((log) => log.totalSets),
   [1, 1]
 );
 
 // A session where nothing at all was logged produces no entries.
-assert.deepEqual(buildLogFromSession(session([{ name: "bench", sets: [] }]), templates), []);
+assert.deepEqual(buildLogFromSession(session([{ name: "bench", sets: [] }]), templates).logs, []);
+
+// `workout_logs` stays a rollup and `set_logs` is the grain beneath it. Nothing
+// re-derives one from the other at read time, so the only thing keeping them
+// honest is that one function emits both — assert they agree.
+{
+  const built = buildLogFromSession(
+    session([
+      {
+        name: "bench",
+        sets: [set(8, 60, true), set(8, 62.5, true), set(6, 65, true), set(6, 65), set(6, 65)]
+      },
+      { name: "fly", sets: [set(12, 15), set(12, 15), set(12, 15)] }
+    ]),
+    templates
+  );
+
+  assert.equal(built.setLogs.length, 3, "only completed sets become rows — 3 of 8");
+  assert.deepEqual(
+    built.setLogs.map((row) => [row.setIndex, row.reps, row.weight]),
+    [
+      [0, 8, 60],
+      [1, 8, 62.5],
+      [2, 6, 65]
+    ],
+    "each row carries its own reps and weight, in session order"
+  );
+
+  assert.equal(built.logs.length, 1, "the un-started exercise drops from both");
+  assert.equal(
+    built.logs[0].totalVolume,
+    built.setLogs.reduce((sum, row) => sum + row.reps * row.weight, 0),
+    "the rollup is exactly the sum of the rows beneath it"
+  );
+  assert.ok(
+    built.setLogs.every((row) => row.logId === built.logs[0].id),
+    "every set row points at the rollup it belongs to — the FK the migration cascades on"
+  );
+}
+
+// A warm-up happened, and counts for nothing. Left in, it inflates exactly the
+// weekly set total the 10-20 band comparison rests on.
+{
+  const built = buildLogFromSession(
+    session([
+      {
+        name: "bench",
+        sets: [set(10, 20, true), set(8, 60, true), set(8, 60, true)]
+      }
+    ]),
+    templates
+  );
+  assert.equal(built.logs[0].totalSets, 3, "with nothing flagged, all three count");
+
+  const withWarmUp = buildLogFromSession(
+    {
+      ...session([{ name: "bench", sets: [] }]),
+      exercises: [
+        {
+          id: "e1",
+          workoutId: "bench",
+          templateName: "Bench press",
+          sets: [
+            { id: "w", reps: 10, weight: 20, type: "warmup", completed: true },
+            { id: "a", reps: 8, weight: 60, type: "normal", completed: true },
+            { id: "b", reps: 8, weight: 60, type: "normal", completed: true }
+          ]
+        }
+      ]
+    },
+    templates
+  );
+
+  assert.equal(withWarmUp.logs[0].totalSets, 2, "a warm-up is not a working set");
+  assert.equal(withWarmUp.logs[0].totalVolume, 8 * 60 * 2, "and carries none of the volume");
+  assert.equal(withWarmUp.setLogs.length, 2, "nor does it become a set row");
+}
+
+// A pull-up entered at 0 kg used to score zero volume against every chart in the
+// app. The lifter's own mass is the load.
+{
+  const bodyweightTemplates = [
+    { id: "pullup", name: "Pull-up", category: "Pull", isPreset: true, equipment: "Bodyweight", muscles: [] }
+  ];
+  const pullups = {
+    ...session([{ name: "bench", sets: [] }]),
+    exercises: [
+      {
+        id: "e1",
+        workoutId: "pullup",
+        templateName: "Pull-up",
+        sets: [{ id: "s1", reps: 10, weight: 0, type: "normal" as const, completed: true }]
+      }
+    ]
+  };
+
+  assert.equal(
+    buildLogFromSession(pullups, bodyweightTemplates, 80).logs[0].totalVolume,
+    10 * 80,
+    "reps x (bodyweight + added)"
+  );
+  assert.equal(
+    buildLogFromSession(
+      { ...pullups, exercises: [{ ...pullups.exercises[0], sets: [{ id: "s1", reps: 10, weight: 10, type: "normal" as const, completed: true }] }] },
+      bodyweightTemplates,
+      80
+    ).logs[0].totalVolume,
+    10 * 90,
+    "a weighted pull-up adds the belt to the lifter"
+  );
+  assert.equal(
+    buildLogFromSession(pullups, bodyweightTemplates, 0).logs[0].totalVolume,
+    0,
+    "with no profile weight it falls back to the old formula rather than inventing a body"
+  );
+  assert.equal(
+    buildLogFromSession(
+      { ...pullups, exercises: [{ ...pullups.exercises[0], workoutId: "bench" }] },
+      templates,
+      80
+    ).logs[0].totalVolume,
+    0,
+    "and a barbell lift is never credited with the lifter's mass"
+  );
+}
 
 // --- what Home opens, and what it counts ---
 
@@ -277,10 +403,60 @@ const heldLog = buildLogFromSession(
     ]
   },
   []
-)[0];
+).logs[0];
 assert.equal(heldLog.totalVolume, 0, "a hold adds no volume");
 assert.equal(heldLog.totalReps, 0, "a hold adds no reps");
 assert.equal(heldLog.peakWeight, 0, "a bodyweight hold never becomes a peak lift");
 assert.equal(heldLog.totalSets, 3, "but the sets still count, so streaks hold");
+
+// --- what "last" actually means ---
+//
+// The template used to supply it, so the number above the stepper was the plan
+// read back as history. These pin the three states it can now be in.
+{
+  const rollupOnly = [
+    { id: "l1", date: "2026-08-01", workoutId: "bench", name: "Bench", totalVolume: 0, peakWeight: 60, muscles: [] },
+    { id: "l2", date: "2026-08-08", workoutId: "bench", name: "Bench", totalVolume: 0, peakWeight: 65, muscles: [] }
+  ];
+
+  assert.equal(
+    lastPerformance("bench", [], []),
+    undefined,
+    "a first-ever performance has no last — not a fabricated one"
+  );
+
+  const fromRollup = lastPerformance("bench", rollupOnly, []);
+  assert.equal(fromRollup?.weight, 65, "the newest rollup wins, not the first in the array");
+  assert.equal(fromRollup?.reps, undefined, "a rollup does not know the reps behind its peak");
+  assert.equal(fromRollup?.source, "rollup");
+
+  const rows = [
+    { id: "s1", logId: "l1", workoutId: "bench", date: "2026-08-01", setIndex: 0, reps: 5, weight: 60 },
+    { id: "s2", logId: "l3", workoutId: "bench", date: "2026-08-15", setIndex: 0, reps: 8, weight: 70 },
+    { id: "s3", logId: "l3", workoutId: "bench", date: "2026-08-15", setIndex: 1, reps: 6, weight: 75 },
+    { id: "s4", logId: "l3", workoutId: "bench", date: "2026-08-15", setIndex: 2, reps: 4, weight: 62.5 },
+    { id: "s5", logId: "l3", workoutId: "other", date: "2026-08-20", setIndex: 0, reps: 10, weight: 200 }
+  ];
+
+  const fromSets = lastPerformance("bench", rollupOnly, rows);
+  assert.equal(fromSets?.source, "sets", "set rows beat a rollup even when the rollup is newer");
+  assert.equal(fromSets?.date, "2026-08-15");
+  assert.equal(fromSets?.weight, 75, "the top set of that day, not the last set — 62.5 was a back-off");
+  assert.equal(fromSets?.reps, 6);
+
+  // A template no longer supplies the number, so a lift with no history leaves
+  // both fields empty and Home renders "first time" instead of the plan.
+  const planned = plannedExercisesFromTemplate({
+    id: "t1",
+    name: "Push",
+    workoutIds: ["bench"],
+    summary: { totalSets: 0, totalReps: 0, totalWeight: 0 },
+    exercises: [
+      { id: "e1", workoutId: "bench", name: "Bench", muscles: [], sets: 2, reps: 8, weight: 60, restSeconds: 90 }
+    ]
+  });
+  assert.equal(planned[0].sets[0].previousWeight, undefined, "no history, no 'last'");
+  assert.equal(planned[0].sets[0].weight, 60, "the plan still supplies the *target*");
+}
 
 console.log("session log checks passed");

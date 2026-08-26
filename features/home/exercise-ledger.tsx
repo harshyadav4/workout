@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Check, Minus, Plus, Trash2 } from "lucide-react";
 
 import {
@@ -7,11 +8,37 @@ import {
   templateDatasetId
 } from "@/features/workout/exercise-media-dialog";
 import type { PlannedExercise, PlannedSet } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 const WEIGHT_STEP = 2.5;
 const MIN_REPS = 1;
 const DURATION_STEP = 5;
 const MIN_DURATION = 5;
+
+// Upper bounds so a held + button (or a fat-fingered keypad) can't run away.
+// Generous rather than sport-accurate: the point is a ceiling, not a rule.
+const MAX_WEIGHT = 500;
+const MAX_REPS = 100;
+const MAX_DURATION = 3600;
+
+/**
+ * What you lifted here last time, or an honest blank.
+ *
+ * This used to read `previousWeight ?? openSet.weight` — and since the template
+ * wrote its own numbers into `previousWeight`, it was the plan echoed back as
+ * history in both branches. A missing record now says so. A weight with no reps
+ * came from a `workout_logs` rollup, which knows the peak but not what went
+ * with it, so the wording narrows to match what is actually known.
+ */
+function lastSetLabel(setItem: PlannedSet): string {
+  if (setItem.previousWeight === undefined) {
+    return "first time";
+  }
+
+  return setItem.previousReps === undefined
+    ? `last top set ${setItem.previousWeight}kg`
+    : `last ${setItem.previousWeight}kg × ${setItem.previousReps}`;
+}
 
 function Stepper({
   label,
@@ -19,6 +46,8 @@ function Stepper({
   suffix,
   step,
   min,
+  max,
+  decimal = false,
   onChange
 }: {
   label: string;
@@ -26,8 +55,28 @@ function Stepper({
   suffix: string;
   step: number;
   min: number;
+  max: number;
+  /** Weight takes 2.5 steps and needs a decimal keypad; reps and holds don't. */
+  decimal?: boolean;
   onChange: (next: number) => void;
 }) {
+  // While the field is being typed into it holds a raw string, because a purely
+  // controlled numeric input fights you the moment you backspace to empty.
+  // `null` means "show the committed value".
+  const [draft, setDraft] = useState<string | null>(null);
+
+  const clamp = (next: number) => Math.min(max, Math.max(min, next));
+
+  const commitDraft = (raw: string) => {
+    const parsed = Number(raw);
+    // Unparseable input reverts rather than committing a 0 — dropping to zero
+    // mid-session is worse than ignoring the edit.
+    if (raw.trim() !== "" && Number.isFinite(parsed)) {
+      onChange(clamp(parsed));
+    }
+    setDraft(null);
+  };
+
   return (
     <div className="rounded-2xl bg-background/70 p-2">
       <p className="text-center text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
@@ -38,21 +87,44 @@ function Stepper({
           type="button"
           aria-label={`Decrease ${label}`}
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-secondary text-foreground transition-colors hover:bg-secondary/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-95"
-          onClick={() => onChange(Math.max(min, value - step))}
+          onClick={() => onChange(clamp(value - step))}
         >
           <Minus className="h-5 w-5" />
         </button>
-        <span className="font-mono text-2xl font-bold tabular-nums tracking-tight">
-          {value}
-          <span className="ml-0.5 align-top text-[10px] font-normal uppercase tracking-widest text-muted-foreground">
+        {/* The number is the input. Steppers are right for a nudge between
+            sets; typing is right for the jump from a 20kg default to a 100kg
+            squat, which was 32 taps. Focus selects, so one tap then type
+            replaces rather than appends. Native spinners are off — this has
+            its own. */}
+        <label className="flex min-w-0 flex-1 items-baseline justify-center">
+          <span className="sr-only">{label}</span>
+          <input
+            type="number"
+            inputMode={decimal ? "decimal" : "numeric"}
+            step={step}
+            min={min}
+            max={max}
+            value={draft ?? value}
+            onFocus={(event) => event.target.select()}
+            onChange={(event) => {
+              setDraft(event.target.value);
+              const parsed = Number(event.target.value);
+              if (event.target.value.trim() !== "" && Number.isFinite(parsed)) {
+                onChange(clamp(parsed));
+              }
+            }}
+            onBlur={(event) => commitDraft(event.target.value)}
+            className="w-full min-w-0 bg-transparent text-center font-mono text-2xl font-bold tabular-nums tracking-tight text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+          />
+          <span className="ml-0.5 shrink-0 align-top text-[10px] font-normal uppercase tracking-widest text-muted-foreground">
             {suffix}
           </span>
-        </span>
+        </label>
         <button
           type="button"
           aria-label={`Increase ${label}`}
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-secondary text-foreground transition-colors hover:bg-secondary/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-95"
-          onClick={() => onChange(value + step)}
+          onClick={() => onChange(clamp(value + step))}
         >
           <Plus className="h-5 w-5" />
         </button>
@@ -199,14 +271,7 @@ export function ExerciseLedger({
               Set {exercise.sets.indexOf(openSet) + 1}
             </p>
             <p className="font-mono text-xs tabular-nums text-muted-foreground">
-              {isTime ? (
-                <>target {openSet.durationSeconds ?? 0}s</>
-              ) : (
-                <>
-                  last {openSet.previousWeight ?? openSet.weight}kg ×{" "}
-                  {openSet.previousReps ?? openSet.reps}
-                </>
-              )}
+              {isTime ? <>target {openSet.durationSeconds ?? 0}s</> : lastSetLabel(openSet)}
             </p>
           </div>
 
@@ -220,6 +285,8 @@ export function ExerciseLedger({
               value={openSet.weight}
               step={WEIGHT_STEP}
               min={0}
+              max={MAX_WEIGHT}
+              decimal
               onChange={(weight) => onPatchSet(openSet.id, { weight })}
             />
             {isTime ? (
@@ -229,6 +296,7 @@ export function ExerciseLedger({
                 value={openSet.durationSeconds ?? 0}
                 step={DURATION_STEP}
                 min={MIN_DURATION}
+                max={MAX_DURATION}
                 onChange={(durationSeconds) => onPatchSet(openSet.id, { durationSeconds })}
               />
             ) : (
@@ -238,10 +306,35 @@ export function ExerciseLedger({
                 value={openSet.reps}
                 step={1}
                 min={MIN_REPS}
+                max={MAX_REPS}
                 onChange={(reps) => onPatchSet(openSet.id, { reps })}
               />
             )}
           </div>
+
+          {/* A warm-up is logged so the ledger is honest about what happened,
+              then kept out of every total. Off by default: most sets are work. */}
+          <button
+            type="button"
+            role="switch"
+            aria-checked={openSet.type === "warmup"}
+            onClick={() =>
+              onPatchSet(openSet.id, {
+                type: openSet.type === "warmup" ? "normal" : "warmup"
+              })
+            }
+            className={cn(
+              "mt-3 flex min-h-11 w-full items-center justify-between rounded-2xl px-4 text-sm transition-colors",
+              openSet.type === "warmup"
+                ? "bg-warning/15 text-warning ring-1 ring-warning/40"
+                : "bg-secondary/50 text-muted-foreground"
+            )}
+          >
+            <span>Warm-up set</span>
+            <span className="font-mono text-xs uppercase tracking-[0.18em]">
+              {openSet.type === "warmup" ? "not counted" : "counts"}
+            </span>
+          </button>
 
           <div className="mt-3 flex gap-2">
             <button
