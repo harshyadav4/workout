@@ -243,6 +243,41 @@ export function isRecordingDue(
   );
 }
 
+/**
+ * The three sites worth asking for on a finish screen.
+ *
+ * Eleven is a form. Three is a question you answer standing up, and they are the
+ * three that move: the scale, the one lifters actually watch, and the one that
+ * says whether the weight went the right way.
+ */
+export const PROMPT_METRICS: BodyMetric[] = ["weight", "armR", "waist"];
+
+/**
+ * What to ask for at the end of a session, if anything.
+ *
+ * Girth is half of the correlation this app is built around and nothing was
+ * collecting it: the only surface was a dot on the Profile tab, so a tape
+ * reading happened by accident. `MuscleGirthCard` correctly returns null with no
+ * measurements, which is also why the differentiating chart was invisible by
+ * default.
+ *
+ * Returns the metrics that are owed **now**, so it fires once per cadence
+ * period rather than after every session — recording clears the cadence, and the
+ * next session inside the same period asks for nothing.
+ */
+export function metricsToPrompt(
+  measurements: BodyMeasurement[],
+  profile: Pick<ProfileInfo, "weightCadence" | "measurementCadence">,
+  today = todayKey()
+): BodyMetric[] {
+  const weightDue = dueState(measurements, ["weight"], profile.weightCadence, today).due;
+  const tapeDue = dueState(measurements, TAPE_METRICS, profile.measurementCadence, today).due;
+
+  return PROMPT_METRICS.filter((metric) =>
+    metric === "weight" ? weightDue : tapeDue
+  );
+}
+
 /** Change from the previous reading to the latest. Undefined until there are two. */
 export function changeFor(
   measurements: BodyMeasurement[],

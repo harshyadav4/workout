@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarPlus, Check, Info, Moon, PlayCircle } from "lucide-react";
+import { CalendarPlus, Check, Info, Moon, PlayCircle, Plus } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
@@ -9,12 +9,17 @@ import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { ExerciseLedger } from "@/features/home/exercise-ledger";
 import { MuscleMapCard } from "@/features/home/muscle-map-card";
+import { MeasurementPrompt } from "@/features/home/measurement-prompt";
+import { QuickStart, WorkoutPicker } from "@/features/home/quick-start";
+import { useScreenWakeLock } from "@/features/home/use-wake-lock";
+import { RestTimerBar, useRestTimer } from "@/features/home/rest-timer";
 import { StreakCard } from "@/features/home/streak-card";
 import {
   useSelectedTodaySession,
   useTodaySessions,
   useWorkoutStore
 } from "@/features/workout/workout-store";
+import { summarizeSession, type SessionSummary } from "@/lib/progress-metrics";
 import { resolveDayState } from "@/lib/schedule";
 import type { PlannedSet, ScheduledSession } from "@/lib/types";
 import { formatVolume } from "@/lib/utils";
@@ -122,6 +127,90 @@ function NextUp({ session }: { session?: ScheduledSession }) {
   );
 }
 
+/**
+ * What the session earned, in place of "Logged. It is on your progress charts."
+ *
+ * Nothing here is rendered when it is not known: a first run of a session shows
+ * no comparison rather than +0%, and a first-ever lift is a baseline, not a PR.
+ */
+function FinishSummary({ summary }: { summary?: SessionSummary }) {
+  if (!summary) {
+    return (
+      <div className="mt-4 flex items-center gap-3 rounded-2xl bg-secondary/40 px-4 py-3 text-sm ring-1 ring-white/5">
+        <Info className="h-4 w-4 shrink-0 text-muted-foreground" />
+        <p className="text-muted-foreground">
+          Finished with nothing logged — no sets were ticked off, so there is nothing to save.
+        </p>
+      </div>
+    );
+  }
+
+  const change = summary.volumeChange;
+
+  return (
+    <div className="mt-4 space-y-3 rounded-2xl bg-success/10 p-4 ring-1 ring-success/25">
+      <div className="flex items-center gap-3">
+        <Check className="h-5 w-5 shrink-0 text-success" />
+        <p className="text-sm font-semibold">Session logged</p>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2 text-center">
+        {[
+          { label: "Sets", value: String(summary.sets) },
+          { label: "Reps", value: String(summary.reps) },
+          { label: "Volume", value: `${formatVolume(summary.volume)}kg` }
+        ].map((stat) => (
+          <div key={stat.label} className="rounded-xl bg-background/40 px-2 py-2">
+            <p className="font-mono text-lg font-bold tabular-nums">{stat.value}</p>
+            <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
+              {stat.label}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      {change === undefined ? null : (
+        <p className="text-sm">
+          <span className={change >= 0 ? "font-semibold text-success" : "font-semibold text-warning"}>
+            {change >= 0 ? "+" : ""}
+            {Math.round(change)}%
+          </span>{" "}
+          <span className="text-muted-foreground">volume against the last time you ran this</span>
+        </p>
+      )}
+
+      {summary.personalRecords.length > 0 ? (
+        <p className="text-sm">
+          <span className="font-semibold text-primary">
+            {summary.personalRecords.length === 1 ? "New best" : "New bests"}
+          </span>{" "}
+          <span className="text-muted-foreground">
+            {summary.personalRecords
+              .map((record) => `${record.name} at ${record.weight}kg`)
+              .join(", ")}
+          </span>
+        </p>
+      ) : null}
+
+      {summary.muscles.length > 0 ? (
+        <div>
+          <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">What you hit</p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {summary.muscles.map((muscle) => (
+              <span
+                key={muscle.muscleId}
+                className="rounded-full bg-background/50 px-3 py-1 font-mono text-xs tabular-nums"
+              >
+                {muscle.name} {Math.round(muscle.share)}%
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function HomeDashboard() {
   const todaySessions = useTodaySessions();
   const selectedSession = useSelectedTodaySession();
@@ -129,6 +218,7 @@ export function HomeDashboard() {
   const sessionTemplates = useWorkoutStore((state) => state.sessionTemplates);
   const activeDate = useWorkoutStore((state) => state.activeDate);
   const templates = useWorkoutStore((state) => state.templates);
+  const bodyweightKg = useWorkoutStore((state) => state.profile.weightKg);
   const muscles = useWorkoutStore((state) => state.muscles);
   const selectedMuscleId = useWorkoutStore((state) => state.selectedMuscleId);
   const setSelectedMuscle = useWorkoutStore((state) => state.setSelectedMuscle);
@@ -136,8 +226,12 @@ export function HomeDashboard() {
   const startSession = useWorkoutStore((state) => state.startSession);
   const updateSessionSet = useWorkoutStore((state) => state.updateSessionSet);
   const addSetToSession = useWorkoutStore((state) => state.addSetToSession);
+  const logs = useWorkoutStore((state) => state.logs);
+  const addExerciseToSession = useWorkoutStore((state) => state.addExerciseToSession);
   const removeSetFromSession = useWorkoutStore((state) => state.removeSetFromSession);
   const logTodayWorkout = useWorkoutStore((state) => state.logTodayWorkout);
+  const rest = useRestTimer();
+  const [addingExercise, setAddingExercise] = useState(false);
 
   const [pickedSetId, setPickedSetId] = useState<string>();
   // ponytail: the stamp replays only when this id changes, so re-logging the
@@ -155,9 +249,24 @@ export function HomeDashboard() {
     [activeDate, scheduledSessions, selectedSession, sessionTemplates.length]
   );
 
+  // Before the early returns below, because hooks cannot live after one. The
+  // lock is dropped the moment the session is finished or the tab backgrounds.
+  useScreenWakeLock(day.kind === "logging");
+
+  // The logs this session just wrote, against everything logged before today.
+  const sessionSummary = useMemo(() => {
+    if (day.kind !== "done") {
+      return undefined;
+    }
+    const written = logs.filter(
+      (log) => log.date === activeDate && (log.sessionId ?? "") === (day.session.sessionTemplateId ?? day.session.id)
+    );
+    return summarizeSession(written, logs);
+  }, [activeDate, day, logs]);
+
   const session = day.kind === "setup" || day.kind === "open" ? undefined : day.session;
   const next = day.kind === "setup" ? undefined : day.next;
-  const totals = sessionTotals(session);
+  const totals = sessionTotals(session, templates, bodyweightKg);
 
   // A picked set only survives while it still exists in today's session.
   const pickedExists = session?.exercises.some((exercise) =>
@@ -200,9 +309,23 @@ export function HomeDashboard() {
     if (!session) {
       return;
     }
+    const exercise = session.exercises.find((item) => item.id === exerciseId);
+    const alreadyLogged = exercise?.sets.find((item) => item.id === setId)?.completed;
+
     updateSessionSet(session.id, exerciseId, setId, { completed: true });
     setStampedSetId(setId);
     setPickedSetId(undefined); // fall back to the next pending set
+
+    // Only a newly logged set starts the clock. "Update set" is a correction to
+    // something already done, and restarting rest on it would be wrong.
+    if (!alreadyLogged) {
+      rest.start(exercise?.restSeconds);
+    }
+  };
+
+  const finishSession = () => {
+    rest.skip();
+    logTodayWorkout();
   };
 
   if (day.kind === "setup") {
@@ -220,10 +343,13 @@ export function HomeDashboard() {
             Put a session together once — exercises, sets, weights — then schedule it across the
             weeks. This screen becomes your logbook.
           </p>
-          <Button asChild size="lg" className="mt-5 w-full">
+          <Button asChild variant="secondary" size="lg" className="mt-5 w-full">
             <Link href="/plan?mode=build">Create a session</Link>
           </Button>
         </Card>
+        {/* Above the map, below the pitch: the fastest path from install to a
+            logged set, for someone who is already at the gym. */}
+        <QuickStart />
         <MuscleMapCard
           title="Muscle map"
           description="Once a session is scheduled, the muscles it works light up here."
@@ -274,6 +400,9 @@ export function HomeDashboard() {
             </Button>
           )}
         </Card>
+        {/* Not on a rest day — the plan says recover, and offering a session
+            there argues with it. */}
+        {isRest ? null : <QuickStart />}
         <StreakCard />
         <MuscleMapCard
           title="Muscle map"
@@ -341,12 +470,17 @@ export function HomeDashboard() {
         ) : null}
 
         {isDone ? (
-          <div className="mt-4 flex items-center gap-3 rounded-2xl bg-success/10 px-4 py-3 text-sm ring-1 ring-success/25">
-            <Check className="h-4 w-4 shrink-0 text-success" />
-            <p className="text-muted-foreground">Logged. It is on your progress charts.</p>
-          </div>
+          <>
+            <FinishSummary summary={sessionSummary} />
+            {/* Below the payoff, never above it. The reward comes first. */}
+            <MeasurementPrompt />
+          </>
         ) : null}
       </Card>
+
+      {isLogging && rest.active ? (
+        <RestTimerBar remaining={rest.remaining} onExtend={rest.extend} onSkip={rest.skip} />
+      ) : null}
 
       {day.session.exercises.length > 0 ? (
         <Card>
@@ -374,6 +508,31 @@ export function HomeDashboard() {
               />
             ))}
           </div>
+
+          {/* The rack was taken, or you felt like one more. Without this the
+              only options were skip it or leave the app. */}
+          {isLogging ? (
+            <div className="mt-3 border-t border-white/5 pt-3">
+              {addingExercise ? (
+                <WorkoutPicker
+                  confirmLabel="Add"
+                  onConfirm={(exercises) => {
+                    addExerciseToSession(day.session.id, exercises);
+                    setAddingExercise(false);
+                  }}
+                />
+              ) : (
+                <Button
+                  variant="ghost"
+                  className="w-full"
+                  onClick={() => setAddingExercise(true)}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add an exercise
+                </Button>
+              )}
+            </div>
+          ) : null}
         </Card>
       ) : null}
 
@@ -389,7 +548,7 @@ export function HomeDashboard() {
       ) : null}
 
       {isLogging ? (
-        <Button size="lg" className="w-full" onClick={logTodayWorkout}>
+        <Button size="lg" className="w-full" onClick={finishSession}>
           Finish session
         </Button>
       ) : null}

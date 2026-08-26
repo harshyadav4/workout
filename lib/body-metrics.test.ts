@@ -6,6 +6,7 @@ import {
   dueState,
   hasAny,
   mergeSeries,
+  metricsToPrompt,
   seriesFor,
   sitesForMuscle,
   unitFor,
@@ -117,7 +118,7 @@ assert.equal(
 // Body measurements must never reach the training aggregations. A plank and a
 // weigh-in both score zero volume, but for different reasons, and a measurement
 // entering buildLogFromSession would corrupt every volume figure on Progress.
-const logs = buildLogFromSession(
+const { logs } = buildLogFromSession(
   {
     id: "s1",
     date: "2026-08-01",
@@ -143,5 +144,50 @@ assert.ok(
   !Object.keys(logs[0]).some((key) => key.includes("measurement") || key.includes("metric")),
   "WorkoutLog carries no measurement fields — the two series stay separate"
 );
+
+// --- the finish-screen prompt ---
+//
+// The rule that matters: once per cadence period, not once per session. A prompt
+// after every workout is the fastest way to teach someone to dismiss it.
+{
+  const weekly = { weightCadence: "weekly" as const, measurementCadence: "monthly" as const };
+
+  assert.deepEqual(
+    metricsToPrompt([], weekly, "2026-08-26"),
+    ["weight", "armR", "waist"],
+    "nothing recorded yet: everything is owed"
+  );
+
+  const justWeighed = [
+    { id: "w", date: "2026-08-25", metric: "weight" as const, value: 80 }
+  ];
+  assert.deepEqual(
+    metricsToPrompt(justWeighed, weekly, "2026-08-26"),
+    ["armR", "waist"],
+    "the scale is not asked for again the day after it was recorded"
+  );
+
+  const measuredToo = [
+    ...justWeighed,
+    { id: "a", date: "2026-08-25", metric: "chest" as const, value: 104 }
+  ];
+  assert.deepEqual(
+    metricsToPrompt(measuredToo, weekly, "2026-08-26"),
+    [],
+    "and a second session inside the same period asks for nothing at all"
+  );
+
+  assert.deepEqual(
+    metricsToPrompt(measuredToo, weekly, "2026-09-02"),
+    ["weight"],
+    "a week later the scale comes back, but the tape does not until the month is up"
+  );
+
+  assert.deepEqual(
+    metricsToPrompt([], { weightCadence: "off", measurementCadence: "off" }, "2026-08-26"),
+    [],
+    "cadence off is never a prompt — the user said no"
+  );
+}
 
 console.log("body metrics checks passed");
