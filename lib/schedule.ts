@@ -95,16 +95,46 @@ function* eachDay(start: string, end: string): Generator<{ key: string; weekday:
 }
 
 /**
+ * Days of schedule left after `from`.
+ *
+ * The default horizon is eight weeks and nothing regenerates it. In week nine
+ * the calendar simply empties, with no warning and nothing to explain it — the
+ * app looks broken on the day it matters most.
+ *
+ * Counts only what is still ahead: a config whose window has already closed
+ * returns 0, not a negative.
+ */
+export function daysOfScheduleLeft(config: ScheduleConfig | undefined, from: string): number {
+  if (!config?.endDate || config.endDate < from) {
+    return 0;
+  }
+
+  const MS_PER_DAY = 24 * 60 * 60 * 1000;
+  const end = new Date(`${config.endDate}T00:00:00`).getTime();
+  const start = new Date(`${from}T00:00:00`).getTime();
+
+  return Math.max(0, Math.round((end - start) / MS_PER_DAY));
+}
+
+/**
  * Merge a freshly generated plan over the existing one.
- * Sessions that are active or completed are a record of work done, so they
- * survive regeneration and the new plan skips their dates rather than
- * duplicating them. Everything still merely `planned` is replaced.
+ *
+ * Two things survive regeneration: work already done (`active`/`completed`, a
+ * record rather than a plan) and anything the user put on the calendar
+ * themselves. Only what this generator produced last time — `source: "repeat"`,
+ * still `planned` — is its to replace.
+ *
+ * The source clause is why an ad-hoc session started from Home does not need a
+ * third `source` value to survive: it is `manual`, like a hand-scheduled
+ * session, and both were being silently regenerated away.
  */
 export function mergeGeneratedSessions(
   existing: ScheduledSession[],
   generated: ScheduledSession[]
 ): ScheduledSession[] {
-  const kept = existing.filter((session) => session.status !== "planned");
+  const kept = existing.filter(
+    (session) => session.status !== "planned" || session.source !== "repeat"
+  );
   const keptDates = new Set(kept.map((session) => session.date));
 
   return [...kept, ...generated.filter((session) => !keptDates.has(session.date))].sort((a, b) =>

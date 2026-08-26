@@ -1,7 +1,12 @@
 // Run with: npm run check
 import assert from "node:assert/strict";
 
-import { type DayState, mergeGeneratedSessions, resolveDayState } from "@/lib/schedule";
+import {
+  daysOfScheduleLeft,
+  type DayState,
+  mergeGeneratedSessions,
+  resolveDayState
+} from "@/lib/schedule";
 import type { ScheduledSession } from "@/lib/types";
 
 function session(
@@ -54,6 +59,61 @@ assert.deepEqual(mergeGeneratedSessions([session("2026-07-22", "Legs", "planned"
 
 // Nothing generated (no templates, bad range) still keeps the record.
 assert.deepEqual(mergeGeneratedSessions(existing, []), [existing[0], existing[1]]);
+
+// A session the user put there themselves survives a regeneration of the window
+// it sits in. Quick-log from Home writes exactly this shape, so without it the
+// whole no-planning-required path is erased the next time the schedule is built.
+{
+  const mine: ScheduledSession = {
+    id: "adhoc",
+    date: "2026-08-26",
+    dayIndex: 3,
+    sessionName: "Chest, whatever was free",
+    exercises: [],
+    type: "workout",
+    status: "planned",
+    source: "manual"
+  };
+  const generated: ScheduledSession = { ...mine, id: "gen", sessionName: "Push", source: "repeat" };
+  const stale: ScheduledSession = {
+    ...generated,
+    id: "stale",
+    date: "2026-08-27",
+    sessionName: "Pull"
+  };
+
+  const merged = mergeGeneratedSessions([mine, stale], [generated]);
+  assert.ok(
+    merged.some((session) => session.id === "adhoc"),
+    "a manually created session is not the generator's to delete"
+  );
+  assert.ok(
+    !merged.some((session) => session.id === "stale"),
+    "but its own previous output still is"
+  );
+}
+
+// The horizon. Eight weeks is the default and nothing extends it, so the only
+// thing standing between a user and an empty calendar is this number.
+{
+  const config = {
+    startDate: "2026-08-01",
+    endDate: "2026-09-01",
+    mode: "weekly" as const,
+    weekly: {},
+    rotationOrder: [],
+    restWeekdays: []
+  };
+
+  assert.equal(daysOfScheduleLeft(config, "2026-08-25"), 7);
+  assert.equal(daysOfScheduleLeft(config, "2026-09-01"), 0, "the last day is not a day left");
+  assert.equal(
+    daysOfScheduleLeft(config, "2026-09-20"),
+    0,
+    "an expired horizon is zero days left, never negative"
+  );
+  assert.equal(daysOfScheduleLeft(undefined, "2026-08-25"), 0, "no schedule is no horizon");
+}
 
 console.log("schedule merge checks passed");
 

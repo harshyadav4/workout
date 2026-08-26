@@ -15,9 +15,9 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { MuscleMapCard } from "@/features/home/muscle-map-card";
-import { buildExercisesFromSessionTemplate, useWorkoutStore } from "@/features/workout/workout-store";
+import { useExercisesFromSessionTemplate, useWorkoutStore } from "@/features/workout/workout-store";
 import { formatDayKey } from "@/lib/progress-metrics";
-import { buildScheduleSessions } from "@/lib/schedule";
+import { buildScheduleSessions, daysOfScheduleLeft } from "@/lib/schedule";
 import { muscles } from "@/lib/seed-data";
 import type { MuscleId, ScheduleConfig, ScheduleMode, ScheduledSession } from "@/lib/types";
 import { addDays, buildWeekDates, dateKey, todayKey } from "@/lib/utils";
@@ -25,6 +25,9 @@ import { buildMuscleHighlightsFromWorkoutIds } from "@/lib/workout-helpers";
 
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const DEFAULT_WEEKS = 8;
+// Two weeks' notice: long enough to act on, short enough not to nag from week
+// three of eight.
+const HORIZON_WARNING_DAYS = 14;
 
 // `planned` / `completed` are the store's names for these, not the user's.
 const STATUS_LABELS: Record<string, string> = {
@@ -57,6 +60,7 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
   const generateSchedule = useWorkoutStore((state) => state.generateSchedule);
   const removeScheduledSession = useWorkoutStore((state) => state.removeScheduledSession);
   const scheduleSession = useWorkoutStore((state) => state.scheduleSession);
+  const buildExercises = useExercisesFromSessionTemplate();
   const templates = useWorkoutStore((state) => state.templates);
 
   const [weekOffset, setWeekOffset] = useState(0);
@@ -132,7 +136,7 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
       date: selectedDate,
       sessionTemplateId: template.id,
       sessionName: template.name,
-      exercises: buildExercisesFromSessionTemplate(template)
+      exercises: buildExercises(template)
     });
     setConfirmation(null);
   };
@@ -218,6 +222,25 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
     );
   };
 
+  // Nothing regenerates the schedule, so this is the only thing between the user
+  // and a calendar that empties mid-week without explanation.
+  const daysLeft = daysOfScheduleLeft(scheduleConfig, todayKey());
+  const horizonRunningOut = Boolean(scheduleConfig) && daysLeft <= HORIZON_WARNING_DAYS;
+
+  const extendHorizon = () => {
+    if (!scheduleConfig) {
+      return;
+    }
+    // From today, not from the old end date — an already-expired schedule should
+    // come back covering now, not covering the fortnight you missed.
+    const from = scheduleConfig.endDate > todayKey() ? scheduleConfig.endDate : todayKey();
+    const next = dateKey(addDays(new Date(`${from}T00:00:00`), DEFAULT_WEEKS * 7));
+
+    setEndDate(next);
+    generateSchedule({ ...scheduleConfig, endDate: next });
+    setConfirmation(`Schedule extended through ${formatDayKey(next)}`);
+  };
+
   if (sessionTemplates.length === 0) {
     return (
       <Card>
@@ -233,6 +256,29 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
 
   return (
     <div className="space-y-4">
+      {horizonRunningOut ? (
+        <Card>
+          <div className="flex items-start gap-3">
+            <CalendarDays className="mt-0.5 h-5 w-5 shrink-0 text-warning" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold">
+                {daysLeft === 0
+                  ? "Your schedule has run out"
+                  : `Your schedule ends in ${daysLeft} day${daysLeft === 1 ? "" : "s"}`}
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {daysLeft === 0
+                  ? "There is nothing on the calendar past today. Extend it and the same plan carries on."
+                  : "After that the calendar is empty. Extending keeps the same sessions and rest days."}
+              </p>
+              <Button variant="secondary" className="mt-3 w-full" onClick={extendHorizon}>
+                Extend {DEFAULT_WEEKS} more weeks
+              </Button>
+            </div>
+          </div>
+        </Card>
+      ) : null}
+
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between gap-2">
