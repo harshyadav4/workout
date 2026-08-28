@@ -21,9 +21,17 @@ import { MuscleSelectView } from "@/features/planner/muscle-drawer";
 import { ExerciseMediaView, templateDatasetId } from "@/features/workout/exercise-media-dialog";
 import { useWorkoutStore } from "@/features/workout/workout-store";
 import { deriveEngagement, type Exercise } from "@/lib/exercises";
+import { evenTarget } from "@/lib/per-side";
+import { cn } from "@/lib/utils";
+import {
+  DEFAULT_INCREMENT_KG,
+  DEFAULT_INCREMENT_SECONDS,
+  PROGRESSION_LABELS
+} from "@/lib/progression";
 import { buildSessionSummary } from "@/lib/workout-helpers";
 import type {
   ExerciseMetric,
+  ProgressionSettings,
   MuscleId,
   SessionTemplate,
   SessionTemplateExercise,
@@ -46,6 +54,7 @@ type BuilderExercise = {
   notes?: string;
   metric?: ExerciseMetric;
   durationSeconds?: number;
+  perSide?: boolean;
 };
 
 const DEFAULT_HOLD_SECONDS = 45;
@@ -93,7 +102,8 @@ function toBuilderExercise(exercise: SessionTemplateExercise): BuilderExercise {
     restSeconds: exercise.restSeconds,
     notes: exercise.notes,
     metric: exercise.metric,
-    durationSeconds: exercise.durationSeconds
+    durationSeconds: exercise.durationSeconds,
+    perSide: exercise.perSide
   };
 }
 
@@ -146,6 +156,13 @@ export function PlanBuild() {
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sessionName, setSessionName] = useState("");
+  // ponytail: session-level only. The model also honours a per-exercise
+  // override (see SessionTemplateExercise.progression) — expose it when
+  // someone actually needs +5kg on deadlift and +1.25 on curls.
+  const [progression, setProgression] = useState<ProgressionSettings>({ rule: "off" });
+  // The one rule that steps in seconds, so the increment field below is a hold
+  // and not a plate.
+  const isTimeRule = progression.rule === "time";
   const [builderExercises, setBuilderExercises] = useState<BuilderExercise[]>([createEmptyExercise()]);
   const [error, setError] = useState<BuilderError | null>(null);
   const [pickerCardId, setPickerCardId] = useState<string | null>(null);
@@ -160,6 +177,7 @@ export function PlanBuild() {
   const resetBuilder = () => {
     setEditingId(null);
     setSessionName("");
+    setProgression({ rule: "off" });
     setBuilderExercises([createEmptyExercise()]);
     setError(null);
     setPickerCardId(null);
@@ -169,6 +187,7 @@ export function PlanBuild() {
   const openEdit = (session: SessionTemplate) => {
     setEditingId(session.id);
     setSessionName(session.name);
+    setProgression(session.progression ?? { rule: "off" });
     setBuilderExercises(session.exercises.map(toBuilderExercise));
     setError(null);
     setPickerCardId(null);
@@ -296,7 +315,9 @@ export function PlanBuild() {
           ...exercise,
           sets: clampNumber(exercise.sets, 1),
           // Zero reps on a hold is deliberate — see ExerciseMetric in types.ts.
-          reps: isTime ? 0 : clampNumber(exercise.reps, 1),
+          // A unilateral target must stay even or it describes a set one
+          // side could not have done. See lib/per-side.
+          reps: isTime ? 0 : evenTarget(clampNumber(exercise.reps, 1), exercise.perSide),
           durationSeconds: isTime
             ? clampNumber(exercise.durationSeconds ?? DEFAULT_HOLD_SECONDS, 5)
             : undefined,
@@ -338,7 +359,8 @@ export function PlanBuild() {
         restSeconds: exercise.restSeconds,
         notes: notes ? notes : undefined,
         metric: exercise.metric,
-        durationSeconds: exercise.durationSeconds
+        durationSeconds: exercise.durationSeconds,
+        perSide: exercise.perSide
       };
     });
 
@@ -355,7 +377,21 @@ export function PlanBuild() {
       name: trimmedName,
       workoutIds: exercises.map((exercise) => exercise.workoutId),
       exercises,
-      summary
+      summary,
+      // Undefined rather than `{ rule: "off" }` — off is the absence of a rule,
+      // and storing it would write a field onto every session ever saved.
+      progression:
+        progression.rule === "off"
+          ? undefined
+          : progression.rule === "time"
+            ? {
+                ...progression,
+                incrementSeconds: clampNumber(
+                  progression.incrementSeconds ?? DEFAULT_INCREMENT_SECONDS,
+                  0
+                )
+              }
+            : { ...progression, incrementKg: clampNumber(progression.incrementKg ?? DEFAULT_INCREMENT_KG, 0, false) }
     };
 
     const saved = editingId
@@ -457,6 +493,85 @@ export function PlanBuild() {
                     <span className="mt-1 block text-sm text-danger">{error.message}</span>
                   ) : null}
                 </label>
+
+                {/* The rule that decides the weight when this session opens.
+                    Off keeps the numbers below exactly as typed, which is what
+                    every session built before this existed still does. */}
+                <div className="rounded-2xl bg-secondary/30 p-3">
+                  <label className="block text-xs text-muted-foreground">
+                    Progression
+                    <select
+                      className="mt-1 w-full rounded-2xl bg-secondary/50 px-3 py-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      value={progression.rule}
+                      onChange={(event) =>
+                        setProgression((current) => ({
+                          ...current,
+                          rule: event.target.value as ProgressionSettings["rule"]
+                        }))
+                      }
+                    >
+                      {Object.entries(PROGRESSION_LABELS).map(([rule, label]) => (
+                        <option key={rule} value={rule}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  {progression.rule !== "off" ? (
+                    <div className="mt-2 flex gap-2">
+                      <label className="block flex-1 text-xs text-muted-foreground">
+                        {isTimeRule ? "Add per jump (s)" : "Add per jump (kg)"}
+                        <Input
+                          className="mt-1"
+                          type="number"
+                          inputMode="decimal"
+                          step={isTimeRule ? "1" : "0.5"}
+                          min={0}
+                          value={
+                            isTimeRule
+                              ? progression.incrementSeconds ?? DEFAULT_INCREMENT_SECONDS
+                              : progression.incrementKg ?? DEFAULT_INCREMENT_KG
+                          }
+                          onChange={(event) => {
+                            const value = Number(event.target.value);
+                            setProgression((current) =>
+                              isTimeRule
+                                ? { ...current, incrementSeconds: value }
+                                : { ...current, incrementKg: value }
+                            );
+                          }}
+                        />
+                      </label>
+                      {progression.rule === "double" ? (
+                        <label className="block flex-1 text-xs text-muted-foreground">
+                          Top of rep range
+                          <Input
+                            className="mt-1"
+                            type="number"
+                            inputMode="numeric"
+                            min={1}
+                            value={progression.repMax ?? 12}
+                            onChange={(event) =>
+                              setProgression((current) => ({
+                                ...current,
+                                repMax: Number(event.target.value)
+                              }))
+                            }
+                          />
+                        </label>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {progression.rule === "off"
+                      ? "Sessions open with the weights you type below."
+                      : isTimeRule
+                        ? "Holds get longer only when you reach the target. Two short sessions cut it 10%."
+                        : "Missed reps never move the weight up. Two stalls at one weight drops it 10%."}
+                  </p>
+                </div>
                 {builderExercises.map((exercise, exerciseIndex) => (
                   <div key={exercise.id} className="rounded-3xl bg-secondary/50 p-4">
                     <div className="mb-3 flex items-center justify-between">
@@ -585,6 +700,36 @@ export function PlanBuild() {
                                 updateExercise(exercise.id, { reps: Number(event.target.value) })
                               }
                             />
+                          </label>
+                        )}
+                        {exercise.metric === "time" ? null : (
+                          <label className="col-span-2 flex items-center justify-between text-xs text-muted-foreground">
+                            <span>
+                              Reps are the total across both sides
+                              <span className="mt-0.5 block text-[11px]">
+                                Lunges, single-arm rows — logged as a total, shown as a split
+                              </span>
+                            </span>
+                            <button
+                              type="button"
+                              role="switch"
+                              aria-checked={Boolean(exercise.perSide)}
+                              aria-label="Reps per side"
+                              onClick={() =>
+                                updateExercise(exercise.id, { perSide: !exercise.perSide })
+                              }
+                              className={cn(
+                                "ml-3 h-6 w-11 shrink-0 rounded-full transition-colors",
+                                exercise.perSide ? "bg-primary" : "bg-secondary"
+                              )}
+                            >
+                              <span
+                                className={cn(
+                                  "block h-5 w-5 rounded-full bg-background transition-transform",
+                                  exercise.perSide ? "translate-x-[22px]" : "translate-x-[2px]"
+                                )}
+                              />
+                            </button>
                           </label>
                         )}
                         <label className="text-xs text-muted-foreground">

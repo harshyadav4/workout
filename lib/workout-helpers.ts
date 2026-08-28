@@ -1,4 +1,6 @@
 import { muscles } from "@/lib/seed-data";
+import { evenTarget } from "@/lib/per-side";
+import { nextTarget } from "@/lib/progression";
 import type {
   ExerciseSetTemplate,
   MuscleId,
@@ -21,6 +23,36 @@ export function firstPendingSetId(session?: ScheduledSession) {
     }
   }
   return undefined;
+}
+
+/**
+ * The set to open after `afterSetId` was logged: the next unlogged one *after*
+ * it, wrapping to anything left behind once the session runs out.
+ *
+ * Home used to clear its pick and fall back to `firstPendingSetId`, which scans
+ * from the top. Skip one set — a machine was taken, an exercise moved to the end
+ * — and every following log snapped the open panel back up to that gap, so each
+ * remaining set of the session cost a tap on its chip before the tap that logged
+ * it. Going forward from where you are is the same one tap all session.
+ *
+ * The logged set is excluded from both halves of the scan, because the store has
+ * not applied `completed` yet at the moment this is called.
+ */
+export function nextPendingSetId(
+  session: ScheduledSession | undefined,
+  afterSetId: string
+): string | undefined {
+  const sets = (session?.exercises ?? []).flatMap((exercise) => exercise.sets);
+  const index = sets.findIndex((setItem) => setItem.id === afterSetId);
+
+  if (index < 0) {
+    return firstPendingSetId(session);
+  }
+
+  // Slicing around `index` is what drops the just-logged set from the wrap.
+  return [...sets.slice(index + 1), ...sets.slice(0, index)].find(
+    (setItem) => !setItem.completed
+  )?.id;
 }
 
 /**
@@ -168,7 +200,11 @@ export function buildLogFromSession(
       date: session.date,
       setIndex: index,
       reps: setItem.reps,
-      weight: setItem.weight
+      weight: setItem.weight,
+      // The rollup above deliberately stays blind to this: a hold moves no
+      // volume and no reps (see `ExerciseMetric`). The seconds live at the
+      // grain, which is the only place they were ever true.
+      durationSeconds: setItem.durationSeconds
     }))
   );
 
@@ -291,6 +327,36 @@ export function plannedExercisesFromTemplate(
   return template.exercises.map((exercise) => {
     const isTime = exercise.metric === "time";
     const last = lastPerformance(exercise.workoutId, history.logs, history.setLogs);
+
+    // Per-exercise beats per-session, and the whole thing is optional — a
+    // template with no rule set behaves exactly as it did before this existed.
+    const settings = exercise.progression ?? template.progression;
+
+    // The *heaviest* planned set, not set 0. A rule judges the top set (see
+    // `sessionTops`), so the number it returns is a top-set number and has to be
+    // compared against one. Basing this on set 0 turned a 40/50/60 ramp into
+    // 62.5/72.5/82.5 — it added the whole gap between the warm-up and the top
+    // set to every set in the exercise.
+    const plannedWeights = Array.from({ length: exercise.sets }, (_, index) =>
+      weightForSet(exercise, index)
+    );
+    const plannedTop = Math.max(...plannedWeights, 0);
+
+    const target = nextTarget({
+      settings,
+      plannedWeight: plannedTop,
+      plannedReps: isTime ? 0 : exercise.reps,
+      plannedDurationSeconds: exercise.durationSeconds,
+      setLogs: history.setLogs,
+      workoutId: exercise.workoutId
+    });
+
+    // Moved as a block, so a ramp or a top-set-plus-back-offs keeps its shape.
+    // The first version let the rule overwrite every set with one number, which
+    // silently threw away per-set weights the user had typed by hand.
+    // Zero when no rule ran, so `weights` passes through untouched.
+    const shift = target.weight - plannedTop;
+
     return {
       id: crypto.randomUUID(),
       workoutId: exercise.workoutId,
@@ -298,15 +364,24 @@ export function plannedExercisesFromTemplate(
       restSeconds: exercise.restSeconds,
       targetNotes: exercise.notes,
       metric: exercise.metric,
+      perSide: exercise.perSide,
+      progressionNote: target.reason || undefined,
       sets: Array.from({ length: exercise.sets }).map((_, index) => {
-        const weight = weightForSet(exercise, index);
         return {
           id: crypto.randomUUID(),
           // Zero reps for a held set — that is what keeps volume, totalReps and
           // peakWeight correct downstream without a guard at every consumer.
-          reps: isTime ? 0 : exercise.reps,
-          weight,
-          durationSeconds: isTime ? exercise.durationSeconds ?? 0 : undefined,
+          // The rule counts reps; it does not know a lift is unilateral. Double
+          // progression adds one, which on a per-side lift is half a rep on one
+          // side — a set that cannot be performed. Rounded here, at the seam
+          // that knows both facts, rather than teaching either lib the other.
+          reps: isTime ? 0 : evenTarget(target.reps, exercise.perSide),
+          weight: Math.max(0, plannedWeights[index] + shift),
+          // The rule's hold when one ran, the template's otherwise — the same
+          // fallback `shift` gives the weight when no rule touched it.
+          durationSeconds: isTime
+            ? target.durationSeconds ?? exercise.durationSeconds ?? 0
+            : undefined,
           previousReps: last?.reps,
           previousWeight: last?.weight,
           type: "normal" as const

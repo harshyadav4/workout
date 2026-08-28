@@ -23,7 +23,12 @@ import type {
   WorkoutTemplate
 } from "@/lib/types";
 import type { RemoteState } from "@/lib/sync";
-import { buildScheduleSessions, mergeGeneratedSessions } from "@/lib/schedule";
+import {
+  buildScheduleSessions,
+  mergeGeneratedSessions,
+  moveSession,
+  type MoveResult
+} from "@/lib/schedule";
 import {
   buildLogFromSession,
   plannedExercisesFromTemplate,
@@ -66,6 +71,7 @@ interface WorkoutState {
     rule?: ScheduleRule;
   }) => void;
   removeScheduledSession: (id: string) => void;
+  moveScheduledSession: (id: string, toDate: string) => MoveResult;
   /** Today's session, built on the spot and started immediately. */
   startAdHocSession: (payload: { name: string; exercises: PlannedExercise[] }) => void;
   generateSchedule: (config: ScheduleConfig) => void;
@@ -123,6 +129,7 @@ function createInitialState(): Omit<
   | "deleteSessionTemplate"
   | "scheduleSession"
   | "removeScheduledSession"
+  | "moveScheduledSession"
   | "startAdHocSession"
   | "generateSchedule"
   | "selectSession"
@@ -391,6 +398,16 @@ function createWorkoutStore() {
           ...state,
           scheduledSessions: state.scheduledSessions.filter((session) => session.id !== id)
         })),
+      // The decision of whether a move is legal lives in `lib/schedule`, pure and
+      // tested. A refusal leaves the state exactly as it was — the caller reads
+      // the reason off the same result to show it.
+      moveScheduledSession: (id, toDate) => {
+        const result = moveSession(get().scheduledSessions, id, toDate);
+        if (result.ok) {
+          setAndPersist((state) => ({ ...state, scheduledSessions: result.sessions }));
+        }
+        return result;
+      },
       startAdHocSession: ({ name, exercises }) =>
         setAndPersist((state) => {
           const session: ScheduledSession = {

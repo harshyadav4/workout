@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, Minus, Plus, Trash2 } from "lucide-react";
 
 import {
+  ExerciseDemoThumb,
   ExerciseMediaDialog,
   templateDatasetId
 } from "@/features/workout/exercise-media-dialog";
+import { formatPerSide, stepForSide } from "@/lib/per-side";
 import type { PlannedExercise, PlannedSet } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -204,10 +206,29 @@ export function ExerciseLedger({
   onRemoveSet
 }: ExerciseLedgerProps) {
   const openSet = exercise.sets.find((setItem) => setItem.id === openSetId);
+  const panelRef = useRef<HTMLDivElement>(null);
   const doneCount = exercise.sets.filter((setItem) => setItem.completed).length;
   const isFinished = doneCount === exercise.sets.length && exercise.sets.length > 0;
   const datasetId = templateDatasetId({ id: exercise.workoutId });
   const isTime = exercise.metric === "time";
+
+  // Only when the open set arrives from *another* exercise — that is the move
+  // that puts the Log set button somewhere you have to go and find, in a session
+  // longer than the screen. Between sets of one exercise the panel has not moved,
+  // and `nearest` would still nudge the page every log, because a panel this tall
+  // usually has a few pixels past the fold. The ref starts at the mounted value,
+  // so re-opening the app mid-session does not yank the page either. Scroll
+  // margins keep the panel clear of the sticky rest bar and the fixed bottom nav,
+  // neither of which `scrollIntoView` can see.
+  const ownsOpenSet = interactive && exercise.sets.some((setItem) => setItem.id === openSetId);
+  const ownedOpenSet = useRef(ownsOpenSet);
+
+  useEffect(() => {
+    if (ownsOpenSet && !ownedOpenSet.current) {
+      panelRef.current?.scrollIntoView({ block: "nearest" });
+    }
+    ownedOpenSet.current = ownsOpenSet;
+  }, [ownsOpenSet]);
 
   // The check belongs beside the tally it annotates, wherever the tally lands.
   const chips = (
@@ -260,19 +281,37 @@ export function ExerciseLedger({
         <p className="mt-1.5 text-xs italic text-muted-foreground">{exercise.targetNotes}</p>
       ) : null}
 
+      {/* Why the weight in the field is that number. A prescribed number with no
+          reason gets overridden on instinct, which is the same as having no rule
+          — so this is load-bearing, not a caption. Primary-tinted to separate it
+          from the user's own note directly above. */}
+      {exercise.progressionNote ? (
+        <p className="mt-1.5 text-xs text-primary/80">{exercise.progressionNote}</p>
+      ) : null}
+
       {/* Tappable chips get their own row: at a 48px target a five-set exercise
           wrapped inside `max-w-[55%]` and pushed the exercise name to a stub. */}
       {interactive ? <div className="mt-1.5 flex flex-wrap items-center gap-2">{chips}</div> : null}
 
       {interactive && openSet ? (
-        <div className="mt-3 rounded-3xl bg-secondary/40 p-3">
-          <div className="flex items-baseline justify-between">
-            <p className="font-mono text-xs uppercase tracking-[0.2em] text-primary">
-              Set {exercise.sets.indexOf(openSet) + 1}
-            </p>
-            <p className="font-mono text-xs tabular-nums text-muted-foreground">
-              {isTime ? <>target {openSet.durationSeconds ?? 0}s</> : lastSetLabel(openSet)}
-            </p>
+        <div ref={panelRef} className="mt-3 scroll-mb-28 scroll-mt-20 rounded-3xl bg-secondary/40 p-3">
+          {/* Only the open set gets a demo, and it loops without being asked.
+              It answers "which one is this again" at the moment the question
+              actually comes up — behind a tap on the row above, nobody looks.
+              One at a time: six of these running down a session is a slot
+              machine, not a ledger. */}
+          <div className="flex items-center gap-3">
+            {datasetId ? (
+              <ExerciseDemoThumb datasetId={datasetId} name={exercise.templateName} />
+            ) : null}
+            <div className="flex min-w-0 flex-1 items-baseline justify-between gap-2">
+              <p className="font-mono text-xs uppercase tracking-[0.2em] text-primary">
+                Set {exercise.sets.indexOf(openSet) + 1}
+              </p>
+              <p className="truncate font-mono text-xs tabular-nums text-muted-foreground">
+                {isTime ? <>target {openSet.durationSeconds ?? 0}s</> : lastSetLabel(openSet)}
+              </p>
+            </div>
           </div>
 
           {/* Stacked, not side-by-side: two 44px touch targets plus a mono
@@ -302,14 +341,21 @@ export function ExerciseLedger({
             ) : (
               <Stepper
                 label="Reps"
-                suffix="reps"
+                // The stored number is always the total across both sides — the
+                // split is display only. See lib/per-side.
+                suffix={exercise.perSide ? "total" : "reps"}
                 value={openSet.reps}
-                step={1}
+                step={stepForSide(exercise.perSide)}
                 min={MIN_REPS}
                 max={MAX_REPS}
                 onChange={(reps) => onPatchSet(openSet.id, { reps })}
               />
             )}
+            {exercise.perSide && openSet.reps > 0 ? (
+              <p className="text-center text-xs text-muted-foreground">
+                {formatPerSide(openSet.reps, true)}
+              </p>
+            ) : null}
           </div>
 
           {/* A warm-up is logged so the ledger is honest about what happened,

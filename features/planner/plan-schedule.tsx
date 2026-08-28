@@ -59,12 +59,15 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
   const scheduleConfig = useWorkoutStore((state) => state.scheduleConfig);
   const generateSchedule = useWorkoutStore((state) => state.generateSchedule);
   const removeScheduledSession = useWorkoutStore((state) => state.removeScheduledSession);
+  const moveScheduledSession = useWorkoutStore((state) => state.moveScheduledSession);
   const scheduleSession = useWorkoutStore((state) => state.scheduleSession);
   const buildExercises = useExercisesFromSessionTemplate();
   const templates = useWorkoutStore((state) => state.templates);
 
   const [weekOffset, setWeekOffset] = useState(0);
   const [sessionToRemove, setSessionToRemove] = useState<ScheduledSession | null>(null);
+  const [moveTo, setMoveTo] = useState("");
+  const [moveError, setMoveError] = useState<string | null>(null);
   const [confirmGenerate, setConfirmGenerate] = useState(false);
   const [startDate, setStartDate] = useState(todayKey);
   const [endDate, setEndDate] = useState(() => dateKey(addDays(new Date(), DEFAULT_WEEKS * 7)));
@@ -644,16 +647,69 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
         </Card>
       ) : null}
 
-      <Dialog open={!!sessionToRemove} onOpenChange={(open) => !open && setSessionToRemove(null)}>
+      <Dialog
+        open={!!sessionToRemove}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSessionToRemove(null);
+            setMoveTo("");
+            setMoveError(null);
+          }
+        }}
+      >
         <DialogContent className={DRAWER_CONTENT}>
           <DialogHeader>
-            <DialogTitle>Remove from this day?</DialogTitle>
+            <DialogTitle>Move or remove this day?</DialogTitle>
             <DialogDescription>
-              &quot;{sessionToRemove?.sessionName}&quot; will be taken off{" "}
+              &quot;{sessionToRemove?.sessionName}&quot; is on{" "}
               {sessionToRemove ? formatDayKey(sessionToRemove.date) : ""}. Your session template is
-              not affected.
+              not affected either way.
             </DialogDescription>
           </DialogHeader>
+
+          {/* Moving is the common edit — sick, travelling, gym shut — and until
+              now the only thing on offer was losing the session entirely. Native
+              date input: it is a date picker on every phone, with no library. */}
+          <div className="mt-4 rounded-2xl bg-secondary/40 p-3">
+            <label className="block text-xs text-muted-foreground">
+              Move it to
+              <input
+                type="date"
+                className="mt-1 w-full rounded-2xl bg-secondary/60 px-3 py-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                value={moveTo}
+                min={today}
+                onChange={(event) => {
+                  setMoveTo(event.target.value);
+                  setMoveError(null);
+                }}
+              />
+            </label>
+            <Button
+              className="mt-2 w-full"
+              disabled={!moveTo}
+              onClick={() => {
+                if (!sessionToRemove || !moveTo) {
+                  return;
+                }
+                const result = moveScheduledSession(sessionToRemove.id, moveTo);
+                if (result.ok) {
+                  setSessionToRemove(null);
+                  setMoveTo("");
+                  setMoveError(null);
+                } else {
+                  setMoveError(result.reason);
+                }
+              }}
+            >
+              Move it
+            </Button>
+            {moveError ? <p className="mt-2 text-sm text-danger">{moveError}</p> : null}
+            <p className="mt-2 text-xs text-muted-foreground">
+              The day it leaves becomes a rest day. If the day you pick already has a session, the
+              two swap.
+            </p>
+          </div>
+
           <div className="mt-4 flex justify-end gap-3">
             <Button variant="secondary" onClick={() => setSessionToRemove(null)}>
               Cancel

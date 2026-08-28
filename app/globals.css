@@ -36,6 +36,42 @@
   --danger-foreground: 212 42% 7%;
   --font-sans: "Space Grotesk", "Avenir Next", "Segoe UI", sans-serif;
   --font-mono: "Space Mono", ui-monospace, "SFMono-Regular", monospace;
+
+  /* Chart chrome. Not in tailwind.config because Recharts takes these as props
+     rather than classes — see features/progress/chart-theme.tsx. Grid and axis
+     were `rgba(255,255,255,...)`, which is invisible on a light background. */
+  --chart-grid: rgba(148, 163, 184, 0.18);
+  --chart-axis: rgba(226, 232, 240, 0.6);
+  --chart-rest: rgba(255, 255, 255, 0.05);
+  --chart-surface: 216 36% 10%;
+}
+
+/*
+ * Light. Only the neutrals flip.
+ *
+ * `--primary`, `--accent`, `--danger` and their foregrounds are deliberately
+ * identical across both themes: each pair's contrast was measured once (see the
+ * comments above) and keeping the pair intact keeps that measurement true
+ * instead of requiring a second audit for a second palette.
+ */
+:root.light {
+  --background: 210 40% 97%;
+  --foreground: 212 42% 12%;
+  --card: 0 0% 100%;
+  --card-foreground: 212 42% 12%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 212 42% 12%;
+  --secondary: 210 24% 91%;
+  --secondary-foreground: 212 42% 12%;
+  --muted: 210 24% 94%;
+  --muted-foreground: 214 16% 38%;
+  --border: 214 20% 86%;
+  --input: 214 20% 86%;
+
+  --chart-grid: rgba(71, 85, 105, 0.16);
+  --chart-axis: rgba(51, 65, 85, 0.7);
+  --chart-rest: rgba(15, 23, 42, 0.06);
+  --chart-surface: 0 0% 100%;
 }
 
 * {
@@ -47,12 +83,24 @@ html {
   -webkit-tap-highlight-color: transparent;
 }
 
+html.light {
+  color-scheme: light;
+}
+
 body {
   @apply bg-background text-foreground antialiased;
   min-height: 100vh;
   background-image:
     radial-gradient(circle at top, rgba(245, 115, 37, 0.18), transparent 32%),
     radial-gradient(circle at bottom right, rgba(11, 165, 180, 0.12), transparent 26%);
+}
+
+/* The same two washes, weaker — at dark-mode strength they read as stains on a
+   near-white page rather than as light. */
+:root.light body {
+  background-image:
+    radial-gradient(circle at top, rgba(245, 115, 37, 0.1), transparent 32%),
+    radial-gradient(circle at bottom right, rgba(11, 165, 180, 0.08), transparent 26%);
 }
 
 button,
@@ -164,5 +212,44 @@ label {
 @media (prefers-reduced-motion: reduce) {
   [data-muscle] {
     transition: none;
+  }
+}
+
+/*
+ * Print. A plan on paper is a checklist you take to the gym, so the chrome goes
+ * and the surfaces flatten — a dark card printed as-is is a page of wasted ink.
+ */
+@media print {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 0%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 0%;
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 0%;
+    --muted-foreground: 0 0% 30%;
+    --border: 0 0% 80%;
+  }
+
+  body {
+    background-image: none;
+  }
+
+  /* The bottom nav, the mode switch, and anything else that is a control rather
+     than content. `print:hidden` marks the rest at the call site. */
+  nav,
+  [role="tablist"] {
+    display: none !important;
+  }
+
+  /* Cards break across pages otherwise, splitting a session's exercises over
+     a fold — which is exactly the thing you are holding the paper to read. */
+  section > div,
+  [data-print-block] {
+    break-inside: avoid;
+  }
+
+  * {
+    box-shadow: none !important;
   }
 }

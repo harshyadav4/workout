@@ -5,6 +5,7 @@ import { starterScheduledSessions } from "@/lib/seed-data";
 import {
   buildLogFromSession,
   firstPendingSetId,
+  nextPendingSetId,
   normalizeMuscleHeat,
   lastPerformance,
   plannedExercisesFromTemplate,
@@ -241,6 +242,40 @@ assert.equal(firstPendingSetId(spillover), spillover.exercises[1].sets[0].id);
 assert.equal(firstPendingSetId(session([{ name: "bench", sets: [set(8, 60, true)] }])), undefined);
 assert.equal(firstPendingSetId(undefined), undefined);
 
+// The open panel walks forward from the set you just logged. Skipping one used
+// to send it back to the top of the session after every log — see
+// `nextPendingSetId`.
+const withGap = session([
+  { name: "bench", sets: [set(8, 60, true), set(8, 60), set(8, 60, true)] },
+  { name: "row", sets: [set(10, 40, true), set(10, 40)] }
+]);
+
+assert.equal(
+  nextPendingSetId(withGap, withGap.exercises[0].sets[2].id),
+  withGap.exercises[1].sets[1].id,
+  "a withGap set above is not what opens next"
+);
+
+assert.equal(
+  nextPendingSetId(withGap, withGap.exercises[1].sets[1].id),
+  withGap.exercises[0].sets[1].id,
+  "and it is swept up once nothing is left after"
+);
+
+const lastOne = session([{ name: "bench", sets: [set(8, 60, true), set(8, 60)] }]);
+
+assert.equal(
+  nextPendingSetId(lastOne, lastOne.exercises[0].sets[1].id),
+  undefined,
+  "the set being logged never re-opens itself when the session runs out"
+);
+
+assert.equal(
+  nextPendingSetId(withGap, "not-in-this-session"),
+  withGap.exercises[0].sets[1].id,
+  "an unknown set falls back to the first gap rather than nothing"
+);
+
 // Header counts: progress is what you logged, never the plan.
 const live = sessionTotals(midSession);
 assert.equal(live.done, 1);
@@ -389,7 +424,7 @@ assert.ok(
   "a drop set is a load concept and must not appear on a hold"
 );
 
-const heldLog = buildLogFromSession(
+const heldBuild = buildLogFromSession(
   {
     id: "s-core",
     date: "2026-07-23",
@@ -403,11 +438,29 @@ const heldLog = buildLogFromSession(
     ]
   },
   []
-).logs[0];
+);
+const heldLog = heldBuild.logs[0];
 assert.equal(heldLog.totalVolume, 0, "a hold adds no volume");
 assert.equal(heldLog.totalReps, 0, "a hold adds no reps");
 assert.equal(heldLog.peakWeight, 0, "a bodyweight hold never becomes a peak lift");
 assert.equal(heldLog.totalSets, 3, "but the sets still count, so streaks hold");
+
+// The rollup above is blind to the hold on purpose, so the set rows are the only
+// record of it. Dropped there, a 45s plank is a set of zero reps at zero kg and
+// the number the lifter actually hit is gone at Finish.
+assert.deepEqual(
+  heldBuild.setLogs.map((row) => row.durationSeconds),
+  [45, 45, 45],
+  "the seconds held reach the set rows"
+);
+assert.equal(
+  buildLogFromSession(
+    session([{ name: "bench", sets: [set(8, 60, true)] }]),
+    templates
+  ).setLogs[0].durationSeconds,
+  undefined,
+  "and a rep set carries no duration at all — not zero"
+);
 
 // --- what "last" actually means ---
 //
@@ -460,3 +513,141 @@ assert.equal(heldLog.totalSets, 3, "but the sets still count, so streaks hold");
 }
 
 console.log("session log checks passed");
+
+// --- progression reaches the planned session -------------------------------
+// The engine is covered in progression.test.ts; this is only the wiring — that
+// a rule on the template actually decides the number the session opens with,
+// and that a template without one behaves exactly as it did before.
+
+const progressionTemplate = (progression?: SessionTemplate["progression"]): SessionTemplate => ({
+  id: "s1",
+  name: "Push",
+  workoutIds: ["bench"],
+  progression,
+  exercises: [
+    {
+      id: "e1",
+      workoutId: "bench",
+      name: "Bench Press",
+      muscles: [],
+      sets: 3,
+      reps: 8,
+      weight: 60,
+      restSeconds: 90
+    }
+  ],
+  summary: { totalSets: 3, totalReps: 24, totalWeight: 180 }
+});
+
+const benchHistory = {
+  logs: [],
+  setLogs: [
+    { id: "x1", logId: "l1", workoutId: "bench", date: "2026-01-08", setIndex: 0, reps: 8, weight: 60 }
+  ]
+};
+
+const withoutRule = plannedExercisesFromTemplate(progressionTemplate(), benchHistory);
+assert.equal(withoutRule[0].sets[0].weight, 60, "no rule, the template's own number stands");
+assert.equal(withoutRule[0].progressionNote, undefined, "and nothing is explained");
+
+const withRule = plannedExercisesFromTemplate(
+  progressionTemplate({ rule: "linear" }),
+  benchHistory
+);
+assert.equal(withRule[0].sets[0].weight, 62.5, "the rule decides the opening weight");
+assert.equal(withRule[0].sets[2].weight, 62.5, "every working set, not just the first");
+assert.match(withRule[0].progressionNote ?? "", /up to 62\.5kg/, "and the session says why");
+
+const overridden = plannedExercisesFromTemplate(
+  {
+    ...progressionTemplate({ rule: "linear" }),
+    exercises: [
+      { ...progressionTemplate().exercises[0], progression: { rule: "off" } }
+    ]
+  },
+  benchHistory
+);
+assert.equal(overridden[0].sets[0].weight, 60, "a per-exercise rule beats the session's");
+
+// A rule must not throw away per-set weights the user typed by hand. It moves
+// the whole exercise as a block, so a ramp keeps its shape and the top set is
+// what actually advances.
+const ramped = plannedExercisesFromTemplate(
+  {
+    ...progressionTemplate({ rule: "linear" }),
+    exercises: [
+      {
+        ...progressionTemplate().exercises[0],
+        weights: [40, 50, 60]
+      }
+    ]
+  },
+  benchHistory
+);
+assert.deepEqual(
+  ramped[0].sets.map((set) => set.weight),
+  [42.5, 52.5, 62.5],
+  "the ramp shifts as a block — every set keeps its distance from the top set"
+);
+
+const rampedNoRule = plannedExercisesFromTemplate(
+  {
+    ...progressionTemplate(),
+    exercises: [{ ...progressionTemplate().exercises[0], weights: [40, 50, 60] }]
+  },
+  benchHistory
+);
+assert.deepEqual(
+  rampedNoRule[0].sets.map((set) => set.weight),
+  [40, 50, 60],
+  "and with no rule the weights pass through exactly as typed"
+);
+
+// Both libs are right on their own; the combination is where the bug was. Double
+// progression adds one rep, which on a unilateral lift is half a rep on one side
+// — a set nobody can perform.
+const perSideDouble = plannedExercisesFromTemplate(
+  {
+    ...progressionTemplate({ rule: "double", repMax: 20 }),
+    exercises: [{ ...progressionTemplate().exercises[0], perSide: true, reps: 12 }]
+  },
+  {
+    logs: [],
+    setLogs: [
+      { id: "p1", logId: "pl1", workoutId: "bench", date: "2026-01-08", setIndex: 0, reps: 16, weight: 60 }
+    ]
+  }
+);
+assert.equal(
+  perSideDouble[0].sets[0].reps,
+  18,
+  "a unilateral target steps in twos even when the rule steps in ones"
+);
+assert.equal(perSideDouble[0].perSide, true, "and the flag reaches the ledger that renders the split");
+
+// A held lift progresses by holding longer. The rule reads the seconds off the
+// set rows above, so this is the other half of that round trip.
+const heldHistory = {
+  logs: [],
+  setLogs: [
+    { id: "h1", logId: "hl1", workoutId: "plank", date: "2026-02-01", setIndex: 0, reps: 0, weight: 0, durationSeconds: 45 }
+  ]
+};
+const timedPlank = plannedExercisesFromTemplate(
+  { ...plank, progression: { rule: "time" } },
+  heldHistory
+);
+assert.deepEqual(
+  timedPlank[0].sets.map((item) => item.durationSeconds),
+  [50, 50, 50],
+  "reaching the hold makes every set of the next session longer"
+);
+assert.deepEqual(timedPlank[0].sets.map((item) => item.reps), [0, 0, 0], "and it is still no reps");
+assert.deepEqual(timedPlank[0].sets.map((item) => item.weight), [0, 0, 0], "at no load");
+assert.match(timedPlank[0].progressionNote ?? "", /go for 50s/, "and the session says why");
+
+assert.deepEqual(
+  plannedExercisesFromTemplate(plank, heldHistory)[0].sets.map((item) => item.durationSeconds),
+  [45, 45, 45],
+  "with no rule the template's own hold stands"
+);

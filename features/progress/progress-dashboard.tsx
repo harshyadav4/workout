@@ -27,6 +27,7 @@ import { ProgressFilters } from "@/features/progress/progress-filters";
 import { ProgressHeadline } from "@/features/progress/progress-headline";
 import { ProgressTableCard } from "@/features/progress/progress-table-card";
 import { SplitDriftCard } from "@/features/progress/split-drift-card";
+import { OneRepMaxCard } from "@/features/progress/one-rep-max-card";
 import { StrengthGrowthCard } from "@/features/progress/strength-cards";
 import { TopSetWall } from "@/features/progress/top-set-wall";
 import { VolumeDetailCard } from "@/features/progress/volume-detail-card";
@@ -77,7 +78,9 @@ import { buildMuscleHeat, normalizeMuscleHeat } from "@/lib/workout-helpers";
 
 export function ProgressDashboard() {
   const logs = useWorkoutStore((state) => state.logs);
+  const setLogs = useWorkoutStore((state) => state.setLogs);
   const measurements = useWorkoutStore((state) => state.measurements);
+  const profile = useWorkoutStore((state) => state.profile);
   const activeDate = useWorkoutStore((state) => state.activeDate);
   const muscles = useWorkoutStore((state) => state.muscles);
   const templates = useWorkoutStore((state) => state.templates);
@@ -329,6 +332,19 @@ export function ProgressDashboard() {
         <StrengthGrowthCard growth={view.growth} />
       </Reveal>
 
+      {/* Gated on set_logs, not on session count: the estimate needs the per-set
+          grain, and an account whose whole history predates that table has
+          nothing to feed it however many sessions it has. */}
+      {setLogs.length > 0 ? (
+        <OneRepMaxCard
+          // Scoped to the range like every other card here. Passing the whole
+          // history alongside window-scoped exercises showed an all-time best
+          // under a "four weeks" filter, with nothing in the caption saying so.
+          setLogs={filterByWindow(setLogs, view.window)}
+          exercises={view.scopedExercises}
+        />
+      ) : null}
+
       <Reveal
         ready={sessionCount >= 2}
         title="Personal records"
@@ -395,7 +411,7 @@ export function ProgressDashboard() {
 
       {/* Full history, not the selected range: a monthly measurement inside a
           one-month window is a single point and no trend at all. */}
-      <BodyWeightCard measurements={measurements} />
+      <BodyWeightCard measurements={measurements} goalWeightKg={profile.goalWeightKg} />
 
       {/* ACWR compares the last week against a four-week baseline. Before that
           baseline exists the ratio is arithmetic on nothing. */}

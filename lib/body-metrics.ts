@@ -129,6 +129,36 @@ export function withMovingAverage(points: MetricPoint[], days = 7): MetricPoint[
   });
 }
 
+/**
+ * Whether a goal weight is one. Guards both the reference line and the axis
+ * below, because an axis stretched to hold a line that never renders is worse
+ * than no goal at all — and the value arrives from a text field and from
+ * imported backups, neither of which promises a number.
+ */
+export function hasGoal(goal: number | undefined): goal is number {
+  return typeof goal === "number" && Number.isFinite(goal) && goal > 0;
+}
+
+/**
+ * The weigh-in chart's Y range.
+ *
+ * Without a goal, recharts fits the readings and pads them by a kilo. With one,
+ * that fit is the wrong window: a target you have not reached yet sits outside
+ * the readings and would be drawn off-chart — a goal line you cannot see is the
+ * same as no goal. Bounds come off the raw readings only; the 7-day mean is an
+ * average of a subset of them and can never fall outside.
+ */
+export function goalDomain(
+  points: MetricPoint[],
+  goal?: number
+): [number | string, number | string] {
+  if (!hasGoal(goal)) {
+    return ["dataMin - 1", "dataMax + 1"];
+  }
+  const values = points.map((point) => point.value);
+  return [Math.min(goal, ...values) - 1, Math.max(goal, ...values) + 1];
+}
+
 export function latestFor(
   measurements: BodyMeasurement[],
   metric: BodyMetric

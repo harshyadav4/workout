@@ -21,10 +21,10 @@ export const CHART = {
    * card, not decoration. The old `#44526a` sat at 2.35:1 and vanished.
    */
   quiet: "#566788",
-  grid: "rgba(255,255,255,0.06)",
+  grid: "var(--chart-grid)",
   /** 5.98:1 on the card. Tick labels are 10px text and owe the full 4.5:1. */
-  axis: "rgba(226,232,240,0.60)",
-  surface: "#0d1420"
+  axis: "var(--chart-axis)",
+  surface: "hsl(var(--chart-surface))"
 } as const;
 
 /**
@@ -38,9 +38,14 @@ export const CHART = {
  * chart ("did I show up") was the one you could not make. Step 1 now clears
  * 3.03:1 against the rest cell, and each step clears 1.29:1 against the step
  * below it.
+ *
+ * Those figures are the **dark** reading, and they are the binding one: the ramp
+ * is fixed across both themes, and a rest cell on light is a dark wash on white,
+ * so every step separates from it by more there, not less. The ramp is measured
+ * where it is tightest.
  */
 export const HEAT = ["#a95023", "#c86024", "#e37129", "#fb8f45"] as const;
-export const REST_CELL = "rgba(255,255,255,0.05)";
+export const REST_CELL = "var(--chart-rest)";
 
 /**
  * Every mark on this page draws instantly.
@@ -129,7 +134,7 @@ export function ChartTooltip({
   const heading = typeof label === "string" && labelFormat ? labelFormat(label) : String(label ?? "");
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-[#111b2a]/95 px-3 py-2 shadow-glow backdrop-blur">
+    <div className="rounded-2xl border border-border bg-popover/95 px-3 py-2 shadow-glow backdrop-blur">
       <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
         {heading}
       </p>

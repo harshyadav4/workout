@@ -383,8 +383,18 @@ Carried from STEP 7, plus what the phases above displace. Not "later" — **deci
 - A rewrite of anything.
 
 **Deferred, with a trigger rather than a date:** supersets and RPE/RIR (revisit once `set_logs`
-has run for a month and the schema shape is proven), e1RM curves (needs the same), progress
-photos, offline service worker, push notifications, CSV export, plate calculator.
+has run for a month and the schema shape is proven), progress photos, offline service worker,
+push notifications, CSV export, plate calculator.
+
+**Shipped since, closing the openGym gaps** (see `opengym-review.md`, `gap-plan.md`):
+
+- **e1RM — no longer deferred.** Its blocker was that logs stored `totalReps` per exercise, not
+  per set. `set_logs` removed that; `lib/one-rep-max.ts` reads it and nothing else. The old
+  comment at `progress-metrics.ts` is now scoped to `WorkoutLog` rather than claiming the app
+  cannot do it.
+- **Progression rules** (`lib/progression.ts`) — linear and double, stalls, deloads, bodyweight
+  in reps. The one gap openGym had that neither list here had adjudicated.
+- Reps per side, import-a-backup, reschedule a day, light theme, share/print a plan.
 
 ## Open questions
 

@@ -49,16 +49,31 @@ export function ExercisePicker({ onBack, onPick }: ExercisePickerProps) {
   }, []);
 
   const bodyParts = useMemo(() => (list.length ? distinctValues(list, "bodyPart") : []), [list]);
-  const equipmentList = useMemo(() => (list.length ? distinctValues(list, "equipment") : []), [list]);
+
+  // Only the equipment the chosen body part actually has. The full list lets you
+  // pick barbell + waist and land on "no matches" — a dead end the picker knew
+  // about before you tapped it.
+  const equipmentList = useMemo(
+    () =>
+      distinctValues(bodyPart ? list.filter((item) => item.bodyPart === bodyPart) : list, "equipment"),
+    [list, bodyPart]
+  );
+
+  // Derived rather than cleared inside the body-part handler: a part with no
+  // dumbbells would otherwise leave the select reading "dumbbell" while still
+  // filtering on it, which looks like a broken library rather than a stale filter.
+  // Deriving also keeps the choice — come back to a part that does have dumbbells
+  // and it is still selected, which is what someone comparing two parts wants.
+  const activeEquipment = equipmentList.includes(equipment) ? equipment : "";
 
   const results = useMemo(
     () =>
       filterExercises(list, {
         query,
         bodyPart: bodyPart || undefined,
-        equipment: equipment || undefined
+        equipment: activeEquipment || undefined
       }),
-    [list, query, bodyPart, equipment]
+    [list, query, bodyPart, activeEquipment]
   );
 
   const shown = results.slice(0, RESULT_LIMIT);
@@ -102,7 +117,7 @@ export function ExercisePicker({ onBack, onPick }: ExercisePickerProps) {
 
       <select
         aria-label="Filter by equipment"
-        value={equipment}
+        value={activeEquipment}
         onChange={(event) => setEquipment(event.target.value)}
         className="w-full rounded-2xl bg-secondary/50 px-3 py-3 text-sm capitalize outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >

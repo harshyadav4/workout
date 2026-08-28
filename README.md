@@ -40,7 +40,8 @@ a calendar, and Home is the cursor pointing at today's entry.
 - `features/progress` — the analytics cards and the per-muscle drill-down
 - `features/body` — the SVG body map
 - `features/profile` — profile and body measurements
-- `lib/` — domain logic, all pure and separately tested
+- `lib/` — domain logic, all pure and separately tested (`progression`, `one-rep-max`,
+  `per-side`, `import-backup`, `theme` among them)
 - `supabase/migrations/` — schema, RLS enabled in the same migration that creates the tables
 
 ## Setup
@@ -75,9 +76,15 @@ npm run dev
 
 ## Supabase setup
 
+> **Run `0004_progression.sql` before deploying this revision.** `session_templates`
+> writes now include a `progression` column, and `pushChanges` throws on the first failed
+> write — against a project still on `0003`, *every* session save fails, not just ones using
+> a rule, and it surfaces as a sync error rather than as anything naming a migration.
+
+
 1. Create a Supabase project.
-2. Run the migrations in `supabase/migrations/` in order (`0001_init.sql`, then
-   `0002_body_measurements.sql`).
+2. Run the migrations in `supabase/migrations/` in order — `0001_init.sql` through
+   `0004_progression.sql`.
 3. Enable the Google provider under **Authentication → Providers**.
 4. Add your local dev origin and deployed domain to the allowed redirect URLs.
 
@@ -96,6 +103,9 @@ Six tables, all user-owned, all with RLS using both `using` and `with check`:
 - `workout_logs` — one row per exercise per session, with real columns because it is read as
   an aggregated series
 - `body_measurements` — 11 sites, left and right kept separate
+
+`session_templates.progression` (0004) holds the rule that decides a session's opening weights;
+NULL means no rule, which is what every session saved before it meant.
 
 ## Exercise library
 

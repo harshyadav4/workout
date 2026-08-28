@@ -49,9 +49,10 @@ export function StrengthGrowthCard({ growth }: { growth: StrengthGrowth[] }) {
         <>
           One shared 0-to-heaviest scale across every row, so a row&apos;s position says how heavy
           the lift is and its span says how far it moved — a per-row scale would make a 4 kg curl
-          gain look like a 40 kg deadlift gain. Top set lifted, not an estimated 1RM: a log stores
-          reps for the whole exercise rather than per set, so Epley here would be fiction dressed as
-          precision.
+          gain look like a 40 kg deadlift gain. Top set lifted, not an estimated 1RM: this card reads
+          the session rollup, which stores reps for the whole exercise rather than per set, so Epley
+          here would be fiction dressed as precision. The estimate lives on its own card, fed by the
+          per-set log.
         </>
       }
     >

@@ -40,13 +40,21 @@ export const viewport: Viewport = {
   viewportFit: "cover"
 };
 
+import { THEME_BOOTSTRAP } from "@/lib/theme";
+
 export default function RootLayout({
   children
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    // No `dark` class: dark is the palette in `:root`, so it is what renders
+    // if anything about the theme script fails. Only light is a class.
+    <html lang="en">
+      <head>
+        {/* Before first paint, or the page flashes dark and snaps to light. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP }} />
+      </head>
       <body className={`${spaceGrotesk.variable} ${spaceMono.variable}`}>
         <AppProviders>{children}</AppProviders>
       </body>

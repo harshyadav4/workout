@@ -1,13 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { useAuth } from "@/features/auth/use-auth";
+import { ThemeToggle } from "@/features/profile/theme-toggle";
 import { retrySync, useSyncStatus } from "@/features/workout/sync-status";
 import { useWorkoutStore, useWorkoutStoreApi } from "@/features/workout/workout-store";
-import { buildExport, type SyncableState } from "@/lib/sync";
+import { hasGoal } from "@/lib/body-metrics";
+import {
+  ImportError,
+  importSummary,
+  parseExportText,
+  type ParsedBackup
+} from "@/lib/import-backup";
+import { downloadJson } from "@/lib/download";
+import { buildExport } from "@/lib/sync";
 import { todayKey } from "@/lib/utils";
 
 /** user_metadata is provider-controlled and typed `any` — narrow, don't cast. */
@@ -70,35 +80,35 @@ function SyncStatus() {
   );
 }
 
-/**
- * Hands the user their own data back as JSON. Local-first means the durable copy
- * is theirs already; this is the only way to get it off the two devices holding
- * it. The payload itself is built in `lib/sync` — this is only the download.
- */
-function downloadExport(state: SyncableState) {
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(
-    new Blob([JSON.stringify(buildExport(state), null, 2)], { type: "application/json" })
-  );
-  link.download = `gymflow-${todayKey()}.json`;
-
-  // iOS Safari — which is the whole point of this app — ignores a click on a
-  // detached anchor, and revoking the object URL in the same tick cancels the
-  // download before it starts.
-  // ponytail: the blob is left for unload to collect. One file per deliberate
-  // tap is not a leak worth a timer; revoke on a `load` listener if that changes.
-  document.body.append(link);
-  link.click();
-  link.remove();
-}
-
 export function ProfileDetails() {
   const { user, logout } = useAuth();
   const profile = useWorkoutStore((state) => state.profile);
+  // `hydrateRemote` is the sync path's merge — reconcile(local, incoming), which
+  // is deletion-blind. Reusing it is what makes an import unable to destroy
+  // anything: a stale backup adds what it holds and removes nothing.
+  const hydrateRemote = useWorkoutStore((state) => state.hydrateRemote);
+  const setProfile = useWorkoutStore((state) => state.setProfile);
   // Read at click time rather than subscribing this card to the whole store.
   const store = useWorkoutStoreApi();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [staged, setStaged] = useState<ParsedBackup | null>(null);
+  // Null is "untouched", so the field still mirrors the store when a sync or an
+  // import lands after mount. Once typed in, what was typed wins — including the
+  // empty string, which the placeholder trick used for Height could not express.
+  const [goalDraft, setGoalDraft] = useState<string | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+
+  const readFile = async (file: File) => {
+    setError(null);
+    try {
+      setStaged(parseExportText(await file.text()));
+    } catch (cause) {
+      setError(
+        cause instanceof ImportError ? cause.message : "Could not read that file."
+      );
+    }
+  };
 
   const signOut = async () => {
     setPending(true);
@@ -120,7 +130,40 @@ export function ProfileDetails() {
         <Field label="Name" value={metadataName(user?.user_metadata?.full_name) ?? profile.name} />
         <Field label="Email" value={user?.email ?? profile.email} />
 
+        {/* Written on change rather than behind a save button: it is one number,
+            and blank has to mean "no goal" — the Body card's save deliberately
+            skips empty fields, which is right for readings and could never
+            clear this. */}
+        <label className="block rounded-3xl bg-secondary/50 p-4">
+          <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+            Goal bodyweight (kg)
+          </span>
+          <Input
+            type="number"
+            inputMode="decimal"
+            min={0}
+            step={0.1}
+            className="mt-2"
+            placeholder="No goal"
+            value={goalDraft ?? (profile.goalWeightKg ? String(profile.goalWeightKg) : "")}
+            onChange={(event) => {
+              const raw = event.target.value;
+              setGoalDraft(raw);
+              // Anything that is not a real, positive weight clears the goal
+              // rather than being stored: `Number("")` is 0 and `Number("kg")`
+              // is NaN, and neither is a target anyone set.
+              const parsed = Number(raw);
+              setProfile({ goalWeightKg: hasGoal(parsed) ? parsed : undefined });
+            }}
+          />
+          <span className="mt-2 block text-xs text-muted-foreground">
+            Drawn across the bodyweight chart on Progress. Empty the field to remove it.
+          </span>
+        </label>
+
         <SyncStatus />
+
+        <ThemeToggle />
 
         <Button
           variant="outline"
@@ -128,7 +171,7 @@ export function ProfileDetails() {
           onClick={() => {
             setError(null);
             try {
-              downloadExport(store.getState());
+              downloadJson(`gymflow-${todayKey()}.json`, buildExport(store.getState()));
             } catch (cause) {
               setError(cause instanceof Error ? cause.message : "Could not build the export.");
             }
@@ -136,6 +179,55 @@ export function ProfileDetails() {
         >
           Export my data
         </Button>
+
+        {/* The other half of the export. Without it "yours to keep" is a
+            one-way door: the file downloads and nothing can read it back. */}
+        <input
+          ref={fileInput}
+          type="file"
+          accept="application/json,.json"
+          className="hidden"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            // Cleared so picking the same file twice still fires a change.
+            event.target.value = "";
+            if (file) {
+              void readFile(file);
+            }
+          }}
+        />
+        <Button variant="outline" className="w-full" onClick={() => fileInput.current?.click()}>
+          Import a backup
+        </Button>
+
+        {/* Counted before it is applied, not after. The merge is safe, but a
+            wrong file is still a wrong file and the user is the only one who
+            can tell — so the numbers go in front of the decision. */}
+        {staged ? (
+          <div className="rounded-2xl bg-secondary/40 p-3 text-sm">
+            <p>
+              This file holds <span className="tabular-nums">{importSummary(staged.counts)}</span>.
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Importing merges — nothing you already have is deleted. Where both sides have the
+              same entry, the file wins.
+            </p>
+            <div className="mt-3 flex gap-2">
+              <Button
+                className="flex-1"
+                onClick={() => {
+                  hydrateRemote(staged.state);
+                  setStaged(null);
+                }}
+              >
+                Merge it in
+              </Button>
+              <Button variant="secondary" className="flex-1" onClick={() => setStaged(null)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : null}
 
         <Button
           variant="secondary"

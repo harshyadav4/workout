@@ -26,6 +26,7 @@ import { formatVolume } from "@/lib/utils";
 import {
   buildMuscleHighlightsFromWorkoutIds,
   firstPendingSetId,
+  nextPendingSetId,
   sessionTotals
 } from "@/lib/workout-helpers";
 
@@ -314,7 +315,10 @@ export function HomeDashboard() {
 
     updateSessionSet(session.id, exerciseId, setId, { completed: true });
     setStampedSetId(setId);
-    setPickedSetId(undefined); // fall back to the next pending set
+    // Forward from the set just logged, not back to the first gap in the
+    // session — see `nextPendingSetId`. Correcting a set already logged keeps
+    // the panel where it is: you tapped back to it on purpose.
+    setPickedSetId(alreadyLogged ? setId : nextPendingSetId(session, setId));
 
     // Only a newly logged set starts the clock. "Update set" is a correction to
     // something already done, and restarting rest on it would be wrong.

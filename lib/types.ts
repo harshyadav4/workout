@@ -1,3 +1,16 @@
+/** Which arithmetic decides the next weight. See `lib/progression`. */
+export type ProgressionRule = "off" | "linear" | "double" | "time";
+
+export interface ProgressionSettings {
+  rule: ProgressionRule;
+  /** kg added when the rule advances load. The calibration knob — plates differ. */
+  incrementKg?: number;
+  /** Seconds added when `time` advances the hold. The same knob, other axis. */
+  incrementSeconds?: number;
+  /** Top of the rep range for `double`. Ignored by `linear`. */
+  repMax?: number;
+}
+
 export type MuscleId =
   // chest
   | "pecUpper"
@@ -111,6 +124,14 @@ export interface PlannedExercise {
   restSeconds?: number;
   targetNotes?: string;
   metric?: ExerciseMetric;
+  /**
+   * Why the weight in the field is that number, from `lib/progression`.
+   * Separate from `targetNotes`, which is the user's own text — a rule's
+   * explanation is not a note the user wrote and must not overwrite one.
+   */
+  progressionNote?: string;
+  /** Total reps across both sides, when the parent exercise is `perSide`. */
+  perSide?: boolean;
 }
 
 export interface WorkoutLog {
@@ -141,6 +162,8 @@ export interface SetLog {
   setIndex: number;
   reps: number;
   weight: number;
+  /** How long the set was held. Absent on a rep set, which lasted no time in particular. */
+  durationSeconds?: number;
   completedAt?: string;
 }
 
@@ -164,6 +187,14 @@ export interface SessionTemplateExercise {
   notes?: string;
   metric?: ExerciseMetric;
   durationSeconds?: number; // seconds per set, when metric is "time"
+  /** Overrides the session's rule for this lift alone. */
+  progression?: ProgressionSettings;
+  /**
+   * Lunges, single-arm rows. The logged number is the total across both sides,
+   * so the model stays one number and every existing sum keeps working — only
+   * the display and the target stepping change. See `lib/per-side`.
+   */
+  perSide?: boolean;
 }
 
 export interface SessionTemplate {
@@ -171,6 +202,8 @@ export interface SessionTemplate {
   name: string;
   workoutIds: string[];
   exercises: SessionTemplateExercise[];
+  /** The default rule for every exercise in the session. Overridable per lift. */
+  progression?: ProgressionSettings;
   summary: {
     totalSets: number;
     totalReps: number;
@@ -256,6 +289,13 @@ export interface ProfileInfo {
   heightCm: number;
   /** Derived from the newest "weight" measurement — never set on its own. */
   weightKg: number;
+  /**
+   * The bodyweight being aimed at, drawn as a line across the weigh-in chart.
+   * Unlike `weightKg` — which is derived from the newest "weight" measurement
+   * and is never set on its own — this is typed in by hand: a setting, not a
+   * reading. Absent means no goal, which is why it is optional rather than 0.
+   */
+  goalWeightKg?: number;
   weightCadence?: MeasurementCadence;
   measurementCadence?: MeasurementCadence;
 }

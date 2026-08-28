@@ -212,3 +212,93 @@ export function buildScheduleSessions(
 
   return sessions;
 }
+
+/** Weekday for a YYYY-MM-DD key, in UTC — matching `eachDay`. */
+function weekdayOf(key: string): number {
+  const [year, month, day] = key.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+}
+
+export type MoveResult =
+  | { ok: true; sessions: ScheduledSession[] }
+  | { ok: false; reason: string };
+
+/**
+ * Move one dated session to another day, leaving the weekly plan alone.
+ *
+ * The common real edit there is — sick, travelling, gym shut, three gym days
+ * this week instead of four — and until now the only thing Plan offered was
+ * "Remove from this day", which loses the session rather than moving it.
+ *
+ * **Two things make this survive the generator**, and both are load-bearing:
+ *
+ * `mergeGeneratedSessions` keeps a session only when
+ * `status !== "planned" || source !== "repeat"`, so anything still carrying
+ * `source: "repeat"` is replaced on the next regeneration. Both ends of a move
+ * become `source: "manual"` — the move is a manual decision by definition, and
+ * without this the session would snap back to its original day.
+ *
+ * And the **vacated date does not stay empty**: it takes whatever was on the
+ * target day, or a rest day if the target was clear. An empty date is one the
+ * generator refills, which would silently duplicate the session the user just
+ * moved. A rest day is also what the user actually means — the session left,
+ * so that day is now off.
+ */
+export function moveSession(
+  sessions: ScheduledSession[],
+  sessionId: string,
+  toDate: string
+): MoveResult {
+  const moving = sessions.find((session) => session.id === sessionId);
+
+  if (!moving) {
+    return { ok: false, reason: "That session is no longer on the calendar." };
+  }
+  if (moving.date === toDate) {
+    return { ok: true, sessions };
+  }
+  // A completed session is a record of a day that happened. Moving it would
+  // rewrite history and detach it from the logs already written against its date.
+  if (moving.status === "completed") {
+    return { ok: false, reason: "That session is already done — it stays on the day you did it." };
+  }
+
+  const displaced = sessions.find(
+    (session) => session.date === toDate && session.id !== sessionId
+  );
+
+  if (displaced?.status === "completed") {
+    return { ok: false, reason: "You already trained that day." };
+  }
+
+  const vacated: ScheduledSession = displaced
+    ? { ...displaced, date: moving.date, dayIndex: weekdayOf(moving.date), source: "manual" }
+    : {
+        id: crypto.randomUUID(),
+        date: moving.date,
+        dayIndex: weekdayOf(moving.date),
+        sessionName: "Rest Day",
+        exercises: [],
+        type: "rest",
+        status: "planned",
+        source: "manual"
+      };
+
+  const moved: ScheduledSession = {
+    ...moving,
+    date: toDate,
+    dayIndex: weekdayOf(toDate),
+    source: "manual"
+  };
+
+  return {
+    ok: true,
+    sessions: [
+      ...sessions.filter(
+        (session) => session.id !== sessionId && session.id !== displaced?.id
+      ),
+      moved,
+      vacated
+    ].sort((a, b) => a.date.localeCompare(b.date))
+  };
+}

@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   changeFor,
   dueState,
+  goalDomain,
   hasAny,
   mergeSeries,
   metricsToPrompt,
@@ -68,6 +69,46 @@ assert.equal(
   70,
   "a reading a month later must not average against last month's"
 );
+
+// -- the goal line's axis --------------------------------------------------
+
+// A goal the lifter has not reached yet sits outside the readings, and recharts
+// would happily draw it past the top of the card. The domain has to stretch.
+{
+  const scale = [
+    { date: "2026-08-01", value: 80 },
+    { date: "2026-08-08", value: 79 }
+  ];
+
+  assert.deepEqual(
+    goalDomain(scale, undefined),
+    ["dataMin - 1", "dataMax + 1"],
+    "no goal leaves recharts to fit the readings itself"
+  );
+  assert.deepEqual(
+    goalDomain(scale, 90),
+    [78, 91],
+    "a goal above every reading widens the top of the axis"
+  );
+  assert.deepEqual(
+    goalDomain(scale, 70),
+    [69, 81],
+    "a goal below every reading widens the bottom"
+  );
+  assert.deepEqual(
+    goalDomain(scale, 79.5),
+    [78, 81],
+    "a goal inside the readings leaves the bounds to the data"
+  );
+
+  for (const notAGoal of [0, -5, Number.NaN, Number.POSITIVE_INFINITY]) {
+    assert.deepEqual(
+      goalDomain(scale, notAGoal),
+      ["dataMin - 1", "dataMax + 1"],
+      `${notAGoal} is not a goal, so the axis is not stretched for one`
+    );
+  }
+}
 
 // -- merged series ---------------------------------------------------------
 

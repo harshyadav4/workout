@@ -5,7 +5,8 @@ import {
   daysOfScheduleLeft,
   type DayState,
   mergeGeneratedSessions,
-  resolveDayState
+  resolveDayState,
+  moveSession
 } from "@/lib/schedule";
 import type { ScheduledSession } from "@/lib/types";
 
@@ -169,3 +170,94 @@ assert.equal(
 assert.equal(nextOf(kindFor(session(TODAY, "Push", "completed"), [week[0]])), undefined);
 
 console.log("day state checks passed");
+
+// --- moving a day ----------------------------------------------------------
+// The property that matters is not "the session changed date" — it is that the
+// move SURVIVES the next regeneration. mergeGeneratedSessions replaces anything
+// still `planned` + `repeat`, so a move that forgets to claim `manual` snaps
+// back, and a vacated date left empty gets refilled with a duplicate.
+
+const moveDay = (
+  id: string,
+  date: string,
+  extra: Partial<ScheduledSession> = {}
+): ScheduledSession => ({
+  id,
+  date,
+  dayIndex: 0,
+  sessionName: "Push",
+  exercises: [],
+  type: "workout",
+  status: "planned",
+  source: "repeat",
+  ...extra
+});
+
+const moveWeek = [moveDay("a", "2026-03-02"), moveDay("b", "2026-03-04")];
+
+const moved = moveSession(moveWeek, "a", "2026-03-05");
+assert.equal(moved.ok, true);
+const afterMove = moved.ok ? moved.sessions : [];
+
+assert.equal(
+  afterMove.find((session) => session.id === "a")?.date,
+  "2026-03-05",
+  "the session lands on the new day"
+);
+assert.equal(
+  afterMove.find((session) => session.id === "a")?.source,
+  "manual",
+  "and claims the move, or the generator undoes it"
+);
+assert.equal(
+  afterMove.find((session) => session.date === "2026-03-02")?.type,
+  "rest",
+  "the day it left becomes a rest day, not a hole"
+);
+
+// The check the whole feature rests on. Regenerate the original week over the
+// top and the move must still stand.
+const regenerated = mergeGeneratedSessions(afterMove, [
+  moveDay(crypto.randomUUID(), "2026-03-02"),
+  moveDay(crypto.randomUUID(), "2026-03-04")
+]);
+
+assert.equal(
+  regenerated.filter((session) => session.type === "workout" && session.sessionName === "Push")
+    .length,
+  2,
+  "regenerating does not duplicate the session that moved"
+);
+assert.equal(
+  regenerated.find((session) => session.date === "2026-03-02")?.type,
+  "rest",
+  "and does not refill the vacated day"
+);
+assert.equal(
+  regenerated.some((session) => session.date === "2026-03-05"),
+  true,
+  "the moved session is still where it was put"
+);
+
+// Landing on an occupied day swaps them rather than overwriting one.
+const swapped = moveSession(moveWeek, "a", "2026-03-04");
+assert.equal(swapped.ok, true);
+const afterSwap = swapped.ok ? swapped.sessions : [];
+assert.equal(afterSwap.find((s) => s.id === "a")?.date, "2026-03-04");
+assert.equal(
+  afterSwap.find((s) => s.id === "b")?.date,
+  "2026-03-02",
+  "the day that was there moves to the day that was vacated"
+);
+assert.equal(afterSwap.length, 2, "a swap creates no extra rest day");
+
+// A finished session is a record of a day that happened.
+const done = moveSession([moveDay("a", "2026-03-02", { status: "completed" })], "a", "2026-03-05");
+assert.equal(done.ok, false, "a completed session does not move");
+
+assert.equal(
+  moveSession(moveWeek, "a", "2026-03-02").ok,
+  true,
+  "moving to the day it is already on is a no-op, not an error"
+);
+assert.equal(moveSession(moveWeek, "nope", "2026-03-05").ok, false, "an unknown id is refused");

@@ -56,9 +56,10 @@ export function TopSetWall({
           The heaviest set of each session, per lift, steepest gain first. Each tile is scaled to its
           own lift rather than to a shared axis — a 4 kg gain on a curl and a 40 kg gain on a
           deadlift are both real, and one scale would flatten every accessory to a flat line. Read
-          the tile for the shape and the number for the size. Top set lifted, not an estimated 1RM:
-          a log stores reps for the whole exercise rather than per set, so Epley here would be a
-          guess wearing a formula.
+          the tile for the shape and the number for the size. Top set lifted, not an estimated 1RM: this card reads
+          the session rollup, which stores reps for the whole exercise rather than per set, so Epley
+          here would be a guess wearing a formula. The estimate has its own card, fed by the per-set
+          log.
         </>
       }
     >

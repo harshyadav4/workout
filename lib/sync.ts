@@ -69,7 +69,10 @@ function sessionTemplateToRow(template: SessionTemplate, userId: string): Row {
     user_id: userId,
     name: template.name,
     exercises: template.exercises,
-    summary: template.summary
+    summary: template.summary,
+    // null, not undefined: writing undefined leaves the column untouched on an
+    // update, so turning a rule back off would never actually clear it.
+    progression: template.progression ?? null
   };
 }
 
@@ -80,6 +83,7 @@ function rowToSessionTemplate(row: Row): SessionTemplate {
     name: row.name as string,
     exercises,
     summary: row.summary as SessionTemplate["summary"],
+    progression: (row.progression as SessionTemplate["progression"]) ?? undefined,
     // Derived rather than stored — it is exactly the exercises' workout ids.
     workoutIds: [...new Set(exercises.map((exercise) => exercise.workoutId))]
   };
@@ -157,6 +161,7 @@ function setLogToRow(setLog: SetLog, userId: string): Row {
     set_index: setLog.setIndex,
     reps: setLog.reps,
     weight: setLog.weight,
+    duration_seconds: setLog.durationSeconds ?? null,
     completed_at: setLog.completedAt ?? null
   };
 }
@@ -170,6 +175,9 @@ function rowToSetLog(row: Row): SetLog {
     setIndex: Number(row.set_index ?? 0),
     reps: Number(row.reps ?? 0),
     weight: Number(row.weight ?? 0),
+    // Null is "not a held set", not "held for nothing" — every row written
+    // before the column existed is a rep set, and 0 would read as a failed hold.
+    durationSeconds: (row.duration_seconds as number) ?? undefined,
     completedAt: (row.completed_at as string) ?? undefined
   };
 }
@@ -263,6 +271,9 @@ export async function loadUserState(): Promise<RemoteState> {
           email: (profileRow.email as string) ?? "",
           heightCm: Number(profileRow.height_cm ?? 0),
           weightKg: Number(profileRow.weight_kg ?? 0),
+          // `|| undefined` rather than `?? 0`: the column is nullable and a
+          // goal of 0 kg is not a goal, so both readings collapse to "unset".
+          goalWeightKg: Number(profileRow.goal_weight_kg) || undefined,
           weightCadence: (profileRow.weight_cadence as MeasurementCadence) ?? undefined,
           measurementCadence:
             (profileRow.measurement_cadence as MeasurementCadence) ?? undefined
@@ -383,6 +394,29 @@ export function buildExport(state: SyncableState) {
 }
 
 /**
+ * A plan without a training history — what you hand to someone else.
+ *
+ * The same payload shape as `buildExport`, with every performed thing removed:
+ * no logs, no sets, no measurements, no profile. That is a privacy decision as
+ * much as a size one — a plan is a routine, and handing over a year of
+ * bodyweights with it is not what "share my plan" means to anyone.
+ *
+ * It reads back through `parseExport` with no special case: the missing arrays
+ * validate as empty, and `reconcile` merges empty collections by adding nothing.
+ * So importing someone's plan cannot touch your own workouts.
+ */
+export function buildPlanExport(state: SyncableState) {
+  return {
+    exportedAt: new Date().toISOString(),
+    kind: "plan" as const,
+    templates: state.templates.filter((template) => !template.isPreset),
+    sessionTemplates: state.sessionTemplates,
+    scheduledSessions: state.scheduledSessions,
+    scheduleConfig: state.scheduleConfig
+  };
+}
+
+/**
  * Push what changed between two store states. Throws on the first failed write
  * so the caller can surface it — a silently dropped set is worse than an error.
  */
@@ -425,6 +459,7 @@ export async function pushChanges(
       email: next.profile.email,
       height_cm: next.profile.heightCm,
       weight_kg: next.profile.weightKg,
+      goal_weight_kg: next.profile.goalWeightKg ?? null,
       weight_cadence: next.profile.weightCadence ?? null,
       measurement_cadence: next.profile.measurementCadence ?? null,
       schedule_config: next.scheduleConfig ?? null,

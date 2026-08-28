@@ -137,8 +137,9 @@ export function previousWindow(range: ProgressRange, window: DateWindow): DateWi
   };
 }
 
-export function filterByWindow(logs: WorkoutLog[], window: DateWindow) {
-  return logs.filter((log) => log.date >= window.start && log.date <= window.end);
+/** Generic over the row: it only ever reads `date`, and set logs need it too. */
+export function filterByWindow<T extends { date: string }>(rows: T[], window: DateWindow): T[] {
+  return rows.filter((row) => row.date >= window.start && row.date <= window.end);
 }
 
 export type Bucket = "day" | "week";
@@ -594,7 +595,11 @@ export interface TopSetPoint {
  * The heaviest set of one exercise, per session.
  *
  * Deliberately not an estimated 1RM: a log stores `totalReps` for the whole
- * exercise, not reps per set, so Epley here would be a guess wearing a formula.
+ * exercise, not reps per set, so Epley *here* would be a guess wearing a formula.
+ *
+ * That is a statement about `WorkoutLog`, not about the app. `set_logs` carries
+ * the per-set grain Epley actually needs — see `lib/one-rep-max.ts`, which reads
+ * that table and only that table.
  */
 export function buildTopSetSeries(logs: WorkoutLog[], workoutId: string): TopSetPoint[] {
   const peaks = new Map<string, number>();

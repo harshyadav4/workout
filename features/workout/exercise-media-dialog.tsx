@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronLeft, PlayCircle } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import {
   Dialog,
@@ -11,7 +11,7 @@ import {
   DialogTrigger,
   DRAWER_CONTENT
 } from "@/components/ui/dialog";
-import { exerciseGifUrl, loadExercises, type Exercise } from "@/lib/exercises";
+import { exerciseGifUrl, exerciseImageUrl, loadExercises, type Exercise } from "@/lib/exercises";
 import type { WorkoutTemplate } from "@/lib/types";
 
 const DB_PREFIX = "db-";
@@ -31,6 +31,61 @@ export function templateDatasetId(
     return template.dbId;
   }
   return template.id.startsWith(DB_PREFIX) ? template.id.slice(DB_PREFIX.length) : undefined;
+}
+
+/**
+ * The dataset row behind one exercise.
+ *
+ * `loadExercises` caches the parsed file at module level, so every caller after
+ * the first is a lookup rather than a fetch — which is what makes this safe in
+ * the logging path, where the open set walks from one exercise to the next.
+ */
+function useDatasetExercise(datasetId: string) {
+  const [exercise, setExercise] = useState<Exercise | null>(null);
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+
+  useEffect(() => {
+    let active = true;
+    setStatus("loading");
+    loadExercises()
+      .then((list) => {
+        if (!active) {
+          return;
+        }
+        const found = list.find((item) => item.id === datasetId) ?? null;
+        setExercise(found);
+        setStatus(found ? "ready" : "error");
+      })
+      .catch(() => {
+        if (active) {
+          setStatus("error");
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [datasetId]);
+
+  return { exercise, status };
+}
+
+/**
+ * A GIF ignores `prefers-reduced-motion`. CSS can pause an animation but not a
+ * decoded image, so the only way to honour the setting is to serve the still
+ * frame the dataset already ships — `exerciseImageUrl`, the picker's thumbnail.
+ */
+function usePrefersReducedMotion() {
+  const [reduced, setReduced] = useState(false);
+
+  useEffect(() => {
+    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setReduced(query.matches);
+    const onChange = (event: MediaQueryListEvent) => setReduced(event.matches);
+    query.addEventListener("change", onChange);
+    return () => query.removeEventListener("change", onChange);
+  }, []);
+
+  return reduced;
 }
 
 // The remote CDN is third-party and 404s on a few entries: swap in text rather
@@ -70,30 +125,7 @@ interface ExerciseMediaViewProps {
  * open drawer (Build) or portalled into its own sheet (Home).
  */
 export function ExerciseMediaView({ datasetId, name, onBack }: ExerciseMediaViewProps) {
-  const [exercise, setExercise] = useState<Exercise | null>(null);
-  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
-
-  useEffect(() => {
-    let active = true;
-    setStatus("loading");
-    loadExercises()
-      .then((list) => {
-        if (!active) {
-          return;
-        }
-        const found = list.find((item) => item.id === datasetId) ?? null;
-        setExercise(found);
-        setStatus(found ? "ready" : "error");
-      })
-      .catch(() => {
-        if (active) {
-          setStatus("error");
-        }
-      });
-    return () => {
-      active = false;
-    };
-  }, [datasetId]);
+  const { exercise, status } = useDatasetExercise(datasetId);
 
   return (
     <div className="space-y-3">
@@ -141,24 +173,66 @@ export function ExerciseMediaView({ datasetId, name, onBack }: ExerciseMediaView
 interface ExerciseMediaDialogProps {
   datasetId: string;
   name: string;
+  /** A trigger of your own. Defaults to the play icon beside an exercise name. */
+  children?: ReactNode;
 }
 
 /** Trigger + bottom sheet. Only for screens that are not already inside a dialog. */
-export function ExerciseMediaDialog({ datasetId, name }: ExerciseMediaDialogProps) {
+export function ExerciseMediaDialog({ datasetId, name, children }: ExerciseMediaDialogProps) {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <button
-          type="button"
-          aria-label={`View ${name} demo`}
-          className="shrink-0 rounded-full p-1.5 text-muted-foreground transition hover:bg-secondary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <PlayCircle className="h-4 w-4" />
-        </button>
+        {children ?? (
+          <button
+            type="button"
+            aria-label={`View ${name} demo`}
+            className="shrink-0 rounded-full p-1.5 text-muted-foreground transition hover:bg-secondary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <PlayCircle className="h-4 w-4" />
+          </button>
+        )}
       </DialogTrigger>
       <DialogContent className={`${DRAWER_CONTENT} max-h-[85dvh] overflow-y-auto`}>
         <ExerciseMediaView datasetId={datasetId} name={name} />
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * The lift in front of you, looping, at thumbnail size.
+ *
+ * Small on purpose. It sits in the open set panel, above the steppers and above
+ * the one button you press every set — a full-width animation would push that
+ * button further down the screen to show you something you already know how to
+ * do by set three. Tap it for the full sheet and the written steps.
+ */
+export function ExerciseDemoThumb({ datasetId, name }: { datasetId: string; name: string }) {
+  const { exercise } = useDatasetExercise(datasetId);
+  const still = usePrefersReducedMotion();
+  const [failed, setFailed] = useState(false);
+
+  return (
+    <ExerciseMediaDialog datasetId={datasetId} name={name}>
+      {/* Sized whether or not there is an image in it yet, so the panel does not
+          jump under your thumb when the dataset resolves a beat after the set
+          opens — or when the third-party CDN 404s, which it does for a few. */}
+      <button
+        type="button"
+        aria-label={`View ${name} demo`}
+        className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-background/70 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-95"
+      >
+        {exercise && !failed ? (
+          <img
+            src={still ? exerciseImageUrl(exercise) : exerciseGifUrl(exercise)}
+            alt=""
+            className="h-full w-full object-cover"
+            onError={() => setFailed(true)}
+          />
+        ) : (
+          <PlayCircle className="h-5 w-5 text-muted-foreground" />
+        )}
+      </button>
+    </ExerciseMediaDialog>
   );
 }
