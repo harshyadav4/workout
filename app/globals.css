@@ -60,6 +60,11 @@
   --shadow-quiet-pressed: inset 0 1px 0 rgba(255, 255, 255, 0.06), inset 0 -1px 0 rgba(0, 0, 0, 0.35), 0 2px 5px rgba(0, 0, 0, 0.35);
   --shadow-well: inset 0 2px 5px rgba(0, 0, 0, 0.7), inset 0 -1px 0 rgba(255, 255, 255, 0.05);
   --shadow-dock: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 18px 40px rgba(0, 0, 0, 0.6);
+  /* The dock as glass, on iOS only (see `.dock` below). */
+  --glass-fill: rgba(30, 33, 40, 0.62);
+  --glass-edge: rgba(255, 255, 255, 0.14);
+  --glass-pill: rgba(255, 255, 255, 0.12);
+  --shadow-glass: inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(255, 255, 255, 0.04), 0 14px 34px rgba(0, 0, 0, 0.45);
 
   /* The body map. It sits on a well; idle muscles are a quiet grey; heat is a
      crimson ramp that brightens on this dark ground. Crimson, not mana blue:
@@ -120,6 +125,10 @@
   --shadow-quiet-pressed: inset 0 1px 0 #fff, inset 0 -1px 0 rgba(20, 20, 20, 0.08), 0 1px 3px rgba(20, 20, 20, 0.08);
   --shadow-well: inset 0 2px 3px rgba(20, 20, 20, 0.12);
   --shadow-dock: inset 0 1px 0 #fff, 0 2px 4px rgba(20, 20, 20, 0.06), 0 18px 40px rgba(20, 20, 20, 0.14);
+  --glass-fill: rgba(255, 255, 255, 0.68);
+  --glass-edge: rgba(255, 255, 255, 0.75);
+  --glass-pill: rgba(255, 255, 255, 0.8);
+  --shadow-glass: inset 0 1px 0 rgba(255, 255, 255, 0.95), 0 2px 6px rgba(20, 20, 20, 0.06), 0 14px 32px rgba(20, 20, 20, 0.16);
 
   /* On Paper the ramp deepens instead: more ink is more. */
   --map-surface: 45 19% 88%;
@@ -227,6 +236,39 @@ label {
 .well {
   background-color: hsl(var(--well));
   box-shadow: var(--shadow-well);
+}
+
+/* The dock: a plaque in the surface's own material, the active key tinted. */
+.dock {
+  background-image: linear-gradient(180deg, hsl(var(--secondary)) 0%, hsl(var(--surface-bottom)) 100%);
+}
+
+.dock-active {
+  background-color: hsl(var(--brand) / 0.12);
+  color: hsl(var(--brand));
+}
+
+/*
+ * On iPhone and iPad the dock is glass, the way the system's own tab bars are:
+ * clear, blurred and colour-boosted over whatever scrolls beneath, with a lit
+ * edge, and the active key a brighter pill of glass. `-webkit-touch-callout`
+ * exists only in iOS WebKit — every browser there, none anywhere else — so
+ * Android and desktop keep the solid plaque without any user-agent sniffing.
+ */
+@supports (-webkit-touch-callout: none) {
+  .dock {
+    background-image: none;
+    background-color: var(--glass-fill);
+    border-color: var(--glass-edge);
+    box-shadow: var(--shadow-glass);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    backdrop-filter: blur(24px) saturate(180%);
+  }
+
+  .dock-active {
+    background-color: var(--glass-pill);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 1px 6px rgba(0, 0, 0, 0.18);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

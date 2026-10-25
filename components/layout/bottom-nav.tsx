@@ -20,7 +20,8 @@ const items = [
 /**
  * The dock: one plaque floating clear of the bottom edge, four keys in it.
  * The active key is tinted, not filled — a filled key is the one you press,
- * and this one you are already on.
+ * and this one you are already on. On iOS the plaque is glass instead; see
+ * `.dock` in globals.css.
  */
 export function BottomNav() {
   const pathname = usePathname();
@@ -37,13 +38,7 @@ export function BottomNav() {
       hidden={typing}
       className="fixed bottom-0 left-0 right-0 z-40 px-4 pb-[calc(env(safe-area-inset-bottom)+0.875rem)]"
     >
-      <div
-        className="mx-auto grid max-w-md grid-cols-4 gap-1 rounded-3xl border border-border p-1.5 shadow-dock"
-        style={{
-          backgroundImage:
-            "linear-gradient(180deg, hsl(var(--secondary)) 0%, hsl(var(--surface-bottom)) 100%)"
-        }}
-      >
+      <div className="dock mx-auto grid max-w-md grid-cols-4 gap-1 rounded-3xl border border-border p-1.5 shadow-dock">
         {items.map((item) => {
           const active =
             item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
@@ -58,7 +53,7 @@ export function BottomNav() {
               aria-current={active ? "page" : undefined}
               className={cn(
                 "flex h-14 flex-col items-center justify-center gap-1 rounded-xl text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                active ? "bg-brand/12 text-brand" : "text-muted-foreground active:bg-secondary/70"
+                active ? "dock-active" : "text-muted-foreground active:bg-secondary/70"
               )}
             >
               <span className="relative">
