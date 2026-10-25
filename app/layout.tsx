@@ -55,7 +55,10 @@ export const viewport: Viewport = {
   themeColor: "#0E0F12",
   width: "device-width",
   initialScale: 1,
-  viewportFit: "cover"
+  viewportFit: "cover",
+  // Android Chrome: shrink the page above the keyboard instead of covering it.
+  // iPhone ignores this; the sheets handle it there (components/ui/use-keyboard).
+  interactiveWidget: "resizes-content"
 };
 
 export default function RootLayout({

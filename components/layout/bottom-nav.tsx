@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { BarChart3, CalendarDays, Home, UserCircle2 } from "lucide-react";
 
+import { isTextEntry } from "@/components/ui/use-keyboard";
 import { useWorkoutStore } from "@/features/workout/workout-store";
 import { isRecordingDue } from "@/lib/body-metrics";
 import { cn } from "@/lib/utils";
@@ -25,10 +27,14 @@ export function BottomNav() {
   const measurements = useWorkoutStore((state) => state.measurements);
   const profile = useWorkoutStore((state) => state.profile);
   const recordingDue = isRecordingDue(measurements, profile);
+  const typing = useTyping();
 
   return (
     <nav
       aria-label="Main"
+      // Out of the way while typing: on iPhone a fixed bar either rides up on
+      // the keyboard or sits behind it, and both cover the field being typed in.
+      hidden={typing}
       className="fixed bottom-0 left-0 right-0 z-40 px-4 pb-[calc(env(safe-area-inset-bottom)+0.875rem)]"
     >
       <div
@@ -74,4 +80,23 @@ export function BottomNav() {
       </div>
     </nav>
   );
+}
+
+/** True while a text field anywhere on the page has focus. */
+function useTyping() {
+  const [typing, setTyping] = useState(false);
+
+  useEffect(() => {
+    const onFocusIn = (event: FocusEvent) => setTyping(isTextEntry(event.target));
+    // focusout fires before focus lands on the next field; check where it went.
+    const onFocusOut = () => window.setTimeout(() => setTyping(isTextEntry(document.activeElement)), 0);
+    document.addEventListener("focusin", onFocusIn);
+    document.addEventListener("focusout", onFocusOut);
+    return () => {
+      document.removeEventListener("focusin", onFocusIn);
+      document.removeEventListener("focusout", onFocusOut);
+    };
+  }, []);
+
+  return typing;
 }

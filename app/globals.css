@@ -169,6 +169,15 @@ textarea {
   font: inherit;
 }
 
+/* When the browser scrolls a focused field into view, keep it clear of the
+   sticky session strip above and the keyboard's accessory bar below, rather
+   than flush against either edge. */
+input,
+textarea,
+select {
+  scroll-margin-block: 6rem;
+}
+
 /* Browsers default <label> to inline. Every "Label\n<Input className="w-full">"
    pattern in this app needs the label to be the input's containing block for
    that width:100% — inline breaks that silently: Safari resolved the width
