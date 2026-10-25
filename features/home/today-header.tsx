@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { useAuth } from "@/features/auth/use-auth";
+import { RankBadge, RankUpNotice } from "@/features/home/hunter-rank";
 import { useWorkoutStore } from "@/features/workout/workout-store";
 
 // Date keys are plain YYYY-MM-DD days, so format in UTC — the day never shifts
@@ -34,9 +35,10 @@ function firstName(value: unknown): string | undefined {
 }
 
 /**
- * The date and a greeting, in place of a page title. The date is the one the
- * store is pointed at, so it agrees with the day card under it. The greeting
- * reads the clock after mount: the server has no idea what time it is for you.
+ * The date and a greeting, in place of a page title, and the hunter rank on
+ * the right. The date is the one the store is pointed at, so it agrees with the
+ * day card under it. The greeting reads the clock after mount: the server has
+ * no idea what time it is for you.
  */
 export function TodayHeader() {
   const { user } = useAuth();
@@ -51,23 +53,18 @@ export function TodayHeader() {
   const name = firstName(user?.user_metadata?.full_name) ?? firstName(profileName);
 
   return (
-    <div className="flex items-end justify-between gap-3">
-      <div>
+    <div>
+      {/* The rank rides on the date line, so the greeting keeps the full width. */}
+      <div className="flex items-center justify-between gap-3">
         <p className="text-sm font-medium text-muted-foreground">
           {LONG_DAY.format(new Date(`${activeDate}T00:00:00Z`))}
         </p>
-        <h1 className="mt-1 font-display text-[34px] font-extrabold leading-none tracking-tight">
-          {name ? `${greeting}, ${name}.` : `${greeting}.`}
-        </h1>
+        <RankBadge name={name} />
       </div>
-      {name ? (
-        <span
-          className="key-quiet flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold"
-          aria-hidden
-        >
-          {name[0].toUpperCase()}
-        </span>
-      ) : null}
+      <h1 className="mt-1.5 font-display text-[34px] font-extrabold leading-none tracking-tight">
+        {name ? `${greeting}, ${name}.` : `${greeting}.`}
+      </h1>
+      <RankUpNotice />
     </div>
   );
 }

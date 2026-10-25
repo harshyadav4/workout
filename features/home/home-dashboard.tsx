@@ -1,12 +1,13 @@
 "use client";
 
-import { CalendarPlus, Check, Info, PlayCircle, Plus } from "lucide-react";
+import { CalendarPlus, Info, PlayCircle, Plus } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { LevelUpGem, QuestScroll } from "@/features/home/artifacts";
 import { ExerciseLedger } from "@/features/home/exercise-ledger";
 import { MuscleMapCard } from "@/features/home/muscle-map-card";
 import { MeasurementPrompt } from "@/features/home/measurement-prompt";
@@ -22,6 +23,7 @@ import {
   useWorkoutStore
 } from "@/features/workout/workout-store";
 import { logSetFeedback } from "@/lib/feedback";
+import { isLevelUp, previousBest } from "@/lib/hunter";
 import { summarizeSession, type SessionSummary } from "@/lib/progress-metrics";
 import { resolveDayState } from "@/lib/schedule";
 import type { PlannedSet, ScheduledSession } from "@/lib/types";
@@ -121,7 +123,7 @@ function SessionStrip({
         <p className="mt-1 truncate text-xs text-muted-foreground tabular-nums">{detail}</p>
       </div>
       {rest.active ? (
-        <RestDial remaining={rest.remaining} onExtend={rest.extend} onSkip={rest.skip} />
+        <RestDial remaining={rest.remaining} total={rest.total} onExtend={rest.extend} onSkip={rest.skip} />
       ) : (
         <span className="w-0" aria-hidden />
       )}
@@ -169,10 +171,13 @@ function FinishSummary({ summary }: { summary?: SessionSummary }) {
   const change = summary.volumeChange;
 
   return (
-    <div className="mt-4 space-y-3 rounded-xl bg-success/10 p-4 ring-1 ring-success/25">
+    <div className="system-pop mt-4 space-y-3 rounded-xl bg-success/10 p-4 ring-1 ring-success/25">
       <div className="flex items-center gap-2.5">
-        <Check className="h-5 w-5 shrink-0 text-success" strokeWidth={3} />
-        <p className="font-display text-lg font-bold tracking-tight">Session logged</p>
+        <QuestScroll className="h-9 w-[42px]" />
+        <div>
+          <p className="font-display text-lg font-bold leading-tight tracking-tight">Daily quest cleared</p>
+          <p className="text-xs text-muted-foreground">Today&apos;s session is logged.</p>
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-2 text-center">
@@ -230,6 +235,29 @@ function FinishSummary({ summary }: { summary?: SessionSummary }) {
   );
 }
 
+/**
+ * "Level up!": a new best, caught on the set that made it, instead of only in
+ * the summary at the end. Sits just above the tab bar for a moment and goes —
+ * low, so it never covers the strip with the rest timer, or the set being logged.
+ * The `key` replays the arrival when a second record lands before it leaves.
+ */
+function LevelUpNotice({ name, weight }: { name: string; weight: number }) {
+  return (
+    <div
+      role="status"
+      className="system-pop pointer-events-none fixed inset-x-4 bottom-[calc(env(safe-area-inset-bottom)+6.75rem)] z-40 mx-auto flex max-w-sm items-center gap-3 rounded-2xl border border-brand/40 bg-card/95 px-4 py-3 shadow-dock backdrop-blur"
+    >
+      <LevelUpGem className="h-9 w-9" />
+      <div className="min-w-0">
+        <p className="font-display text-base font-extrabold leading-tight tracking-tight text-brand">Level up!</p>
+        <p className="truncate text-xs text-muted-foreground">
+          New best on <span className="capitalize">{name}</span>: {weight} kg
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export function HomeDashboard() {
   const todaySessions = useTodaySessions();
   const selectedSession = useSelectedTodaySession();
@@ -256,6 +284,15 @@ export function HomeDashboard() {
   // ponytail: the stamp replays only when this id changes, so re-logging the
   // same set does not re-animate. Clear it on a timer if that ever matters.
   const [stampedSetId, setStampedSetId] = useState<string>();
+  const [levelUp, setLevelUp] = useState<{ id: string; name: string; weight: number }>();
+
+  useEffect(() => {
+    if (!levelUp) {
+      return;
+    }
+    const id = window.setTimeout(() => setLevelUp(undefined), 2800);
+    return () => window.clearTimeout(id);
+  }, [levelUp]);
 
   const day = useMemo(
     () =>
@@ -344,6 +381,16 @@ export function HomeDashboard() {
     if (!alreadyLogged) {
       logSetFeedback();
       rest.start(exercise?.restSeconds);
+
+      const setItem = exercise?.sets.find((item) => item.id === setId);
+      if (exercise && setItem && setItem.type !== "warmup") {
+        const todayBest = exercise.sets
+          .filter((item) => item.completed && item.id !== setId && item.type !== "warmup")
+          .reduce((peak, item) => Math.max(peak, item.weight), 0);
+        if (isLevelUp(setItem.weight, previousBest(logs, exercise.workoutId, activeDate), todayBest)) {
+          setLevelUp({ id: setId, name: exercise.templateName, weight: setItem.weight });
+        }
+      }
     }
   };
 
@@ -462,6 +509,7 @@ export function HomeDashboard() {
 
   return (
     <section className="space-y-4">
+      {levelUp ? <LevelUpNotice key={levelUp.id} name={levelUp.name} weight={levelUp.weight} /> : null}
       {isLogging ? (
         <>
           <SessionStrip
@@ -476,7 +524,7 @@ export function HomeDashboard() {
       ) : (
         <Card>
           <DayHeader
-            tag={isDone ? "Done" : "Today"}
+            tag={isDone ? "Cleared" : "Daily quest"}
             tone={isDone ? "success" : "default"}
             title={day.session.sessionName}
             detail={

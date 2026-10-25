@@ -4,7 +4,7 @@ import { TodayHeader } from "@/features/home/today-header";
 
 export default function HomePage() {
   return (
-    <MobileShell title="Today" header={<TodayHeader />}>
+    <MobileShell title="Today" wallpaper="today" header={<TodayHeader />}>
       <HomeDashboard />
     </MobileShell>
   );

@@ -3,7 +3,7 @@ import { ProgressDashboard } from "@/features/progress/progress-dashboard";
 
 export default function ProgressPage() {
   return (
-    <MobileShell title="Progress">
+    <MobileShell title="Progress" wallpaper="progress">
       <ProgressDashboard />
     </MobileShell>
   );

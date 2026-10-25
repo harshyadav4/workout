@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 
 import { Card } from "@/components/ui/card";
+import { RankProgress } from "@/features/home/hunter-rank";
 import { useWorkoutStore } from "@/features/workout/workout-store";
 import { earliestLogDate, shiftKey, weekStartKey } from "@/lib/progress-metrics";
 import { buildStreaks } from "@/lib/progress-trends";
@@ -110,6 +111,7 @@ export function StreakCard() {
         {title}
       </h4>
       <p className="mt-1.5 text-sm text-muted-foreground">{caption}</p>
+      <RankProgress />
     </Card>
   );
 }

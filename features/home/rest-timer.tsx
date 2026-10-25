@@ -3,6 +3,7 @@
 import { Minus, Plus, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { RecoveryPotion } from "@/features/home/recovery-potion";
 import { cn } from "@/lib/utils";
 
 /**
@@ -27,6 +28,8 @@ export function useRestTimer() {
   // spent not looking at it.
   const [endsAt, setEndsAt] = useState<number | undefined>(undefined);
   const [remaining, setRemaining] = useState(0);
+  // The whole rest, so the dial can show how far the mana has refilled.
+  const [total, setTotal] = useState(0);
   const buzzedRef = useRef(false);
 
   useEffect(() => {
@@ -61,6 +64,7 @@ export function useRestTimer() {
       return;
     }
     buzzedRef.current = false;
+    setTotal(seconds);
     setEndsAt(Date.now() + seconds * 1000);
   }, []);
 
@@ -77,28 +81,34 @@ export function useRestTimer() {
       }
       return next;
     });
+    // A longer rest is a longer bar, not a bar that jumps backwards.
+    setTotal((current) => Math.max(1, current + deltaSeconds));
   }, []);
 
   const skip = useCallback(() => setEndsAt(undefined), []);
 
-  return { active: endsAt !== undefined, remaining, start, extend, skip };
+  return { active: endsAt !== undefined, remaining, total, start, extend, skip };
 }
 
 interface RestDialProps {
   remaining: number;
+  /** The whole rest in seconds; the mana bar is how much of it has passed. */
+  total: number;
   onExtend: (deltaSeconds: number) => void;
   onSkip: () => void;
 }
 
 /**
- * The countdown as a small dial on the session strip. Tap it and the controls
- * unfold under the strip: fifteen off, fifteen on, skip. It does not dismiss
- * itself at zero — a phone in a pocket misses the buzz, and the dial is the
- * only other signal.
+ * The countdown as a small dial on the session strip, with a recovery potion
+ * beside the number that refills as the rest runs out — full means go. Tap it and the
+ * controls unfold under the strip: fifteen off, fifteen on, skip. It does not
+ * dismiss itself at zero — a phone in a pocket misses the buzz, and the dial
+ * is the only other signal.
  */
-export function RestDial({ remaining, onExtend, onSkip }: RestDialProps) {
+export function RestDial({ remaining, total, onExtend, onSkip }: RestDialProps) {
   const [open, setOpen] = useState(false);
   const done = remaining <= 0;
+  const refilled = done || total <= 0 ? 1 : Math.min(1, Math.max(0, 1 - remaining / total));
 
   return (
     <>
@@ -108,22 +118,25 @@ export function RestDial({ remaining, onExtend, onSkip }: RestDialProps) {
         aria-label={done ? "Rest done. Rest controls" : `${formatRest(remaining)} of rest left. Rest controls`}
         onClick={() => setOpen((current) => !current)}
         className={cn(
-          "well flex h-14 min-w-[4.5rem] shrink-0 flex-col items-center justify-center rounded-lg px-3 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          "well flex h-14 min-w-[5.75rem] shrink-0 items-center justify-center gap-2 rounded-lg px-2.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           done ? "ring-1 ring-brand" : ""
         )}
       >
-        <span
-          className={cn(
-            "font-display text-xl font-bold leading-none tabular-nums tracking-tight",
-            done ? "text-foreground" : "text-brand"
-          )}
-          role="status"
-          aria-live="polite"
-        >
-          {formatRest(remaining)}
-        </span>
-        <span className="mt-1 text-[10px] font-semibold text-muted-foreground">
-          {done ? "go" : "rest"}
+        <RecoveryPotion level={refilled} className="h-9 w-[27px]" />
+        <span className="flex flex-col items-start">
+          <span
+            className={cn(
+              "font-display text-xl font-bold leading-none tabular-nums tracking-tight",
+              done ? "text-foreground" : "text-brand"
+            )}
+            role="status"
+            aria-live="polite"
+          >
+            {formatRest(remaining)}
+          </span>
+          <span className="mt-1 text-[10px] font-semibold text-muted-foreground">
+            {done ? "go" : "recovering"}
+          </span>
         </span>
       </button>
       {open ? (
