@@ -15,6 +15,7 @@ import { useScreenWakeLock } from "@/features/home/use-wake-lock";
 import { RestDial, useRestTimer } from "@/features/home/rest-timer";
 import { SessionRing } from "@/features/home/session-ring";
 import { StreakCard } from "@/features/home/streak-card";
+import { InstallCard } from "@/features/pwa/install-card";
 import {
   useSelectedTodaySession,
   useTodaySessions,
@@ -111,7 +112,7 @@ function SessionStrip({
   rest: ReturnType<typeof useRestTimer>;
 }) {
   return (
-    <Card className="sticky top-2 z-30 grid grid-cols-[auto_1fr_auto] items-center gap-3 p-3">
+    <Card className="sticky top-[calc(env(safe-area-inset-top)+0.5rem)] z-30 grid grid-cols-[auto_1fr_auto] items-center gap-3 p-3">
       <SessionRing value={total > 0 ? done / total : 0} size={56} stroke={8} label={`${done} of ${total} sets logged`}>
         <span className="font-display text-[17px] font-extrabold tracking-tight">{done}</span>
       </SessionRing>
@@ -419,6 +420,7 @@ export function HomeDashboard() {
             there argues with it. */}
         {isRest ? null : <QuickStart />}
         <StreakCard />
+        <InstallCard dismissible />
         <MuscleMapCard
           title="Muscle map"
           description={
@@ -579,6 +581,8 @@ export function HomeDashboard() {
           thing you are tapping down the screen, and a session in progress does
           not need a nudge to start. */}
       {isLogging ? null : <StreakCard />}
+
+      {isLogging ? null : <InstallCard dismissible />}
 
       <MuscleMapCard
         title="Muscle map"

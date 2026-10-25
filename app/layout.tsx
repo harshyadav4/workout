@@ -3,6 +3,7 @@ import { Bricolage_Grotesque, Inter } from "next/font/google";
 
 import "@/app/globals.css";
 import { AppProviders } from "@/components/layout/app-providers";
+import { RegisterServiceWorker } from "@/features/pwa/register-sw";
 import { THEME_BOOTSTRAP } from "@/lib/theme";
 
 // Everything you read is set in this. Numbers get `tabular-nums` so a stepper
@@ -33,9 +34,21 @@ export const metadata: Metadata = {
   // iOS ignores the manifest's icons for the home screen and reads
   // apple-touch-icon instead, so both are declared.
   icons: {
-    icon: "/icon-192.png",
-    apple: "/icon-192.png"
-  }
+    icon: [
+      { url: "/favicon-64.png", sizes: "64x64", type: "image/png" },
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" }
+    ],
+    apple: { url: "/apple-touch-icon.png", sizes: "180x180" }
+  },
+  // iPhone: open full screen from the home screen, under the right name, with
+  // the status bar drawn over the app's own dark top.
+  appleWebApp: {
+    capable: true,
+    title: "GymFlow",
+    statusBarStyle: "black-translucent"
+  },
+  applicationName: "GymFlow",
+  formatDetection: { telephone: false }
 };
 
 export const viewport: Viewport = {
@@ -65,6 +78,7 @@ export default function RootLayout({
       </head>
       <body className={`${inter.variable} ${bricolage.variable}`}>
         <AppProviders>{children}</AppProviders>
+        <RegisterServiceWorker />
       </body>
     </html>
   );

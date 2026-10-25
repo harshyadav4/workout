@@ -17,7 +17,7 @@ export function MobileShell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="mx-auto min-h-screen max-w-md px-4 pb-8 pt-6 app-safe-bottom">
+    <div className="mx-auto min-h-screen max-w-md px-4 pb-8 pt-[calc(env(safe-area-inset-top)+1.5rem)] app-safe-bottom">
       <header className="mb-5 px-1">
         {header ?? (
           <>

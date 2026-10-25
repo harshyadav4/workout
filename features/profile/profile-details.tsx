@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/features/auth/use-auth";
 import { FeedbackToggle, ThemeToggle } from "@/features/profile/theme-toggle";
+import { InstallCard } from "@/features/pwa/install-card";
 import { retrySync, useSyncStatus } from "@/features/workout/sync-status";
 import { useWorkoutStore, useWorkoutStoreApi } from "@/features/workout/workout-store";
 import { hasGoal } from "@/lib/body-metrics";
@@ -136,6 +137,8 @@ export function ProfileDetails() {
   };
 
   return (
+    <>
+    <InstallCard />
     <Card>
       <CardContent className="mt-0 space-y-3">
         {/* Google fills the name; the profiles trigger stores the same value. */}
@@ -254,5 +257,6 @@ export function ProfileDetails() {
         {error ? <p className="text-center text-sm text-danger">{error}</p> : null}
       </CardContent>
     </Card>
+    </>
   );
 }
