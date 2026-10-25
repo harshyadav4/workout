@@ -1,13 +1,14 @@
 /**
- * The one moment: a click and a tap when a set is logged.
+ * Feedback: a light haptic on every tap, and a click when a set is logged.
  *
  * Off by default. The web cannot ask for haptics the way a native app can, and
  * a phone that makes a noise in a gym without being asked is a phone that gets
- * muted. One switch on the You page turns both on, stored like the theme.
+ * muted. One switch on the You page turns both on, stored like the theme. The
+ * taps are caught in one place, components/layout/tap-feedback.tsx.
  *
  * The click is synthesised — two short sine blips, no audio file, nothing to
- * fetch. The tap is the vibrate API, which Android browsers honour and iOS
- * Safari ignores; feature-detected, never assumed.
+ * fetch. The haptic is the vibrate API on Android, and on iPhone a hidden
+ * native switch (see `haptic`); feature-detected, never assumed.
  */
 
 export const FEEDBACK_KEY = "gymflow.feedback";
@@ -65,17 +66,54 @@ export function click() {
   }
 }
 
-export function tap(ms = 12) {
-  if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+/** Marks the hidden switch, so the tap listener does not answer its own click. */
+export const HAPTIC_SWITCH_ATTR = "data-haptic-switch";
+
+let hapticSwitch: HTMLLabelElement | undefined;
+
+/**
+ * One light tap. Must be called from a user gesture.
+ *
+ * Android: the vibrate API. iPhone Safari has no vibrate, but since iOS 18 a
+ * native `<input type="checkbox" switch>` plays the system haptic when it
+ * flips — so a hidden one is flipped through its label. That is a side effect,
+ * not an API: on older iOS, or if Apple changes it, the tap is simply silent.
+ */
+export function haptic(ms = 12) {
+  if (typeof navigator === "undefined") {
+    return;
+  }
+  if ("vibrate" in navigator) {
     navigator.vibrate(ms);
+    return;
+  }
+  try {
+    if (!hapticSwitch) {
+      hapticSwitch = document.createElement("label");
+      hapticSwitch.setAttribute(HAPTIC_SWITCH_ATTR, "");
+      hapticSwitch.setAttribute("aria-hidden", "true");
+      hapticSwitch.style.cssText =
+        "position:fixed;left:0;top:0;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none";
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.setAttribute("switch", "");
+      input.tabIndex = -1;
+      hapticSwitch.appendChild(input);
+      document.body.appendChild(hapticSwitch);
+    }
+    hapticSwitch.click();
+  } catch {
+    // No haptic is not an error worth surfacing.
   }
 }
 
-/** Called on every newly logged set. Does nothing until the switch is on. */
+/**
+ * Called on every newly logged set. Does nothing until the switch is on. The
+ * haptic for that tap already came from the tap listener; this adds the sound.
+ */
 export function logSetFeedback() {
   if (!feedbackEnabled()) {
     return;
   }
   click();
-  tap(12);
 }

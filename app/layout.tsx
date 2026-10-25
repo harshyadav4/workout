@@ -3,6 +3,7 @@ import { Bricolage_Grotesque, Inter } from "next/font/google";
 
 import "@/app/globals.css";
 import { AppProviders } from "@/components/layout/app-providers";
+import { TapFeedback } from "@/components/layout/tap-feedback";
 import { RegisterServiceWorker } from "@/features/pwa/register-sw";
 import { THEME_BOOTSTRAP } from "@/lib/theme";
 
@@ -82,6 +83,7 @@ export default function RootLayout({
       <body className={`${inter.variable} ${bricolage.variable}`}>
         <AppProviders>{children}</AppProviders>
         <RegisterServiceWorker />
+        <TapFeedback />
       </body>
     </html>
   );

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { feedbackEnabled, setFeedbackEnabled } from "@/lib/feedback";
+import { feedbackEnabled, haptic, setFeedbackEnabled } from "@/lib/feedback";
 import { applyTheme, isTheme, THEME_KEY, type Theme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
@@ -79,9 +79,10 @@ export function ThemeToggle() {
 }
 
 /**
- * The one moment's switch. Off until you say so: a phone that clicks in a gym
- * without being asked gets muted, and the web cannot ask for haptics the way a
- * native app can. Read after mount for the same reason as the skin above.
+ * The feedback switch: a haptic on every tap, and a click on a logged set.
+ * Off until you say so: a phone that clicks in a gym without being asked gets
+ * muted, and the web cannot ask for haptics the way a native app can. Read
+ * after mount for the same reason as the skin above.
  */
 export function FeedbackToggle() {
   const [on, setOn] = useState(false);
@@ -94,6 +95,11 @@ export function FeedbackToggle() {
     const next = !on;
     setOn(next);
     setFeedbackEnabled(next);
+    // The tap listener checked the switch before it flipped, so turning it on
+    // would be the one silent tap. Answer it here.
+    if (next) {
+      haptic();
+    }
   };
 
   return (
@@ -105,9 +111,9 @@ export function FeedbackToggle() {
       className="flex min-h-14 w-full items-center justify-between gap-3 rounded-xl bg-muted px-4 py-3 text-left transition-colors active:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <span>
-        <span className="block text-sm font-semibold">Click and tap when you log a set</span>
+        <span className="block text-sm font-semibold">Haptics and sound</span>
         <span className="mt-0.5 block text-xs text-muted-foreground">
-          A short sound and a buzz. The buzz works on Android; iPhone browsers ignore it.
+          A light buzz on every tap, and a click when you log a set. iPhone needs iOS 18 or newer.
         </span>
       </span>
       <span
