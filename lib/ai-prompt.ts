@@ -24,6 +24,11 @@ export interface PromptInput {
   today: string;
   /** Anything the user wants the assistant to know, pasted verbatim. */
   notes?: string;
+  /**
+   * Where the app lives, e.g. https://gymflow.example. The assistant puts a
+   * link back to the paste screen above the plan, so the way home is one tap.
+   */
+  appUrl?: string;
 }
 
 const RECENT_DAYS = 56;
@@ -120,7 +125,8 @@ const EXAMPLE = `{
 }`;
 
 export function buildAiPrompt(input: PromptInput): string {
-  const { library, sessions, logs, profile, today, notes } = input;
+  const { library, sessions, logs, profile, today, notes, appUrl } = input;
+  const backLink = appUrl ? `${appUrl.replace(/\/$/, "")}/plan?mode=build&ai=paste` : undefined;
   const lifts = recentLifts(logs, today);
   const perWeek = trainingDaysPerWeek(logs, today);
 
@@ -165,7 +171,10 @@ ${notes.trim()}`
 ${libraryBlock(library)}`,
 
     `## Reply format (strict; this section wins over everything above)
-When I confirm, reply with exactly ONE JSON object in ONE \`\`\`json code block, and nothing after it. The app reads it directly, so:
+When I confirm, start your reply with these two short lines, written for someone who is not technical:
+1. "Tap the copy button on the box below."
+2. ${backLink ? `"Then tap here to go back to GymFlow: ${backLink}" (keep that link exactly as written).` : `"Then go back to GymFlow and tap Paste the answer."`}
+Then give exactly ONE JSON object in ONE \`\`\`json code block, and nothing after it. The app reads it directly, so:
 - "name" of every exercise MUST be copied exactly from the exercise library at the end of this prompt whenever a suitable one exists. Those names have demo animations in the app.
 - Only if nothing in the library fits, use a short plain name, set "equipment" and "target" from the lists below, and you MAY add "gifUrl": a direct https link to a public .gif of that exercise. GIF only, never a page, never another format. Leave it out if you are not sure the link works.
 - "equipment" must be one of: ${distinct(library, "equipment")}.

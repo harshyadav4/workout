@@ -35,8 +35,13 @@ const prompt = buildAiPrompt({
   logs,
   profile: { heightCm: 176, weightKg: 74, goalWeightKg: 70 },
   today: "2026-10-25",
-  notes: "No overhead pressing: left shoulder."
+  notes: "No overhead pressing: left shoulder.",
+  appUrl: "https://gymflow.example/"
 });
+
+// The way back: a link to the paste screen, and plain words before the plan.
+assert.match(prompt, /https:\/\/gymflow\.example\/plan\?mode=build&ai=paste/);
+assert.match(prompt, /Tap the copy button on the box below/);
 
 // The interview comes before any plan.
 assert.match(prompt, /First, interview me/);

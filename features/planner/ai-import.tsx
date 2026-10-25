@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Check, ClipboardCopy, Sparkles } from "lucide-react";
+import { AlertTriangle, Check, ClipboardCopy, ClipboardPaste, ExternalLink, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +34,56 @@ import { formatDayKey } from "@/lib/progress-metrics";
 import { cn, todayKey } from "@/lib/utils";
 
 const NOTES_KEY = "gymflow.aiNotes";
+const PENDING_KEY = "gymflow.aiPending";
+/** How long after copying the question the app assumes an answer is on its way. */
+const PENDING_MS = 6 * 60 * 60 * 1000;
+
+/** True while the user has copied the question and not yet brought an answer back. */
+export function hasPendingAiPlan(): boolean {
+  try {
+    const at = Number(localStorage.getItem(PENDING_KEY) ?? 0);
+    return at > 0 && Date.now() - at < PENDING_MS;
+  } catch {
+    return false;
+  }
+}
+
+function setPending(on: boolean) {
+  try {
+    if (on) localStorage.setItem(PENDING_KEY, String(Date.now()));
+    else localStorage.removeItem(PENDING_KEY);
+  } catch {
+    // The app just won't remember the step across a reload.
+  }
+}
+
+/** Where people already have a free account. The question is too long for a link, so it goes by clipboard. */
+const ASSISTANTS = [
+  { name: "ChatGPT", url: "https://chatgpt.com/" },
+  { name: "Claude", url: "https://claude.ai/new" },
+  { name: "Gemini", url: "https://gemini.google.com/app" }
+];
+
+/**
+ * The checker speaks in field paths ("sessions[0] exercise 2 needs either reps
+ * or seconds"); people need to know what to do. The technical line stays, small,
+ * and goes into the fix-it message the AI understands.
+ */
+function friendly(message: string): { headline: string; advice: string } {
+  if (/Nothing was pasted/.test(message)) {
+    return { headline: "Nothing to paste yet.", advice: "Copy the AI's whole answer first, then tap Paste the answer." };
+  }
+  if (/No JSON object|must be an object|incomplete or broken/.test(message)) {
+    return {
+      headline: "That doesn't look like the plan.",
+      advice: "Make sure the AI has finished, then use the copy button on the plan box in its answer."
+    };
+  }
+  return {
+    headline: "The plan has a mistake the app can't fix.",
+    advice: "Send the AI the fix-it message below. It will send a corrected plan."
+  };
+}
 
 type View = "start" | "paste" | "review" | "done";
 
@@ -122,6 +172,8 @@ export function AiImportSheet({
   const [picking, setPicking] = useState<string | null>(null);
   const [media, setMedia] = useState<{ done: number; failed: number; total: number }>({ done: 0, failed: 0, total: 0 });
   const [summary, setSummary] = useState<string>("");
+  const [showBox, setShowBox] = useState(false);
+  const [fixCopied, setFixCopied] = useState(false);
 
   useEffect(() => {
     if (!open) {
@@ -129,6 +181,9 @@ export function AiImportSheet({
       reset();
       return;
     }
+    // Back from the AI app (iPhone often reloads the page on the way):
+    // go straight to pasting.
+    setView(hasPendingAiPlan() ? "paste" : "start");
     try {
       setNotes(localStorage.getItem(NOTES_KEY) ?? "");
     } catch {
@@ -140,7 +195,7 @@ export function AiImportSheet({
   }, [open]);
 
   const reset = () => {
-    setView("start");
+    setView(hasPendingAiPlan() ? "paste" : "start");
     setCopied(false);
     setPasted("");
     setError(null);
@@ -150,6 +205,8 @@ export function AiImportSheet({
     setApplySchedule(true);
     setPicking(null);
     setMedia({ done: 0, failed: 0, total: 0 });
+    setShowBox(false);
+    setFixCopied(false);
   };
 
   const saveNotes = (value: string) => {
@@ -169,31 +226,51 @@ export function AiImportSheet({
       logs: state.logs,
       profile: state.profile,
       today: todayKey(),
-      notes
+      notes,
+      appUrl: window.location.origin
     });
   };
 
-  const copyPrompt = async () => {
+  /**
+   * Copy the question. Called inside the tap, before any await, so iPhone
+   * Safari still counts it as the user's gesture. `then` is what happens after:
+   * opening the assistant is a plain link the browser follows itself, so no
+   * popup blocker is involved.
+   */
+  const copyPrompt = () => {
     const text = prompt();
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-    } catch {
+    setPending(true);
+    setCopied(true);
+    void navigator.clipboard.writeText(text).catch(() => {
       // Clipboard refused (permissions, older browser): hand over a file.
       const blob = new Blob([text], { type: "text/plain" });
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
-      link.download = "gymflow-ai-prompt.txt";
+      link.download = "gymflow-question-for-ai.txt";
       link.click();
       URL.revokeObjectURL(link.href);
-      setCopied(true);
+    });
+  };
+
+  const pasteFromClipboard = async () => {
+    setError(null);
+    try {
+      const text = await navigator.clipboard.readText();
+      setPasted(text);
+      checkText(text);
+    } catch {
+      // Denied or unsupported: the box below is the way in.
+      setShowBox(true);
+      setError("Your phone didn't let the app read the clipboard. Press and hold in the box below, then Paste.");
     }
   };
 
-  const check = () => {
+  const check = () => checkText(pasted);
+
+  const checkText = (text: string) => {
     setError(null);
     try {
-      const parsed = parseAiPlan(pasted);
+      const parsed = parseAiPlan(text);
       setPlan(parsed);
       setChoices({});
       setReplace(new Set());
@@ -238,6 +315,7 @@ export function AiImportSheet({
       today: todayKey()
     });
     importAiPlan(built);
+    setPending(false);
     setSummary(
       `${built.sessions.length} session${built.sessions.length === 1 ? "" : "s"} added${
         built.scheduleConfig ? `, calendar filled ${formatDayKey(built.scheduleConfig.startDate)} to ${formatDayKey(built.scheduleConfig.endDate)}` : ""
@@ -287,16 +365,16 @@ export function AiImportSheet({
                 Build with AI
               </DialogTitle>
               <DialogDescription>
-                Copy a prompt into ChatGPT, Claude or Gemini. It asks about your goal, then writes
-                sessions and a schedule as JSON. Paste that back here.
+                A free AI coach writes your sessions and schedule. Use the AI app you already have;
+                it costs nothing.
               </DialogDescription>
             </DialogHeader>
-            <ol className="space-y-2 text-sm">
+            <ol className="space-y-2.5 text-sm">
               {[
-                "Copy the prompt below.",
-                "Paste it into your AI assistant and answer its questions.",
-                "When it sends the JSON, copy all of it.",
-                "Come back and paste it on the next screen."
+                "Tap your AI below. Your question is copied for you.",
+                "Paste it into the chat and answer its questions.",
+                "When it shows your plan, tap the copy button on the plan box.",
+                "Come back here and tap Paste the answer."
               ].map((step, index) => (
                 <li key={step} className="flex gap-3">
                   <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand/15 text-xs font-bold text-brand">
@@ -306,64 +384,145 @@ export function AiImportSheet({
                 </li>
               ))}
             </ol>
-            <label className="mt-4 block text-xs font-medium text-muted-foreground">
-              Notes for the AI (optional, remembered on this phone)
+
+            {libraryError ? (
+              <p className="mt-3 text-sm text-danger">The exercise list did not load. Check your connection.</p>
+            ) : null}
+
+            <div className="mt-5 space-y-2">
+              {ASSISTANTS.map((assistant, index) => (
+                <a
+                  key={assistant.name}
+                  href={assistant.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-disabled={library.length === 0}
+                  onClick={(event) => {
+                    if (library.length === 0) {
+                      event.preventDefault();
+                      return;
+                    }
+                    copyPrompt();
+                  }}
+                  className={cn(
+                    "flex h-14 w-full items-center justify-center gap-2 rounded-xl text-[15px] font-semibold",
+                    index === 0 ? "key font-display text-[17px] font-bold tracking-tight" : "key-quiet",
+                    library.length === 0 ? "pointer-events-none opacity-50" : ""
+                  )}
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  Copy and open {assistant.name}
+                </a>
+              ))}
+            </div>
+            {copied ? (
+              <p className="mt-3 flex items-center justify-center gap-1.5 text-sm text-success" role="status">
+                <Check className="h-4 w-4" />
+                Question copied. Paste it into the chat.
+              </p>
+            ) : null}
+
+            <details className="mt-4 rounded-xl bg-muted px-4 py-1">
+              <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between text-sm font-semibold [&::-webkit-details-marker]:hidden">
+                Tell the AI about you (optional)
+                <span className="text-xs font-normal text-muted-foreground">{notes.trim() ? "added" : "skip"}</span>
+              </summary>
               <textarea
                 rows={4}
                 value={notes}
                 onChange={(event) => saveNotes(event.target.value)}
-                placeholder="Goals, weak points, injuries, rules. Paste a longer personal brief here if you have one."
-                className="well mt-1 w-full rounded-lg px-4 py-3 text-base text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                placeholder="Goals, injuries, weak points, how many days you can train."
+                className="well mb-3 mt-1 w-full rounded-lg px-4 py-3 text-base text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
               />
-            </label>
-            <p className="mt-2 text-xs text-muted-foreground">
-              The prompt also includes your height, weight, recent lifts, your existing sessions and
-              the full exercise library, so the AI can use names the app has demos for.
-            </p>
-            {libraryError ? (
-              <p className="mt-3 text-sm text-danger">The exercise library did not load. Check your connection.</p>
-            ) : null}
-            <div className="mt-4 space-y-2">
-              <Button size="lg" className="w-full" disabled={library.length === 0} onClick={() => void copyPrompt()}>
-                {copied ? <Check className="h-5 w-5" /> : <ClipboardCopy className="h-5 w-5" />}
-                {copied ? "Copied. Copy again" : library.length === 0 ? "Loading library…" : "Copy prompt"}
+              <p className="mb-3 text-xs text-muted-foreground">
+                Remembered on this phone. The AI also gets your height, weight, recent lifts and the
+                sessions you already have, so you don&apos;t need to type those.
+              </p>
+            </details>
+
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <Button variant="ghost" className="w-full" disabled={library.length === 0} onClick={() => copyPrompt()}>
+                <ClipboardCopy className="h-4 w-4" />
+                Copy only
               </Button>
               <Button variant="secondary" className="w-full" onClick={() => setView("paste")}>
-                I have the JSON
+                I have the answer
               </Button>
             </div>
           </>
         ) : view === "paste" ? (
           <>
             <DialogHeader>
-              <DialogTitle>Paste the AI&apos;s reply</DialogTitle>
+              <DialogTitle>Bring your plan in</DialogTitle>
               <DialogDescription>
-                The whole reply is fine. The app finds the JSON in it.
+                In your AI app, tap the copy button on the plan box (or copy its whole last answer).
+                Then tap below.
               </DialogDescription>
             </DialogHeader>
-            <textarea
-              rows={10}
-              value={pasted}
-              onChange={(event) => {
-                setPasted(event.target.value);
-                setError(null);
-              }}
-              placeholder='{ "gymflow": "sessions/v1", "sessions": [ … ] }'
-              className="well w-full rounded-lg px-4 py-3 font-mono text-base text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
-            />
+
+            <Button size="lg" className="h-16 w-full" disabled={library.length === 0} onClick={() => void pasteFromClipboard()}>
+              <ClipboardPaste className="h-5 w-5" />
+              Paste the answer
+            </Button>
+
             {error ? (
-              <p className="mt-2 flex items-start gap-2 text-sm text-danger" role="alert">
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                {error}
-              </p>
+              <div className="mt-4 rounded-xl bg-danger/10 p-4 ring-1 ring-danger/25" role="alert">
+                <p className="flex items-start gap-2 text-sm font-semibold">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-danger" />
+                  {friendly(error).headline}
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">{friendly(error).advice}</p>
+                {friendly(error).headline.startsWith("The plan has") ? (
+                  <Button
+                    variant="secondary"
+                    className="mt-3 w-full"
+                    onClick={() => {
+                      void navigator.clipboard
+                        .writeText(
+                          `GymFlow could not import your plan: ${error} Please fix that and send the complete plan again as one json code block, following every rule in the reply format.`
+                        )
+                        .then(() => setFixCopied(true))
+                        .catch(() => setFixCopied(false));
+                    }}
+                  >
+                    {fixCopied ? <Check className="h-4 w-4" /> : <ClipboardCopy className="h-4 w-4" />}
+                    {fixCopied ? "Copied. Paste it to the AI" : "Copy a fix-it message"}
+                  </Button>
+                ) : null}
+                <p className="mt-3 text-xs text-muted-foreground">Details: {error}</p>
+              </div>
             ) : null}
+
+            {showBox ? (
+              <textarea
+                rows={6}
+                value={pasted}
+                onChange={(event) => {
+                  setPasted(event.target.value);
+                  setError(null);
+                }}
+                placeholder="Press and hold here, then Paste"
+                className="well mt-4 w-full rounded-lg px-4 py-3 text-base text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowBox(true)}
+                className="mt-3 min-h-11 w-full text-center text-sm font-medium text-muted-foreground underline-offset-4 hover:underline"
+              >
+                Paste by hand instead
+              </button>
+            )}
+
             <div className="mt-4 flex gap-2">
               <Button variant="secondary" className="flex-1" onClick={() => setView("start")}>
                 Back
               </Button>
-              <Button className="flex-1" disabled={!pasted.trim() || library.length === 0} onClick={check}>
-                Check it
-              </Button>
+              {showBox ? (
+                <Button className="flex-1" disabled={!pasted.trim() || library.length === 0} onClick={check}>
+                  Check it
+                </Button>
+              ) : null}
             </div>
           </>
         ) : view === "review" && plan ? (
