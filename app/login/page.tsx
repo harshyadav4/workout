@@ -32,11 +32,14 @@ function GoogleMark() {
  * The front door.
  *
  * On a phone it is the whole screen, not a card floating on one: the pitch in
- * the middle, the one button at the bottom where a thumb is.
- * Sized to `100dvh` — the height actually visible — because `100vh` on iPhone
- * Safari is the height with the toolbar hidden, which is what made this page
- * scroll by a few pixels for nothing. On a wide screen the same content sits
- * in a plaque.
+ * the middle, the one button at the bottom where a thumb is. On a wide screen
+ * the same content sits in a plaque.
+ *
+ * Pinned to the screen (`fixed inset-0`) rather than sized with `100dvh`. On
+ * iPhone, Safari's moving toolbar and the home-screen app's safe areas each
+ * made `100dvh` a few pixels taller than what shows, so the page scrolled and
+ * the button sat high. A fixed box is the screen, however iOS measures it; only
+ * the column inside scrolls, and only when it truly does not fit.
  *
  * Behind it, an iron aisle in a hardcore gym with mana burning off the plates
  * (our own generated art, no characters). The words sit low, on the part where the art has faded out.
@@ -55,7 +58,7 @@ export default function LoginPage() {
   }, [router, user]);
 
   return (
-    <main className="login-night relative flex min-h-[100dvh] items-stretch justify-center overflow-hidden sm:items-center sm:px-4">
+    <main className="login-night fixed inset-0 overflow-hidden">
       <Image
         src={ironArt}
         alt=""
@@ -68,49 +71,51 @@ export default function LoginPage() {
       />
       <div className="login-night-shade absolute inset-0" />
 
-      <div className="relative flex w-full max-w-md flex-col px-6 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] pt-[calc(env(safe-area-inset-top)+2rem)] sm:rounded-3xl sm:border sm:border-border sm:bg-card/85 sm:p-8 sm:shadow-plaque sm:backdrop-blur">
-        <div className="flex flex-1 flex-col justify-end pb-10 pt-8 [@media(max-height:700px)]:pb-6 sm:flex-none sm:py-8">
-          <h1 className="font-display text-[44px] font-extrabold leading-[0.95] tracking-[-0.03em] [@media(max-height:700px)]:text-[38px]">
-            Train.
-            <br />
-            Level up.
-            <br />
-            <span className="text-brand">Arise.</span>
-          </h1>
-          <p className="mt-4 max-w-[19rem] text-[15px] leading-relaxed text-muted-foreground">
-            Start weak. Show up daily. Become the one nobody saw coming.
-          </p>
-
-          <ul className="mt-8 space-y-4 [@media(max-height:700px)]:mt-5 [@media(max-height:700px)]:space-y-3">
-            {points.map(({ icon: Icon, label }) => (
-              <li key={label} className="flex items-center gap-3.5">
-                <span className="key-quiet flex h-10 w-10 shrink-0 items-center justify-center rounded-xl">
-                  <Icon className="h-5 w-5 text-brand" />
-                </span>
-                <span className="text-[15px] font-medium">{label}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div>
-          <Button
-            size="lg"
-            variant="secondary"
-            className="h-14 w-full text-base font-semibold"
-            onClick={() => void signIn()}
-          >
-            <GoogleMark />
-            Continue with Google
-          </Button>
-          <p className="mt-3 text-center text-xs text-muted-foreground">
-            Your progress is saved to your account. Only you see it.
-          </p>
-          {!isSupabaseConfigured ? (
-            <p className="mt-2 text-center text-xs text-warning">
-              Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to enable sign-in.
+      <div className="relative flex h-full justify-center overflow-y-auto overscroll-none sm:px-4">
+        <div className="flex min-h-full w-full max-w-md flex-col px-6 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] pt-[calc(env(safe-area-inset-top)+2rem)] sm:my-auto sm:min-h-0 sm:rounded-3xl sm:border sm:border-border sm:bg-card/85 sm:p-8 sm:shadow-plaque sm:backdrop-blur">
+          <div className="flex flex-1 flex-col justify-end pb-10 pt-8 [@media(max-height:700px)]:pb-6 sm:flex-none sm:py-8">
+            <h1 className="font-display text-[44px] font-extrabold leading-[0.95] tracking-[-0.03em] [@media(max-height:700px)]:text-[38px]">
+              Train.
+              <br />
+              Level up.
+              <br />
+              <span className="text-brand">Arise.</span>
+            </h1>
+            <p className="mt-4 max-w-[19rem] text-[15px] leading-relaxed text-muted-foreground">
+              Start weak. Show up daily. Become the one nobody saw coming.
             </p>
-          ) : null}
+
+            <ul className="mt-8 space-y-4 [@media(max-height:700px)]:mt-5 [@media(max-height:700px)]:space-y-3">
+              {points.map(({ icon: Icon, label }) => (
+                <li key={label} className="flex items-center gap-3.5">
+                  <span className="key-quiet flex h-10 w-10 shrink-0 items-center justify-center rounded-xl">
+                    <Icon className="h-5 w-5 text-brand" />
+                  </span>
+                  <span className="text-[15px] font-medium">{label}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <Button
+              size="lg"
+              variant="secondary"
+              className="h-14 w-full text-base font-semibold"
+              onClick={() => void signIn()}
+            >
+              <GoogleMark />
+              Continue with Google
+            </Button>
+            <p className="mt-3 text-center text-xs text-muted-foreground">
+              Your progress is saved to your account. Only you see it.
+            </p>
+            {!isSupabaseConfigured ? (
+              <p className="mt-2 text-center text-xs text-warning">
+                Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to enable sign-in.
+              </p>
+            ) : null}
+          </div>
         </div>
       </div>
     </main>
