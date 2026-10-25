@@ -1,10 +1,13 @@
 "use client";
 
-import { ChevronLeft, Plus } from "lucide-react";
+import { ChevronLeft, PlayCircle, Plus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ThemedSelect } from "@/components/ui/select";
+import { ExerciseMediaView } from "@/features/workout/exercise-media-dialog";
 import {
   distinctValues,
   exerciseImageUrl,
@@ -28,6 +31,11 @@ export function ExercisePicker({ onBack, onPick }: ExercisePickerProps) {
   const [query, setQuery] = useState("");
   const [bodyPart, setBodyPart] = useState("");
   const [equipment, setEquipment] = useState("");
+  // The exercise being watched before it is added. Swapped in place of the list,
+  // like every other view in this drawer, rather than stacked as a dialog; the
+  // search and filters survive the round trip because this component stays
+  // mounted.
+  const [preview, setPreview] = useState<Exercise | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -78,6 +86,27 @@ export function ExercisePicker({ onBack, onPick }: ExercisePickerProps) {
 
   const shown = results.slice(0, RESULT_LIMIT);
 
+  if (preview) {
+    return (
+      <div className="space-y-4">
+        <ExerciseMediaView
+          datasetId={preview.id}
+          name={preview.name}
+          onBack={() => setPreview(null)}
+        />
+        <div className="sticky bottom-0 flex gap-2 border-t border-border bg-card pt-3">
+          <Button variant="secondary" className="flex-1" onClick={() => setPreview(null)}>
+            Back to list
+          </Button>
+          <Button className="flex-1" onClick={() => onPick(preview)}>
+            <Plus className="h-4 w-4" />
+            Add this
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
@@ -115,19 +144,19 @@ export function ExercisePicker({ onBack, onPick }: ExercisePickerProps) {
         ))}
       </div>
 
-      <select
+      <ThemedSelect
         aria-label="Filter by equipment"
+        className="capitalize"
         value={activeEquipment}
-        onChange={(event) => setEquipment(event.target.value)}
-        className="well h-12 w-full rounded-lg px-4 text-[15px] capitalize text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <option value="">Any equipment</option>
-        {equipmentList.map((item) => (
-          <option key={item} value={item}>
-            {item}
-          </option>
-        ))}
-      </select>
+        onValueChange={setEquipment}
+        options={[
+          { value: "", label: "Any equipment" },
+          ...equipmentList.map((item) => ({
+            value: item,
+            label: item.charAt(0).toUpperCase() + item.slice(1)
+          }))
+        ]}
+      />
 
       {status === "loading" ? (
         <p className="py-8 text-center text-sm text-muted-foreground">Loading exercises…</p>
@@ -149,7 +178,12 @@ export function ExercisePicker({ onBack, onPick }: ExercisePickerProps) {
               </p>
             ) : (
               shown.map((exercise) => (
-                <ExerciseRow key={exercise.id} exercise={exercise} onPick={onPick} />
+                <ExerciseRow
+                  key={exercise.id}
+                  exercise={exercise}
+                  onPick={onPick}
+                  onPreview={setPreview}
+                />
               ))
             )}
           </div>
@@ -174,45 +208,53 @@ function FilterChip({ label, active, onClick }: { label: string; active: boolean
   );
 }
 
-function ExerciseRow({ exercise, onPick }: { exercise: Exercise; onPick: (exercise: Exercise) => void }) {
+function ExerciseRow({
+  exercise,
+  onPick,
+  onPreview
+}: {
+  exercise: Exercise;
+  onPick: (exercise: Exercise) => void;
+  onPreview: (exercise: Exercise) => void;
+}) {
+  // Two buttons side by side, never one inside the other: the thumbnail and
+  // the play key open the demo, the name and the + add it.
   return (
-    <div className="rounded-lg bg-muted p-2">
+    <div className="flex items-center gap-2 rounded-lg bg-muted p-2">
+      <button
+        type="button"
+        onClick={() => onPreview(exercise)}
+        aria-label={`Watch ${exercise.name}`}
+        className="well relative h-14 w-14 shrink-0 overflow-hidden rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <img
+          src={exerciseImageUrl(exercise)}
+          alt=""
+          loading="lazy"
+          className="h-full w-full object-cover"
+          onError={(event) => {
+            event.currentTarget.style.display = "none";
+          }}
+        />
+        <span className="absolute inset-0 flex items-center justify-center bg-black/25">
+          <PlayCircle className="h-6 w-6 text-white drop-shadow" />
+        </span>
+      </button>
       <button
         type="button"
         onClick={() => onPick(exercise)}
-        className="flex w-full items-center gap-3 rounded-lg text-left transition-colors active:bg-secondary"
+        className="flex min-h-14 min-w-0 flex-1 items-center gap-3 rounded-lg px-1 text-left transition-colors active:bg-secondary"
       >
-        <div className="well h-12 w-12 shrink-0 overflow-hidden rounded-lg">
-          <img
-            src={exerciseImageUrl(exercise)}
-            alt=""
-            loading="lazy"
-            className="h-full w-full object-cover"
-            onError={(event) => {
-              event.currentTarget.style.display = "none";
-            }}
-          />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium capitalize">{exercise.name}</p>
-          <p className="truncate text-xs capitalize text-muted-foreground">
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-semibold capitalize">{exercise.name}</span>
+          <span className="block truncate text-xs capitalize text-muted-foreground">
             {exercise.target} · {exercise.equipment}
-          </p>
-        </div>
-        <Plus className="h-4 w-4 shrink-0 text-brand" />
+          </span>
+        </span>
+        <span className="key-quiet flex h-10 w-10 shrink-0 items-center justify-center rounded-full">
+          <Plus className="h-4 w-4 text-brand" />
+        </span>
       </button>
-      {exercise.steps.length ? (
-        <details className="mt-1 px-1">
-          <summary className="cursor-pointer list-none py-3 text-xs text-muted-foreground [&::-webkit-details-marker]:hidden">
-            How to
-          </summary>
-          <ol className="mt-1 list-decimal space-y-1 pl-4 text-xs text-muted-foreground">
-            {exercise.steps.map((step, index) => (
-              <li key={index}>{step}</li>
-            ))}
-          </ol>
-        </details>
-      ) : null}
     </div>
   );
 }

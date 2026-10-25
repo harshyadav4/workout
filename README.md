@@ -96,6 +96,10 @@ npm run dev
 
 ## Supabase setup
 
+> **Run `0006_exercise_media.sql` before deploying "Build with AI".** Exercise templates now
+> write a `media_path` column; against a project without it, every template save fails as a sync
+> error. The same migration creates the `exercise-media` storage bucket and its policies.
+
 > **Run `0004_progression.sql` before deploying this revision.** `session_templates`
 > writes now include a `progression` column, and `pushChanges` throws on the first failed
 > write — against a project still on `0003`, *every* session save fails, not just ones using
@@ -104,12 +108,22 @@ npm run dev
 
 1. Create a Supabase project.
 2. Run the migrations in `supabase/migrations/` in order — `0001_init.sql` through
-   `0004_progression.sql`.
+   `0006_exercise_media.sql`.
 3. Enable the Google provider under **Authentication → Providers**.
 4. Add your local dev origin and deployed domain to the allowed redirect URLs.
 
 `0001_init.sql` also installs a `security definer` trigger that seeds a `profiles` row on
 signup, so the app never has to branch on "profile missing".
+
+## Build with AI
+
+Plan › Build › **Build with AI** copies a prompt (`lib/ai-prompt.ts`) that a user pastes into any
+chat assistant. The assistant interviews them and replies with one JSON object, checked and matched
+against the exercise library by `lib/ai-plan.ts`, reviewed on screen, then imported as sessions and
+a schedule. Library names map to bundled demos; an exercise outside the library may carry a public
+`.gif`, which `app/api/media/route.ts` fetches once (https only, no private addresses, GIF bytes
+only, 5 MB cap) and stores per user in Supabase Storage. A stored GIF is deleted when no session
+uses its exercise any more. Imports never touch logs, sets or finished days.
 
 ## Data shape
 

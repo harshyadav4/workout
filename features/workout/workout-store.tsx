@@ -4,7 +4,9 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef } fr
 import { createStore, type StoreApi } from "zustand/vanilla";
 import { useStore } from "zustand";
 
+import type { PlanImport } from "@/lib/ai-plan";
 import { upsertMeasurement } from "@/lib/body-metrics";
+import { releaseUnusedMedia } from "@/lib/media";
 import { reconcile } from "@/lib/reconcile";
 import { muscles, presetWorkouts } from "@/lib/seed-data";
 import type {
@@ -61,6 +63,10 @@ interface WorkoutState {
   createSessionTemplate: (template: SessionTemplate) => boolean;
   updateSessionTemplate: (id: string, template: SessionTemplate) => boolean;
   deleteSessionTemplate: (id: string) => void;
+  /** Apply a checked "Build with AI" plan: templates, sessions, then the calendar. */
+  importAiPlan: (plan: Pick<PlanImport, "templates" | "sessions" | "scheduleConfig">) => void;
+  /** Attach a stored demo GIF to a custom exercise template. */
+  setTemplateMedia: (templateId: string, mediaPath: string) => void;
   scheduleSession: (payload: {
     date: string;
     sessionTemplateId?: string;
@@ -127,6 +133,8 @@ function createInitialState(): Omit<
   | "createSessionTemplate"
   | "updateSessionTemplate"
   | "deleteSessionTemplate"
+  | "importAiPlan"
+  | "setTemplateMedia"
   | "scheduleSession"
   | "removeScheduledSession"
   | "moveScheduledSession"
@@ -289,19 +297,70 @@ function createWorkoutStore() {
           return false;
         }
 
-        setAndPersist((state) => ({
-          ...state,
-          sessionTemplates: state.sessionTemplates.map((item) =>
+        setAndPersist((state) => {
+          const sessionTemplates = state.sessionTemplates.map((item) =>
             item.id === id ? { ...template, id } : item
-          )
-        }));
+          );
+          // An exercise edited out of the session may have been the last user
+          // of a stored GIF.
+          return { ...state, sessionTemplates, templates: releaseUnusedMedia(state.templates, sessionTemplates) };
+        });
 
         return true;
       },
       deleteSessionTemplate: (id) =>
+        setAndPersist((state) => {
+          const sessionTemplates = state.sessionTemplates.filter((template) => template.id !== id);
+          // Clearing a template's mediaPath is what makes the sync layer delete
+          // the stored GIF — see `removedMediaPaths` in lib/sync.ts.
+          return { ...state, sessionTemplates, templates: releaseUnusedMedia(state.templates, sessionTemplates) };
+        }),
+      importAiPlan: ({ templates, sessions, scheduleConfig }) =>
+        setAndPersist((state) => {
+          // New exercise templates first, skipping any id already registered —
+          // buildPlanImport reuses by name, so a clash here is a re-import.
+          const knownIds = new Set(state.templates.map((template) => template.id));
+          const nextTemplates = [
+            ...templates.filter((template) => !knownIds.has(template.id)),
+            ...state.templates
+          ];
+          // Replacements keep the id the calendar already points at.
+          const replacing = new Map(
+            sessions.filter((item) => item.replaces).map((item) => [item.replaces!, item.template])
+          );
+          const added = sessions.filter((item) => !item.replaces).map((item) => item.template);
+          const sessionTemplates = [
+            ...added,
+            ...state.sessionTemplates.map((template) => replacing.get(template.id) ?? template)
+          ];
+          const base = {
+            ...state,
+            templates: releaseUnusedMedia(nextTemplates, sessionTemplates),
+            sessionTemplates
+          };
+          if (!scheduleConfig) {
+            return base;
+          }
+          // The same path as "Generate schedule": planned days in the range are
+          // replaced, started and finished ones are kept.
+          return {
+            ...base,
+            scheduleConfig,
+            scheduledSessions: mergeGeneratedSessions(
+              base.scheduledSessions,
+              buildScheduleSessions(scheduleConfig, sessionTemplates, (template) =>
+                plannedExercisesFromTemplate(template, base)
+              )
+            ),
+            selectedSessionId: undefined
+          };
+        }),
+      setTemplateMedia: (templateId, mediaPath) =>
         setAndPersist((state) => ({
           ...state,
-          sessionTemplates: state.sessionTemplates.filter((template) => template.id !== id)
+          templates: state.templates.map((template) =>
+            template.id === templateId ? { ...template, mediaPath } : template
+          )
         })),
       scheduleSession: ({
         date,

@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, Dumbbell, Pencil, PlayCircle, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, Dumbbell, Pencil, PlayCircle, Plus, Sparkles, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,9 @@ import {
   DRAWER_CONTENT
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { NumberInput } from "@/components/ui/number-input";
+import { ThemedSelect } from "@/components/ui/select";
+import { AiImportSheet } from "@/features/planner/ai-import";
 import { ExercisePicker } from "@/features/planner/exercise-picker";
 import { MuscleSelectView } from "@/features/planner/muscle-drawer";
 import { ExerciseMediaView, templateDatasetId } from "@/features/workout/exercise-media-dialog";
@@ -154,6 +157,7 @@ export function PlanBuild() {
   const deleteSessionTemplate = useWorkoutStore((state) => state.deleteSessionTemplate);
 
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
   const [sessionName, setSessionName] = useState("");
   // ponytail: session-level only. The model also honours a per-exercise
   // override (see SessionTemplateExercise.progression) — expose it when
@@ -163,6 +167,11 @@ export function PlanBuild() {
   // and not a plate.
   const isTimeRule = progression.rule === "time";
   const [builderExercises, setBuilderExercises] = useState<BuilderExercise[]>([createEmptyExercise()]);
+  // One exercise open at a time. Adding the next one folds the last away, so
+  // a thumb that lands on the card above cannot rewrite a finished exercise.
+  const [openExerciseId, setOpenExerciseId] = useState<string | null>(
+    () => builderExercises[0]?.id ?? null
+  );
   const [error, setError] = useState<BuilderError | null>(null);
   const [pickerCardId, setPickerCardId] = useState<string | null>(null);
   const [muscleCardId, setMuscleCardId] = useState<string | null>(null);
@@ -177,7 +186,9 @@ export function PlanBuild() {
     setEditingId(null);
     setSessionName("");
     setProgression({ rule: "off" });
-    setBuilderExercises([createEmptyExercise()]);
+    const first = createEmptyExercise();
+    setBuilderExercises([first]);
+    setOpenExerciseId(first.id);
     setError(null);
     setPickerCardId(null);
     setMedia(null);
@@ -188,6 +199,8 @@ export function PlanBuild() {
     setSessionName(session.name);
     setProgression(session.progression ?? { rule: "off" });
     setBuilderExercises(session.exercises.map(toBuilderExercise));
+    // Editing a saved session opens folded: you came to change one thing.
+    setOpenExerciseId(null);
     setError(null);
     setPickerCardId(null);
     setMedia(null);
@@ -497,66 +510,53 @@ export function PlanBuild() {
                     Off keeps the numbers below exactly as typed, which is what
                     every session built before this existed still does. */}
                 <div className="rounded-xl bg-muted p-3">
-                  <label className="block text-xs font-medium text-muted-foreground">
+                  <p className="text-xs font-medium text-muted-foreground">
                     Progression
-                    <select
-                      className="well mt-1 h-12 w-full rounded-lg px-4 text-[15px] text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      value={progression.rule}
-                      onChange={(event) =>
-                        setProgression((current) => ({
-                          ...current,
-                          rule: event.target.value as ProgressionSettings["rule"]
-                        }))
-                      }
-                    >
-                      {Object.entries(PROGRESSION_LABELS).map(([rule, label]) => (
-                        <option key={rule} value={rule}>
-                          {label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  </p>
+                  <ThemedSelect
+                    aria-label="Progression"
+                    className="mt-1"
+                    value={progression.rule}
+                    onValueChange={(rule) =>
+                      setProgression((current) => ({
+                        ...current,
+                        rule: rule as ProgressionSettings["rule"]
+                      }))
+                    }
+                    options={Object.entries(PROGRESSION_LABELS).map(([rule, label]) => ({
+                      value: rule,
+                      label
+                    }))}
+                  />
 
                   {progression.rule !== "off" ? (
                     <div className="mt-2 flex gap-2">
                       <label className="block flex-1 text-xs text-muted-foreground">
                         {isTimeRule ? "Add per jump (s)" : "Add per jump (kg)"}
-                        <Input
+                        <NumberInput
                           className="mt-1"
-                          type="number"
                           inputMode="decimal"
                           step={isTimeRule ? "1" : "0.5"}
                           min={0}
-                          value={
-                            isTimeRule
-                              ? progression.incrementSeconds ?? DEFAULT_INCREMENT_SECONDS
-                              : progression.incrementKg ?? DEFAULT_INCREMENT_KG
-                          }
-                          onChange={(event) => {
-                            const value = Number(event.target.value);
+                          value={isTimeRule ? progression.incrementSeconds ?? DEFAULT_INCREMENT_SECONDS : progression.incrementKg ?? DEFAULT_INCREMENT_KG}
+                          onValueChange={(value) =>
                             setProgression((current) =>
                               isTimeRule
                                 ? { ...current, incrementSeconds: value }
                                 : { ...current, incrementKg: value }
-                            );
-                          }}
+                            )
+                          }
                         />
                       </label>
                       {progression.rule === "double" ? (
                         <label className="block flex-1 text-xs text-muted-foreground">
                           Top of rep range
-                          <Input
+                          <NumberInput
                             className="mt-1"
-                            type="number"
                             inputMode="numeric"
                             min={1}
                             value={progression.repMax ?? 12}
-                            onChange={(event) =>
-                              setProgression((current) => ({
-                                ...current,
-                                repMax: Number(event.target.value)
-                              }))
-                            }
+                            onValueChange={(value) => setProgression((current) => ({ ...current, repMax: value }))}
                           />
                         </label>
                       ) : null}
@@ -572,9 +572,55 @@ export function PlanBuild() {
                   </p>
                 </div>
                 {builderExercises.map((exercise, exerciseIndex) => (
-                  <div key={exercise.id} className="rounded-xl bg-muted p-4">
-                    <div className="mb-3 flex items-center justify-between">
+                  openExerciseId !== exercise.id ? (
+                    <div key={exercise.id} className="flex items-center gap-2 rounded-xl bg-muted p-2 pl-4">
+                      <button
+                        type="button"
+                        className="min-w-0 flex-1 py-2 text-left"
+                        onClick={() => setOpenExerciseId(exercise.id)}
+                        aria-label={`Edit exercise ${exerciseIndex + 1}${exercise.name ? `, ${exercise.name}` : ""}`}
+                      >
+                        <span className="block truncate text-[15px] font-semibold capitalize">
+                          {exerciseIndex + 1}. {exercise.name.trim() || "Unnamed exercise"}
+                        </span>
+                        <span className="mt-0.5 block truncate text-xs text-muted-foreground tabular-nums">
+                          {exercise.metric === "time"
+                            ? `${exercise.sets} × ${exercise.durationSeconds ?? DEFAULT_HOLD_SECONDS}s`
+                            : `${exercise.sets} × ${exercise.reps} · ${exercise.weight} kg`}
+                          {` · ${exercise.restSeconds}s rest`}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Edit exercise ${exerciseIndex + 1}`}
+                        className="key-quiet flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted-foreground"
+                        onClick={() => setOpenExerciseId(exercise.id)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Remove exercise ${exerciseIndex + 1}`}
+                        className="key-quiet flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted-foreground disabled:opacity-40"
+                        onClick={() =>
+                          setBuilderExercises((current) => current.filter((item) => item.id !== exercise.id))
+                        }
+                        disabled={builderExercises.length === 1}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                  <div key={exercise.id} className="rounded-xl bg-muted p-4 ring-1 ring-brand/40">
+                    <div className="mb-3 flex items-center justify-between gap-2">
                       <p className="font-display text-lg font-bold tracking-tight">Exercise {exerciseIndex + 1}</p>
+                      <button
+                        type="button"
+                        className="key-quiet ml-auto h-10 rounded-full px-3.5 text-xs font-semibold"
+                        onClick={() => setOpenExerciseId(null)}
+                      >
+                        Done
+                      </button>
                       <button
                         type="button"
                         className="key-quiet h-10 rounded-full px-3.5 text-xs font-semibold disabled:opacity-40"
@@ -657,43 +703,32 @@ export function PlanBuild() {
                       <div className="grid grid-cols-2 gap-3">
                         <label className="text-xs text-muted-foreground">
                           Sets
-                          <Input
-                            type="number"
+                          <NumberInput
                             min={1}
                             className="mt-1"
                             value={exercise.sets}
-                            onChange={(event) =>
-                              updateExercise(exercise.id, { sets: Number(event.target.value) })
-                            }
+                            onValueChange={(value) => updateExercise(exercise.id, { sets: value })}
                           />
                         </label>
                         {exercise.metric === "time" ? (
                           <label className="text-xs text-muted-foreground">
                             Hold (seconds)
-                            <Input
-                              type="number"
+                            <NumberInput
                               min={5}
                               step={5}
                               className="mt-1"
                               value={exercise.durationSeconds ?? DEFAULT_HOLD_SECONDS}
-                              onChange={(event) =>
-                                updateExercise(exercise.id, {
-                                  durationSeconds: Number(event.target.value)
-                                })
-                              }
+                              onValueChange={(value) => updateExercise(exercise.id, { durationSeconds: value })}
                             />
                           </label>
                         ) : (
                           <label className="text-xs text-muted-foreground">
                             Reps
-                            <Input
-                              type="number"
+                            <NumberInput
                               min={1}
                               className="mt-1"
                               value={exercise.reps}
-                              onChange={(event) =>
-                                updateExercise(exercise.id, { reps: Number(event.target.value) })
-                              }
+                              onValueChange={(value) => updateExercise(exercise.id, { reps: value })}
                             />
                           </label>
                         )}
@@ -729,28 +764,22 @@ export function PlanBuild() {
                         )}
                         <label className="text-xs text-muted-foreground">
                           {exercise.metric === "time" ? "Added weight (kg)" : "Weight (kg)"}
-                          <Input
-                            type="number"
+                          <NumberInput
                             min={0}
                             step={2.5}
                             className="mt-1"
                             value={exercise.weight}
-                            onChange={(event) =>
-                              updateExercise(exercise.id, { weight: Number(event.target.value) })
-                            }
+                            onValueChange={(value) => updateExercise(exercise.id, { weight: value })}
                           />
                         </label>
                         <label className="text-xs text-muted-foreground">
                           Rest (seconds)
-                          <Input
-                            type="number"
+                          <NumberInput
                             min={15}
                             step={15}
                             className="mt-1"
                             value={exercise.restSeconds}
-                            onChange={(event) =>
-                              updateExercise(exercise.id, { restSeconds: Number(event.target.value) })
-                            }
+                            onValueChange={(value) => updateExercise(exercise.id, { restSeconds: value })}
                           />
                         </label>
                       </div>
@@ -765,15 +794,12 @@ export function PlanBuild() {
                             {Array.from({ length: exercise.sets }).map((_, setIndex) => (
                               <label key={setIndex} className="text-[11px] text-muted-foreground">
                                 Set {setIndex + 1}
-                                <Input
-                                  type="number"
+                                <NumberInput
                                   min={0}
                                   step={2.5}
                                   className="mt-1"
                                   value={exercise.weights?.[setIndex] ?? exercise.weight}
-                                  onChange={(event) =>
-                                    setPerSetWeight(exercise.id, setIndex, Number(event.target.value))
-                                  }
+                                  onValueChange={(value) => setPerSetWeight(exercise.id, setIndex, value)}
                                 />
                               </label>
                             ))}
@@ -791,10 +817,15 @@ export function PlanBuild() {
                       />
                     </div>
                   </div>
+                  )
                 ))}
                 <Button
                   variant="secondary"
-                  onClick={() => setBuilderExercises((current) => [...current, createEmptyExercise()])}
+                  onClick={() => {
+                    const next = createEmptyExercise();
+                    setBuilderExercises((current) => [...current, next]);
+                    setOpenExerciseId(next.id);
+                  }}
                 >
                   <Plus className="h-4 w-4" />
                   Add exercise
@@ -814,6 +845,11 @@ export function PlanBuild() {
               )}
             </DialogContent>
           </Dialog>
+          <Button variant="secondary" className="mt-2 w-full" onClick={() => setAiOpen(true)}>
+            <Sparkles className="h-4 w-4 text-brand" />
+            Build with AI
+          </Button>
+          <AiImportSheet open={aiOpen} onOpenChange={setAiOpen} />
         </div>
       </Card>
 

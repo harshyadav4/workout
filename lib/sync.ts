@@ -45,7 +45,8 @@ function templateToRow(template: WorkoutTemplate, userId: string): Row {
     db_id: template.dbId ?? null,
     equipment: template.equipment ?? null,
     muscles: template.muscles,
-    default_sets: template.defaultSets ?? null
+    default_sets: template.defaultSets ?? null,
+    media_path: template.mediaPath ?? null
   };
 }
 
@@ -58,6 +59,7 @@ function rowToTemplate(row: Row): WorkoutTemplate {
     equipment: (row.equipment as string) ?? undefined,
     muscles: (row.muscles as WorkoutTemplate["muscles"]) ?? [],
     defaultSets: (row.default_sets as WorkoutTemplate["defaultSets"]) ?? undefined,
+    mediaPath: (row.media_path as string) ?? undefined,
     // Only user-added templates are stored; presets ship in lib/seed-data.ts.
     isPreset: false
   };
@@ -326,11 +328,45 @@ async function writeTable<T extends Identified>(
   }
 
   if (upserts.length > 0) {
-    const { error } = await supabase.from(table).upsert(upserts.map(toRow));
+    const rows = upserts.map(toRow);
+    const { error } = await supabase.from(table).upsert(rows);
+    if (error && isMissingOptionalColumn(error)) {
+      // A project that has not run the migration adding an optional column
+      // yet. Write without it rather than fail every save: the feature that
+      // column serves waits, nothing else does.
+      const { error: retry } = await supabase
+        .from(table)
+        .upsert(rows.map((row) => withoutOptionalColumns(row)));
+      if (retry) {
+        throw retry;
+      }
+      return;
+    }
     if (error) {
       throw error;
     }
   }
+}
+
+/**
+ * Columns added by migrations newer than the app's floor, which a write may
+ * drop when the project lacks them. `media_path` is 0006 (stored exercise
+ * GIFs): without it, saving any exercise template used to fail outright.
+ */
+const OPTIONAL_COLUMNS = ["media_path"];
+
+function isMissingOptionalColumn(error: { code?: string; message?: string }): boolean {
+  // 42703 from Postgres, PGRST204 from PostgREST's schema cache.
+  return (
+    (error.code === "42703" || error.code === "PGRST204") &&
+    OPTIONAL_COLUMNS.some((column) => error.message?.includes(column))
+  );
+}
+
+function withoutOptionalColumns(row: Row): Row {
+  const copy = { ...row };
+  OPTIONAL_COLUMNS.forEach((column) => delete copy[column]);
+  return copy;
 }
 
 export interface SyncableState {
@@ -422,6 +458,22 @@ export function buildPlanExport(state: SyncableState) {
 }
 
 /**
+ * Stored GIFs that the previous state referenced and the next one does not —
+ * the files to delete. Content-addressed paths can be shared, so a path still
+ * used by any template survives.
+ */
+export function removedMediaPaths(previous: WorkoutTemplate[], next: WorkoutTemplate[]): string[] {
+  const still = new Set(next.map((template) => template.mediaPath).filter(Boolean));
+  return [
+    ...new Set(
+      previous
+        .map((template) => template.mediaPath)
+        .filter((path): path is string => Boolean(path) && !still.has(path))
+    )
+  ];
+}
+
+/**
  * Push what changed between two store states. Throws on the first failed write
  * so the caller can surface it — a silently dropped set is worse than an error.
  */
@@ -440,6 +492,17 @@ export async function pushChanges(
   await writeTable("workout_templates", userTemplates(previous.templates), userTemplates(next.templates), (item) =>
     templateToRow(item, userId)
   );
+
+  // After the rows: a file is only removed once nothing in the database points
+  // at it. A failed remove is not worth failing the push for — the worst case
+  // is an orphaned GIF, which costs a few hundred KB, not a lost set.
+  const orphaned = removedMediaPaths(previous.templates, next.templates);
+  if (orphaned.length > 0) {
+    const { error } = await supabase.storage.from("exercise-media").remove(orphaned);
+    if (error) {
+      console.warn("[sync] could not remove media", error.message);
+    }
+  }
   await writeTable("session_templates", previous.sessionTemplates, next.sessionTemplates, (item) =>
     sessionTemplateToRow(item, userId)
   );

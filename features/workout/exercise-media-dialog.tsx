@@ -45,6 +45,12 @@ function useDatasetExercise(datasetId: string) {
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 
   useEffect(() => {
+    // A stored GIF needs no dataset: skip the 1 MB library fetch.
+    if (!datasetId) {
+      setExercise(null);
+      setStatus("error");
+      return;
+    }
     let active = true;
     setStatus("loading");
     loadExercises()
@@ -114,7 +120,10 @@ function ExerciseGif({ exercise }: { exercise: Exercise }) {
 }
 
 interface ExerciseMediaViewProps {
-  datasetId: string;
+  /** A library exercise. Either this or `gifUrl`. */
+  datasetId?: string;
+  /** A stored GIF for an exercise outside the library (lib/media.ts). */
+  gifUrl?: string;
   name: string;
   /** Shows a back arrow — for the Build drawer, which swaps views instead of stacking dialogs. */
   onBack?: () => void;
@@ -124,8 +133,8 @@ interface ExerciseMediaViewProps {
  * Media panel without a Dialog wrapper, so it can either be swapped into an
  * open drawer (Build) or portalled into its own sheet (Home).
  */
-export function ExerciseMediaView({ datasetId, name, onBack }: ExerciseMediaViewProps) {
-  const { exercise, status } = useDatasetExercise(datasetId);
+export function ExerciseMediaView({ datasetId, gifUrl, name, onBack }: ExerciseMediaViewProps) {
+  const { exercise, status } = useDatasetExercise(datasetId ?? "");
 
   return (
     <div className="space-y-3">
@@ -148,7 +157,11 @@ export function ExerciseMediaView({ datasetId, name, onBack }: ExerciseMediaView
         </div>
       </div>
 
-      {status === "loading" ? (
+      {gifUrl ? (
+        <div className="flex aspect-[4/3] items-center justify-center overflow-hidden rounded-lg bg-muted">
+          <img src={gifUrl} alt={`${name} demonstration`} className="h-full w-full object-contain" />
+        </div>
+      ) : status === "loading" ? (
         <p className="py-8 text-center text-sm text-muted-foreground">Loading demo…</p>
       ) : status === "error" || !exercise ? (
         <p className="py-8 text-center text-sm text-muted-foreground">
@@ -171,14 +184,15 @@ export function ExerciseMediaView({ datasetId, name, onBack }: ExerciseMediaView
 }
 
 interface ExerciseMediaDialogProps {
-  datasetId: string;
+  datasetId?: string;
+  gifUrl?: string;
   name: string;
   /** A trigger of your own. Defaults to the play icon beside an exercise name. */
   children?: ReactNode;
 }
 
 /** Trigger + bottom sheet. Only for screens that are not already inside a dialog. */
-export function ExerciseMediaDialog({ datasetId, name, children }: ExerciseMediaDialogProps) {
+export function ExerciseMediaDialog({ datasetId, gifUrl, name, children }: ExerciseMediaDialogProps) {
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -193,7 +207,7 @@ export function ExerciseMediaDialog({ datasetId, name, children }: ExerciseMedia
         )}
       </DialogTrigger>
       <DialogContent className={`${DRAWER_CONTENT} max-h-[85dvh] overflow-y-auto`}>
-        <ExerciseMediaView datasetId={datasetId} name={name} />
+        <ExerciseMediaView datasetId={datasetId} gifUrl={gifUrl} name={name} />
       </DialogContent>
     </Dialog>
   );
@@ -207,13 +221,21 @@ export function ExerciseMediaDialog({ datasetId, name, children }: ExerciseMedia
  * button further down the screen to show you something you already know how to
  * do by set three. Tap it for the full sheet and the written steps.
  */
-export function ExerciseDemoThumb({ datasetId, name }: { datasetId: string; name: string }) {
-  const { exercise } = useDatasetExercise(datasetId);
+export function ExerciseDemoThumb({
+  datasetId,
+  gifUrl,
+  name
+}: {
+  datasetId?: string;
+  gifUrl?: string;
+  name: string;
+}) {
+  const { exercise } = useDatasetExercise(datasetId ?? "");
   const still = usePrefersReducedMotion();
   const [failed, setFailed] = useState(false);
 
   return (
-    <ExerciseMediaDialog datasetId={datasetId} name={name}>
+    <ExerciseMediaDialog datasetId={datasetId} gifUrl={gifUrl} name={name}>
       {/* Sized whether or not there is an image in it yet, so the panel does not
           jump under your thumb when the dataset resolves a beat after the set
           opens — or when the third-party CDN 404s, which it does for a few. */}
@@ -222,7 +244,14 @@ export function ExerciseDemoThumb({ datasetId, name }: { datasetId: string; name
         aria-label={`View ${name} demo`}
         className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg well transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-95"
       >
-        {exercise && !failed ? (
+        {gifUrl && !failed ? (
+          // A stored GIF has no still frame, so reduced motion gets the icon.
+          still ? (
+            <PlayCircle className="h-5 w-5 text-muted-foreground" />
+          ) : (
+            <img src={gifUrl} alt="" className="h-full w-full object-cover" onError={() => setFailed(true)} />
+          )
+        ) : exercise && !failed ? (
           <img
             src={still ? exerciseImageUrl(exercise) : exerciseGifUrl(exercise)}
             alt=""

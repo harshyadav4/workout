@@ -9,6 +9,8 @@ import {
   ExerciseMediaDialog,
   templateDatasetId
 } from "@/features/workout/exercise-media-dialog";
+import { useWorkoutStore } from "@/features/workout/workout-store";
+import { mediaUrl } from "@/lib/media";
 import { formatPerSide, stepForSide } from "@/lib/per-side";
 import type { PlannedExercise, PlannedSet } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -211,6 +213,11 @@ export function ExerciseLedger({
   const doneCount = exercise.sets.filter((setItem) => setItem.completed).length;
   const isFinished = doneCount === exercise.sets.length && exercise.sets.length > 0;
   const datasetId = templateDatasetId({ id: exercise.workoutId });
+  // An exercise from outside the library may carry a stored GIF instead.
+  const gifUrl = mediaUrl(
+    useWorkoutStore((state) => state.templates.find((item) => item.id === exercise.workoutId)?.mediaPath)
+  );
+  const hasMedia = Boolean(datasetId || gifUrl);
   const isTime = exercise.metric === "time";
 
   // Only when the open set arrives from *another* exercise — that is the move
@@ -273,8 +280,8 @@ export function ExerciseLedger({
             >
               {exercise.templateName}
             </p>
-            {datasetId ? (
-              <ExerciseMediaDialog datasetId={datasetId} name={exercise.templateName} />
+            {hasMedia ? (
+              <ExerciseMediaDialog datasetId={datasetId} gifUrl={gifUrl} name={exercise.templateName} />
             ) : null}
           </div>
           <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
@@ -315,8 +322,8 @@ export function ExerciseLedger({
               One at a time: six of these running down a session is a slot
               machine, not a ledger. */}
           <div className="flex items-center gap-3">
-            {datasetId ? (
-              <ExerciseDemoThumb datasetId={datasetId} name={exercise.templateName} />
+            {hasMedia ? (
+              <ExerciseDemoThumb datasetId={datasetId} gifUrl={gifUrl} name={exercise.templateName} />
             ) : null}
             <div className="flex min-w-0 flex-1 items-baseline justify-between gap-2">
               <p className="text-sm font-semibold">

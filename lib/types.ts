@@ -84,6 +84,11 @@ export interface WorkoutTemplate {
   searchTerms?: string[];
   defaultSets?: ExerciseSetTemplate[];
   equipment?: string;
+  /**
+   * A demo GIF stored in Supabase Storage, for an exercise the library lacks
+   * (see app/api/media/route.ts). Library exercises use their bundled media.
+   */
+  mediaPath?: string;
 }
 
 /**

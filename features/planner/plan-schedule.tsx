@@ -15,6 +15,7 @@ import {
   DRAWER_CONTENT
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { ThemedSelect } from "@/components/ui/select";
 import { MuscleMapCard } from "@/features/home/muscle-map-card";
 import { useExercisesFromSessionTemplate, useWorkoutStore } from "@/features/workout/workout-store";
 import { formatDayKey } from "@/lib/progress-metrics";
@@ -520,20 +521,19 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
                     <span className="w-10 shrink-0 text-sm font-medium text-muted-foreground" aria-hidden="true">
                       {label}
                     </span>
-                    <select
+                    <ThemedSelect
                       aria-label={`Session for ${label}`}
                       value={restWeekdays.includes(day) ? "rest" : weekly[day] ?? ""}
-                      onChange={(event) => setWeekdayAssignment(day, event.target.value)}
-                      className="well h-12 w-full rounded-lg px-4 text-[15px] text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      <option value="">Off</option>
-                      <option value="rest">Rest day</option>
-                      {sessionTemplates.map((template) => (
-                        <option key={template.id} value={template.id}>
-                          {template.name}
-                        </option>
-                      ))}
-                    </select>
+                      onValueChange={(next) => setWeekdayAssignment(day, next)}
+                      options={[
+                        { value: "", label: "Off" },
+                        { value: "rest", label: "Rest day" },
+                        ...sessionTemplates.map((template) => ({
+                          value: template.id,
+                          label: template.name
+                        }))
+                      ]}
+                    />
                   </div>
                 ))}
               </div>
