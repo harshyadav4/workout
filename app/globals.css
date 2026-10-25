@@ -152,7 +152,10 @@ html.light {
 
 body {
   @apply bg-background text-foreground antialiased;
+  /* dvh: the height actually visible. 100vh on iPhone Safari is the height
+     with the toolbar hidden, so every full-height page scrolled a little. */
   min-height: 100vh;
+  min-height: 100dvh;
   /* One soft light from above. Not a colour wash — the same hue as the
      ground, a little brighter, so the plaques read as lit. */
   background-image: radial-gradient(140% 60% at 50% -10%, hsl(var(--surface-top)) 0%, hsl(var(--background)) 55%);
