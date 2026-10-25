@@ -67,10 +67,10 @@ export function MuscleRankCard({
                       onClick={() => onSelectMuscle(muscle.muscleId)}
                       className={cn(
                         "flex min-h-[44px] w-full items-center gap-2.5 rounded-xl px-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                        selected ? "bg-primary/15" : "hover:bg-white/[0.03]"
+                        selected ? "bg-brand/15" : "hover:bg-muted"
                       )}
                     >
-                      <span className="w-5 shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground">
+                      <span className="w-5 shrink-0 text-[10px] tabular-nums text-muted-foreground">
                         {rank}
                       </span>
                       <span
@@ -81,7 +81,7 @@ export function MuscleRankCard({
                       >
                         {muscle.name}
                       </span>
-                      <span className="h-1.5 flex-1 rounded-full bg-white/5">
+                      <span className="h-1.5 flex-1 rounded-full bg-muted">
                         <span
                           className="block h-full rounded-full"
                           style={{
@@ -90,10 +90,10 @@ export function MuscleRankCard({
                           }}
                         />
                       </span>
-                      <span className="w-11 shrink-0 text-right font-mono text-[11px] tabular-nums text-muted-foreground">
+                      <span className="w-11 shrink-0 text-right text-[11px] tabular-nums text-muted-foreground">
                         {muscle.share.toFixed(1)}%
                       </span>
-                      <span className="hidden w-14 shrink-0 text-right font-mono text-[11px] tabular-nums text-muted-foreground xs:block">
+                      <span className="hidden w-14 shrink-0 text-right text-[11px] tabular-nums text-muted-foreground xs:block">
                         {formatVolume(muscle.volume)}
                       </span>
                     </button>
@@ -105,7 +105,7 @@ export function MuscleRankCard({
             <button
               type="button"
               onClick={() => setExpanded((current) => !current)}
-              className="mt-3 min-h-[44px] w-full rounded-xl bg-white/[0.03] text-xs font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="mt-3 min-h-[44px] w-full rounded-xl bg-muted text-xs font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {expanded ? "Show the top 10" : `Show all ${muscleVolume.length} muscles`}
             </button>

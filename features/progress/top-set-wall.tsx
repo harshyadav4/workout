@@ -75,9 +75,9 @@ export function TopSetWall({
                 {tile.exercise.name}
               </p>
               <Sparkline points={tile.points} gained={tile.change >= 0} />
-              <p className="font-mono text-[10px] tabular-nums text-muted-foreground">
+              <p className="text-[10px] tabular-nums text-muted-foreground">
                 {tile.first}→{tile.last} kg{" "}
-                <span style={{ color: tile.change >= 0 ? "#3fbf6f" : "#e8785a" }}>
+                <span style={{ color: tile.change >= 0 ? "hsl(var(--success))" : "hsl(var(--danger))" }}>
                   {tile.change >= 0 ? "+" : ""}
                   {tile.change.toFixed(0)}%
                 </span>

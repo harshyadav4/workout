@@ -2,8 +2,16 @@
 
 import { useEffect, useState } from "react";
 
-import { applyTheme, isTheme, THEME_KEY, THEME_LABELS, type Theme } from "@/lib/theme";
+import { feedbackEnabled, setFeedbackEnabled } from "@/lib/feedback";
+import { applyTheme, isTheme, THEME_KEY, type Theme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
+
+/** What the skins are called on screen. The stored values stay `dark` / `light`. */
+const SKIN_LABELS: Record<Theme, string> = {
+  system: "Auto",
+  dark: "Graphite",
+  light: "Paper"
+};
 
 /**
  * Read after mount, never during render. The server has no `localStorage`, so
@@ -49,23 +57,70 @@ export function ThemeToggle() {
 
   return (
     <div>
-      <p className="text-xs text-muted-foreground">Theme</p>
-      <div className="mt-1 flex gap-1 rounded-2xl bg-secondary/50 p-1">
-        {(Object.keys(THEME_LABELS) as Theme[]).map((option) => (
+      <p className="text-xs font-medium text-muted-foreground">Skin</p>
+      <div className="well mt-1.5 grid grid-cols-3 gap-1 rounded-xl p-1" role="group" aria-label="Skin">
+        {(Object.keys(SKIN_LABELS) as Theme[]).map((option) => (
           <button
             key={option}
             type="button"
             aria-pressed={theme === option}
             onClick={() => choose(option)}
             className={cn(
-              "min-h-[44px] flex-1 rounded-xl text-sm transition-colors",
-              theme === option ? "bg-primary text-primary-foreground" : "text-muted-foreground"
+              "h-11 rounded-lg text-sm font-semibold transition-colors",
+              theme === option ? "key" : "text-muted-foreground"
             )}
           >
-            {THEME_LABELS[option]}
+            {SKIN_LABELS[option]}
           </button>
         ))}
       </div>
     </div>
+  );
+}
+
+/**
+ * The one moment's switch. Off until you say so: a phone that clicks in a gym
+ * without being asked gets muted, and the web cannot ask for haptics the way a
+ * native app can. Read after mount for the same reason as the skin above.
+ */
+export function FeedbackToggle() {
+  const [on, setOn] = useState(false);
+
+  useEffect(() => {
+    setOn(feedbackEnabled());
+  }, []);
+
+  const toggle = () => {
+    const next = !on;
+    setOn(next);
+    setFeedbackEnabled(next);
+  };
+
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      onClick={toggle}
+      className="flex min-h-14 w-full items-center justify-between gap-3 rounded-xl bg-muted px-4 py-3 text-left transition-colors active:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <span>
+        <span className="block text-sm font-semibold">Click and tap when you log a set</span>
+        <span className="mt-0.5 block text-xs text-muted-foreground">
+          A short sound and a buzz. The buzz works on Android; iPhone browsers ignore it.
+        </span>
+      </span>
+      <span
+        aria-hidden
+        className={cn("relative h-7 w-12 shrink-0 rounded-full transition-colors", on ? "bg-primary" : "well")}
+      >
+        <span
+          className={cn(
+            "absolute top-1 h-5 w-5 rounded-full bg-card shadow-quiet transition-transform",
+            on ? "translate-x-6" : "translate-x-1"
+          )}
+        />
+      </span>
+    </button>
   );
 }

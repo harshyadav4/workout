@@ -3,17 +3,18 @@
 import type { TooltipContentProps } from "recharts";
 
 /**
- * Chart colours, validated with the dataviz palette validator against the glass
- * card surface `#0d1420` in dark mode — lightness band, chroma floor, adjacent
- * CVD separation, normal-vision floor and contrast all pass.
+ * Chart colours. Blue for the value you are reading, teal for the baseline it
+ * is measured against, `quiet` for context — checked against the dark card
+ * surface for lightness band, chroma floor, adjacent CVD separation and
+ * contrast.
  *
- * They are close cousins of `--primary` and `--accent` rather than the tokens
- * themselves: the raw tokens are tuned for large UI surfaces and sit above the
- * band a mark needs. Next to each other on screen they read as the same family.
+ * Deliberately *not* the orange. Orange is the UI's one meaning — go, today,
+ * the active thing — and a chart drawn in it reads as something to press. Data
+ * gets a cool family instead.
  */
 export const CHART = {
-  series: ["#e8642a", "#12a2b8", "#7b6ae0", "#2aa25e"],
-  accent: "#e8642a",
+  series: ["#2f8deb", "#12a2b8", "#7b6ae0", "#2aa25e"],
+  accent: "#2f8deb",
   /**
    * Context marks — the ones the reader is meant to look past, but still has to
    * be able to see. These carry meaning (a rest day, an unselected muscle, a
@@ -44,7 +45,7 @@ export const CHART = {
  * so every step separates from it by more there, not less. The ramp is measured
  * where it is tightest.
  */
-export const HEAT = ["#a95023", "#c86024", "#e37129", "#fb8f45"] as const;
+export const HEAT = ["#2a5d9c", "#2f79c4", "#3a95e6", "#62b3f5"] as const;
 export const REST_CELL = "var(--chart-rest)";
 
 /**
@@ -72,7 +73,7 @@ export const animationProps = { isAnimationActive: false } as const;
  * also prints the value, so hue is never the only channel.
  */
 export const GROUP_COLORS: Record<string, string> = {
-  chest: "#e8642a",
+  chest: "#2f8deb",
   back: "#12a2b8",
   shoulders: "#e0b23c",
   arms: "#7b6ae0",
@@ -104,7 +105,7 @@ export const gridProps = {
 export const axisProps = {
   axisLine: false,
   tickLine: false,
-  tick: { fill: CHART.axis, fontSize: 10, fontFamily: "var(--font-mono)" },
+  tick: { fill: CHART.axis, fontSize: 10, fontFamily: "var(--font-sans)" },
   minTickGap: 24
 } as const;
 
@@ -134,8 +135,8 @@ export function ChartTooltip({
   const heading = typeof label === "string" && labelFormat ? labelFormat(label) : String(label ?? "");
 
   return (
-    <div className="rounded-2xl border border-border bg-popover/95 px-3 py-2 shadow-glow backdrop-blur">
-      <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+    <div className="plaque rounded-lg px-3 py-2">
+      <p className="text-[11px] font-semibold text-muted-foreground">
         {heading}
       </p>
       {payload.map((entry) => (
@@ -145,7 +146,7 @@ export function ChartTooltip({
             style={{ backgroundColor: entry.color ?? CHART.accent }}
             aria-hidden
           />
-          <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
+          <span className="text-sm font-semibold tabular-nums text-foreground">
             {format(Number(entry.value ?? 0))}
             {unit ? <span className="text-muted-foreground">{unit}</span> : null}
           </span>
@@ -161,7 +162,7 @@ export function ChartTooltip({
 /** Shown wherever a range holds no logs, in place of an empty axis. */
 export function EmptyChart({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl bg-secondary/40 px-4 py-6 text-center text-sm text-muted-foreground">
+    <div className="rounded-lg bg-muted px-4 py-6 text-center text-sm text-muted-foreground">
       {children}
     </div>
   );

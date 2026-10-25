@@ -49,8 +49,8 @@ export function MeasurementPrompt() {
   const anyEntered = due.some((metric) => drafts[metric]?.trim());
 
   return (
-    <div className="mt-4 rounded-2xl bg-accent/10 p-4 ring-1 ring-accent/25">
-      <p className="text-sm font-semibold">Take a reading?</p>
+    <div className="mt-4 rounded-xl bg-muted p-4">
+      <p className="font-display text-lg font-bold tracking-tight">Take a reading?</p>
       <p className="mt-1 text-sm text-muted-foreground">
         You set this cadence yourself. Girth is the other half of every chart on Progress — fill in
         what you have, skip the rest.
@@ -61,7 +61,7 @@ export function MeasurementPrompt() {
           const last = latestFor(measurements, metric);
           return (
             <label key={metric} className="block">
-              <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+              <span className="text-xs font-medium text-muted-foreground">
                 {labelFor(metric)}
                 {last ? ` · last ${last.value}${unitFor(metric)}` : ""}
               </span>

@@ -76,6 +76,14 @@ import {
 import type { MuscleId } from "@/lib/types";
 import { buildMuscleHeat, normalizeMuscleHeat } from "@/lib/workout-helpers";
 
+type ProgressTab = "overview" | "lifts" | "muscles";
+
+const TABS: { id: ProgressTab; label: string }[] = [
+  { id: "overview", label: "Overview" },
+  { id: "lifts", label: "Lifts" },
+  { id: "muscles", label: "Muscles" }
+];
+
 export function ProgressDashboard() {
   const logs = useWorkoutStore((state) => state.logs);
   const setLogs = useWorkoutStore((state) => state.setLogs);
@@ -91,6 +99,10 @@ export function ProgressDashboard() {
   const [range, setRange] = useState<ProgressRange>("1y");
   const [custom, setCustom] = useState<DateWindow>();
   const [workoutId, setWorkoutId] = useState<string>();
+  // Three screens instead of one eleven-thousand-pixel scroll. The range and
+  // the exercise chip scope all three, so a number never changes meaning when
+  // you switch.
+  const [tab, setTab] = useState<ProgressTab>("overview");
 
   // Distinct training days, and the span they cover — the two units every
   // threshold below is expressed in.
@@ -228,19 +240,22 @@ export function ProgressDashboard() {
 
   return (
     <section className="space-y-4">
-      <MuscleMapCard
-        title="Where the work lands"
-        description="Shaded by how much of this range's volume reached each muscle. Tap one to open it."
-        highlights={view.heat}
-        selectedMuscleId={selected?.id}
-        onSelectMuscle={setSelectedMuscle}
-        footer={
-          <MuscleHeroFooter
-            facts={drilldown?.facts}
-            onClear={() => setSelectedMuscle(undefined)}
-          />
-        }
-      />
+      <div className="well grid grid-cols-3 gap-1 rounded-xl p-1" role="tablist" aria-label="Progress view">
+        {TABS.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            role="tab"
+            aria-selected={tab === item.id}
+            onClick={() => setTab(item.id)}
+            className={`h-11 rounded-lg text-sm font-semibold transition-colors ${
+              tab === item.id ? "key" : "text-muted-foreground"
+            }`}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
 
       <ProgressFilters
         range={range}
@@ -260,190 +275,215 @@ export function ProgressDashboard() {
         onWorkoutChange={setWorkoutId}
       />
 
-      {drilldown ? (
-        <div className="space-y-3">
-          <SectionRule label={drilldown.name} hint="this muscle only" />
-
-          {/* Measurements exist whether or not you trained the muscle in this
-              range, so this sits outside the untouched branch. It returns null
-              when the site has nothing recorded, so it never adds an empty card. */}
-          <MuscleGirthCard
-            name={drilldown.name}
-            muscleId={drilldown.muscleId}
-            measurements={measurements}
-            // Volume attributed to this muscle, so the callout compares the two
-            // halves of the same claim.
-            logs={attributeToMuscle(logs, drilldown.muscleId)}
+      {tab === "overview" ? (
+        <>
+          <ProgressHeadline
+            range={range}
+            summary={view.summary}
+            previous={view.previousSummary}
+            window={view.window}
+            streaks={view.streaks}
+            weeklySets={view.weeklySets}
+            daysSincePR={lifetime.sincePR}
           />
 
-          {/* Four empty cards is the complaint that started this page. One is enough. */}
-          {drilldown.untouched ? (
-            <UntouchedMuscle name={drilldown.name} range={range} />
-          ) : (
-            <>
-              <MuscleDoseCard name={drilldown.name} setsPerWeek={drilldown.facts.setsPerWeek} />
+          <YearSpine weeks={view.calendar} streaks={view.streaks} range={range} />
 
-              <MuscleVolumeCard
-                name={drilldown.name}
-                points={drilldown.trend}
-                bucket={view.bucket}
+          <SectionRule label="How hard" hint="load and rhythm" />
+
+          {/* Thresholds are in sessions, not logs: two exercises on a Tuesday is
+              one session, and it is sessions the charts need more of. */}
+          <Reveal
+            ready={sessionCount >= 3}
+            title="Volume trend"
+            need={`${3 - sessionCount} more session${3 - sessionCount === 1 ? "" : "s"}`}
+          >
+            <VolumeTrendCard points={view.trend} bucket={view.bucket} />
+          </Reveal>
+
+          <VolumeDetailCard summary={view.summary} previous={view.previousSummary} />
+
+          {/* ACWR compares the last week against a four-week baseline. Before that
+              baseline exists the ratio is arithmetic on nothing. */}
+          <Reveal
+            ready={weeksOfHistory >= LOAD_BASELINE_WEEKS}
+            title="Training load"
+            need={`${LOAD_BASELINE_WEEKS - weeksOfHistory} more week${
+              LOAD_BASELINE_WEEKS - weeksOfHistory === 1 ? "" : "s"
+            } of training — the ratio needs a baseline to compare against`}
+          >
+            <LoadCard points={lifetime.load} />
+          </Reveal>
+
+          <Reveal
+            ready={sessionCount >= 6}
+            title="Rhythm and rest"
+            need={`${6 - sessionCount} more session${6 - sessionCount === 1 ? "" : "s"} — a pattern needs repeats`}
+          >
+            <RhythmCard rhythm={view.rhythm} rest={view.rest} />
+          </Reveal>
+
+          <CumulativeCard
+            points={lifetime.cumulative.points}
+            milestones={lifetime.cumulative.milestones}
+            total={lifetime.cumulative.total}
+          />
+
+          <SectionRule label="Body" hint="weigh-ins" />
+
+          {/* Full history, not the selected range: a monthly measurement inside a
+              one-month window is a single point and no trend at all. */}
+          <BodyWeightCard measurements={measurements} goalWeightKg={profile.goalWeightKg} />
+        </>
+      ) : null}
+
+      {tab === "lifts" ? (
+        <>
+          <TopSetWall logs={view.scoped} exercises={view.scopedExercises} />
+
+          <Reveal
+            ready={sessionCount >= 2}
+            title="Strength growth"
+            need={`${2 - sessionCount} more session${sessionCount === 1 ? "" : "s"} — growth needs two points`}
+          >
+            <StrengthGrowthCard growth={view.growth} />
+          </Reveal>
+
+          {/* Gated on set_logs, not on session count: the estimate needs the per-set
+              grain, and an account whose whole history predates that table has
+              nothing to feed it however many sessions it has. */}
+          {setLogs.length > 0 ? (
+            <OneRepMaxCard
+              // Scoped to the range like every other card here. Passing the whole
+              // history alongside window-scoped exercises showed an all-time best
+              // under a "four weeks" filter, with nothing in the caption saying so.
+              setLogs={filterByWindow(setLogs, view.window)}
+              exercises={view.scopedExercises}
+            />
+          ) : null}
+
+          <Reveal
+            ready={sessionCount >= 2}
+            title="Personal records"
+            need="a second session — the first time you lift something is a baseline, not a record"
+          >
+            <PRLedgerCard entries={lifetime.ledger} days={lifetime.sincePR} />
+          </Reveal>
+
+          <SectionRule label="The numbers" hint="every figure above" />
+
+          <ProgressTableCard logs={view.scoped} />
+        </>
+      ) : null}
+
+      {tab === "muscles" ? (
+        <>
+          <MuscleMapCard
+            title="Where the work lands"
+            description="Shaded by how much of this range's volume reached each muscle. Tap one to open it."
+            highlights={view.heat}
+            selectedMuscleId={selected?.id}
+            onSelectMuscle={setSelectedMuscle}
+            footer={
+              <MuscleHeroFooter
+                facts={drilldown?.facts}
+                onClear={() => setSelectedMuscle(undefined)}
               />
+            }
+          />
 
-              <MuscleLiftsCard
+          {drilldown ? (
+            <div className="space-y-3">
+              <SectionRule label={drilldown.name} hint="this muscle only" />
+
+              {/* Measurements exist whether or not you trained the muscle in this
+                  range, so this sits outside the untouched branch. It returns null
+                  when the site has nothing recorded, so it never adds an empty card. */}
+              <MuscleGirthCard
                 name={drilldown.name}
                 muscleId={drilldown.muscleId}
-                logs={drilldown.logs}
+                measurements={measurements}
+                // Volume attributed to this muscle, so the callout compares the two
+                // halves of the same claim.
+                logs={attributeToMuscle(logs, drilldown.muscleId)}
               />
 
-              <ConsistencyCard
-                weeks={drilldown.calendar}
-                title={`When you trained ${drilldown.name}`}
-                subject="days"
-              />
-            </>
-          )}
-        </div>
+              {/* Four empty cards is the complaint that started this page. One is enough. */}
+              {drilldown.untouched ? (
+                <UntouchedMuscle name={drilldown.name} range={range} />
+              ) : (
+                <>
+                  <MuscleDoseCard name={drilldown.name} setsPerWeek={drilldown.facts.setsPerWeek} />
+
+                  <MuscleVolumeCard
+                    name={drilldown.name}
+                    points={drilldown.trend}
+                    bucket={view.bucket}
+                  />
+
+                  <MuscleLiftsCard
+                    name={drilldown.name}
+                    muscleId={drilldown.muscleId}
+                    logs={drilldown.logs}
+                  />
+
+                  <ConsistencyCard
+                    weeks={drilldown.calendar}
+                    title={`When you trained ${drilldown.name}`}
+                    subject="days"
+                  />
+                </>
+              )}
+            </div>
+          ) : null}
+
+          <SectionRule label="Where it goes" hint="the split" />
+
+          <Reveal
+            ready={view.matrix.columns.length >= MATRIX_MIN_COLUMNS}
+            title="Muscle matrix"
+            need={`${MATRIX_MIN_COLUMNS - view.matrix.columns.length} more period${
+              MATRIX_MIN_COLUMNS - view.matrix.columns.length === 1 ? "" : "s"
+            } of training — a matrix needs columns to compare`}
+          >
+            <MuscleMatrixCard
+              matrix={view.matrix}
+              selectedMuscleId={selected?.id}
+              onSelectMuscle={(muscleId: MuscleId) => setSelectedMuscle(muscleId)}
+            />
+          </Reveal>
+
+          <MuscleRankCard
+            muscleVolume={view.muscleVolume}
+            selectedMuscleId={selected?.id}
+            onSelectMuscle={(muscleId: MuscleId) => setSelectedMuscle(muscleId)}
+          />
+
+          <Reveal
+            ready={view.drift.rows.length >= MATRIX_MIN_COLUMNS}
+            title="Split drift"
+            need={`${MATRIX_MIN_COLUMNS - view.drift.rows.length} more period${
+              MATRIX_MIN_COLUMNS - view.drift.rows.length === 1 ? "" : "s"
+            } — drift is a comparison between them`}
+          >
+            <SplitDriftCard drift={view.drift} />
+          </Reveal>
+
+          <MuscleSplitCard groups={view.groups} />
+
+          <WeeklySetsCard sets={view.weeklySets} />
+
+          {/* One level below the group band, which is where the finding actually
+              lives: fourteen chest sets that were all flat pressing. */}
+          <Reveal
+            ready={sessionCount >= 3}
+            title="Weekly sets per head"
+            need={`${3 - sessionCount} more session${3 - sessionCount === 1 ? "" : "s"} — a bias needs a few sessions to show`}
+          >
+            <HeadStimulusCard report={headStimulus} suggestions={headSuggestions} />
+          </Reveal>
+        </>
       ) : null}
-
-      <ProgressHeadline
-        range={range}
-        summary={view.summary}
-        previous={view.previousSummary}
-        window={view.window}
-        streaks={view.streaks}
-        weeklySets={view.weeklySets}
-        daysSincePR={lifetime.sincePR}
-      />
-
-      <YearSpine weeks={view.calendar} streaks={view.streaks} range={range} />
-
-      <SectionRule label="Getting stronger" hint="per lift" />
-
-      {/* Thresholds are in sessions, not logs: two exercises on a Tuesday is
-          one session, and it is sessions the charts need more of. */}
-
-      <TopSetWall logs={view.scoped} exercises={view.scopedExercises} />
-
-      <Reveal
-        ready={sessionCount >= 2}
-        title="Strength growth"
-        need={`${2 - sessionCount} more session${sessionCount === 1 ? "" : "s"} — growth needs two points`}
-      >
-        <StrengthGrowthCard growth={view.growth} />
-      </Reveal>
-
-      {/* Gated on set_logs, not on session count: the estimate needs the per-set
-          grain, and an account whose whole history predates that table has
-          nothing to feed it however many sessions it has. */}
-      {setLogs.length > 0 ? (
-        <OneRepMaxCard
-          // Scoped to the range like every other card here. Passing the whole
-          // history alongside window-scoped exercises showed an all-time best
-          // under a "four weeks" filter, with nothing in the caption saying so.
-          setLogs={filterByWindow(setLogs, view.window)}
-          exercises={view.scopedExercises}
-        />
-      ) : null}
-
-      <Reveal
-        ready={sessionCount >= 2}
-        title="Personal records"
-        need="a second session — the first time you lift something is a baseline, not a record"
-      >
-        <PRLedgerCard entries={lifetime.ledger} days={lifetime.sincePR} />
-      </Reveal>
-
-      <SectionRule label="Where it goes" hint="the split" />
-
-      <Reveal
-        ready={view.matrix.columns.length >= MATRIX_MIN_COLUMNS}
-        title="Muscle matrix"
-        need={`${MATRIX_MIN_COLUMNS - view.matrix.columns.length} more period${
-          MATRIX_MIN_COLUMNS - view.matrix.columns.length === 1 ? "" : "s"
-        } of training — a matrix needs columns to compare`}
-      >
-        <MuscleMatrixCard
-          matrix={view.matrix}
-          selectedMuscleId={selected?.id}
-          onSelectMuscle={(muscleId: MuscleId) => setSelectedMuscle(muscleId)}
-        />
-      </Reveal>
-
-      <MuscleRankCard
-        muscleVolume={view.muscleVolume}
-        selectedMuscleId={selected?.id}
-        onSelectMuscle={(muscleId: MuscleId) => setSelectedMuscle(muscleId)}
-      />
-
-      <Reveal
-        ready={view.drift.rows.length >= MATRIX_MIN_COLUMNS}
-        title="Split drift"
-        need={`${MATRIX_MIN_COLUMNS - view.drift.rows.length} more period${
-          MATRIX_MIN_COLUMNS - view.drift.rows.length === 1 ? "" : "s"
-        } — drift is a comparison between them`}
-      >
-        <SplitDriftCard drift={view.drift} />
-      </Reveal>
-
-      <MuscleSplitCard groups={view.groups} />
-
-      <WeeklySetsCard sets={view.weeklySets} />
-
-      {/* One level below the group band, which is where the finding actually
-          lives: fourteen chest sets that were all flat pressing. */}
-      <Reveal
-        ready={sessionCount >= 3}
-        title="Weekly sets per head"
-        need={`${3 - sessionCount} more session${3 - sessionCount === 1 ? "" : "s"} — a bias needs a few sessions to show`}
-      >
-        <HeadStimulusCard report={headStimulus} suggestions={headSuggestions} />
-      </Reveal>
-
-      <SectionRule label="How hard" hint="load and rhythm" />
-
-      <Reveal
-        ready={sessionCount >= 3}
-        title="Volume trend"
-        need={`${3 - sessionCount} more session${3 - sessionCount === 1 ? "" : "s"}`}
-      >
-        <VolumeTrendCard points={view.trend} bucket={view.bucket} />
-      </Reveal>
-
-      {/* Full history, not the selected range: a monthly measurement inside a
-          one-month window is a single point and no trend at all. */}
-      <BodyWeightCard measurements={measurements} goalWeightKg={profile.goalWeightKg} />
-
-      {/* ACWR compares the last week against a four-week baseline. Before that
-          baseline exists the ratio is arithmetic on nothing. */}
-      <Reveal
-        ready={weeksOfHistory >= LOAD_BASELINE_WEEKS}
-        title="Training load"
-        need={`${LOAD_BASELINE_WEEKS - weeksOfHistory} more week${
-          LOAD_BASELINE_WEEKS - weeksOfHistory === 1 ? "" : "s"
-        } of training — the ratio needs a baseline to compare against`}
-      >
-        <LoadCard points={lifetime.load} />
-      </Reveal>
-
-      <VolumeDetailCard summary={view.summary} previous={view.previousSummary} />
-
-      <Reveal
-        ready={sessionCount >= 6}
-        title="Rhythm and rest"
-        need={`${6 - sessionCount} more session${6 - sessionCount === 1 ? "" : "s"} — a pattern needs repeats`}
-      >
-        <RhythmCard rhythm={view.rhythm} rest={view.rest} />
-      </Reveal>
-
-      <CumulativeCard
-        points={lifetime.cumulative.points}
-        milestones={lifetime.cumulative.milestones}
-        total={lifetime.cumulative.total}
-      />
-
-      <SectionRule label="The numbers" hint="every figure above" />
-
-      <ProgressTableCard logs={view.scoped} />
     </section>
   );
 }

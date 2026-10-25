@@ -34,15 +34,16 @@ export function PlanDashboard() {
 
   return (
     <section className="space-y-4">
-      <div className="grid grid-cols-2 gap-1 rounded-full bg-secondary/50 p-1">
+      <div className="well grid grid-cols-2 gap-1 rounded-xl p-1" role="tablist" aria-label="Plan mode">
         {MODES.map((item) => (
           <button
             key={item.id}
             type="button"
-            aria-pressed={mode === item.id}
+            role="tab"
+            aria-selected={mode === item.id}
             onClick={() => setMode(item.id)}
-            className={`rounded-full py-3 text-sm font-medium transition active:scale-[0.98] ${
-              mode === item.id ? "bg-primary text-primary-foreground" : "text-muted-foreground"
+            className={`h-11 rounded-lg text-sm font-semibold transition-colors ${
+              mode === item.id ? "key" : "text-muted-foreground"
             }`}
           >
             {item.label}
@@ -62,14 +63,14 @@ export function PlanDashboard() {
             downloadJson(`gymflow-plan-${todayKey()}.json`, buildPlanExport(store.getState()))
           }
         >
-          <Share2 className="mr-2 h-4 w-4" />
+          <Share2 className="h-4 w-4" />
           Share plan
         </Button>
         {/* ponytail: window.print(). The browser's own dialog already offers
             "Save as PDF" on every desktop and phone, so a PDF library would be
             shipping a second renderer to duplicate one that is already there. */}
         <Button variant="outline" className="flex-1" onClick={() => window.print()}>
-          <Printer className="mr-2 h-4 w-4" />
+          <Printer className="h-4 w-4" />
           Print
         </Button>
       </div>

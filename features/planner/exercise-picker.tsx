@@ -85,12 +85,12 @@ export function ExercisePicker({ onBack, onPick }: ExercisePickerProps) {
           type="button"
           onClick={onBack}
           aria-label="Back to session"
-          className="shrink-0 rounded-full bg-secondary/60 p-3.5 text-muted-foreground transition active:scale-95 active:bg-secondary"
+          className="key-quiet flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-foreground"
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
         <div>
-          <DialogTitle className="text-lg font-semibold">Add exercise</DialogTitle>
+          <DialogTitle>Add exercise</DialogTitle>
           <DialogDescription>Search the library, or filter by body part.</DialogDescription>
         </div>
       </div>
@@ -119,7 +119,7 @@ export function ExercisePicker({ onBack, onPick }: ExercisePickerProps) {
         aria-label="Filter by equipment"
         value={activeEquipment}
         onChange={(event) => setEquipment(event.target.value)}
-        className="w-full rounded-2xl bg-secondary/50 px-3 py-3 text-sm capitalize outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="well h-12 w-full rounded-lg px-4 text-[15px] capitalize text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <option value="">Any equipment</option>
         {equipmentList.map((item) => (
@@ -165,8 +165,8 @@ function FilterChip({ label, active, onClick }: { label: string; active: boolean
       type="button"
       aria-pressed={active}
       onClick={onClick}
-      className={`shrink-0 whitespace-nowrap rounded-full px-3 py-3.5 text-xs capitalize transition active:scale-95 ${
-        active ? "bg-primary text-primary-foreground" : "bg-secondary/50 text-muted-foreground"
+      className={`h-11 shrink-0 whitespace-nowrap rounded-full px-4 text-xs font-semibold capitalize ${
+        active ? "key" : "key-quiet text-muted-foreground"
       }`}
     >
       {label}
@@ -176,13 +176,13 @@ function FilterChip({ label, active, onClick }: { label: string; active: boolean
 
 function ExerciseRow({ exercise, onPick }: { exercise: Exercise; onPick: (exercise: Exercise) => void }) {
   return (
-    <div className="rounded-2xl bg-secondary/50 p-2">
+    <div className="rounded-lg bg-muted p-2">
       <button
         type="button"
         onClick={() => onPick(exercise)}
-        className="flex w-full items-center gap-3 rounded-xl text-left transition active:scale-[0.98] active:bg-background/60"
+        className="flex w-full items-center gap-3 rounded-lg text-left transition-colors active:bg-secondary"
       >
-        <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-muted">
+        <div className="well h-12 w-12 shrink-0 overflow-hidden rounded-lg">
           <img
             src={exerciseImageUrl(exercise)}
             alt=""
@@ -199,7 +199,7 @@ function ExerciseRow({ exercise, onPick }: { exercise: Exercise; onPick: (exerci
             {exercise.target} · {exercise.equipment}
           </p>
         </div>
-        <Plus className="h-4 w-4 shrink-0 text-primary" />
+        <Plus className="h-4 w-4 shrink-0 text-brand" />
       </button>
       {exercise.steps.length ? (
         <details className="mt-1 px-1">

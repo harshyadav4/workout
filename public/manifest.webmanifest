@@ -2,8 +2,8 @@
   "name": "GymFlow",
   "short_name": "GymFlow",
   "description": "Mobile-first workout tracker for gym sessions",
-  "theme_color": "#0d1420",
-  "background_color": "#0d1420",
+  "theme_color": "#0E0F12",
+  "background_color": "#0E0F12",
   "display": "standalone",
   "start_url": "/",
   "icons": [

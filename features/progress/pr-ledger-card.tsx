@@ -52,17 +52,17 @@ export function PRLedgerCard({ entries, days }: { entries: PREntry[]; days?: num
         </EmptyChart>
       ) : (
         <>
-          <ol className="divide-y divide-white/5">
+          <ol className="divide-y divide-border">
             {shown.map((entry) => (
               <li
                 key={`${entry.date}-${entry.workoutId}`}
                 className="flex items-baseline gap-3 py-2"
               >
-                <span className="w-14 shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
+                <span className="w-14 shrink-0 text-[11px] tabular-nums text-muted-foreground">
                   {formatDayKey(entry.date)}
                 </span>
                 <span className="min-w-0 flex-1 truncate text-sm">{entry.name}</span>
-                <span className="shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
+                <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
                   {entry.from} →{" "}
                   <span className="font-semibold" style={{ color: CHART.accent }}>
                     {entry.to} kg
@@ -76,7 +76,7 @@ export function PRLedgerCard({ entries, days }: { entries: PREntry[]; days?: num
             <button
               type="button"
               onClick={() => setExpanded((current) => !current)}
-              className="mt-2 min-h-[44px] w-full rounded-xl bg-white/[0.03] text-xs font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="mt-2 min-h-[44px] w-full rounded-xl bg-muted text-xs font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {expanded ? "Show fewer" : `All ${entries.length} records`}
             </button>

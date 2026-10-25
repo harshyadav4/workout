@@ -1,6 +1,5 @@
 "use client";
 
-import { Flame } from "lucide-react";
 import { useMemo } from "react";
 
 import { Card } from "@/components/ui/card";
@@ -8,7 +7,7 @@ import { useWorkoutStore } from "@/features/workout/workout-store";
 import { earliestLogDate, shiftKey, weekStartKey } from "@/lib/progress-metrics";
 import { buildStreaks } from "@/lib/progress-trends";
 import { streakHeadline } from "@/lib/streak-copy";
-import { formatVolume } from "@/lib/utils";
+import { cn, formatVolume } from "@/lib/utils";
 
 const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"] as const;
 const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -17,6 +16,9 @@ const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Satu
  * The habit, in the unit the app already decided on: weeks, not days. See
  * `buildStreaks` — a day streak rewards never resting, which is bad advice
  * dressed as a number. Copy lives in `lib/streak-copy.ts` so it can be checked.
+ *
+ * Seven tiles, one per day: an orange key for a day you trained, a well for one
+ * you did not, a fainter well for a day still ahead, a ring on today.
  */
 export function StreakCard() {
   const logs = useWorkoutStore((state) => state.logs);
@@ -56,18 +58,17 @@ export function StreakCard() {
 
   return (
     <Card>
-      <div className="flex items-start gap-3">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/15 ring-1 ring-primary/30">
-          <Flame className="h-5 w-5 text-primary" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <h3 className="text-2xl font-bold leading-tight tracking-tight">{title}</h3>
-          <p className="mt-1 text-sm text-muted-foreground">{caption}</p>
-        </div>
+      <div className="flex items-baseline justify-between gap-3">
+        <h3 className="text-[15px] font-bold tracking-tight">This week</h3>
+        <p className="text-xs text-muted-foreground tabular-nums">
+          {view.doneThisWeek > 0
+            ? `${view.doneThisWeek} day${view.doneThisWeek === 1 ? "" : "s"} · ${formatVolume(view.volume)} kg`
+            : "Nothing logged yet"}
+        </p>
       </div>
 
       <div
-        className="mt-4 grid grid-cols-7 gap-1.5"
+        className="mt-3 grid grid-cols-7 gap-1.5"
         role="img"
         aria-label={
           trainedNames.length > 0
@@ -77,39 +78,38 @@ export function StreakCard() {
       >
         {view.days.map((day) => {
           const isToday = day.date === activeDate;
-          // Untrained is a ring, not a fill — a tint alone measures ~1.3:1 on
-          // this card and the empty half of the week would be invisible. Days
-          // still ahead sit fainter: they are not misses yet.
-          const tone = day.done
-            ? "bg-success ring-1 ring-success"
-            : day.date > activeDate
-              ? "bg-white/5 ring-1 ring-white/15"
-              : "bg-white/10 ring-1 ring-white/30";
-
+          const ahead = day.date > activeDate;
           return (
             <div key={day.date} className="flex flex-col items-center gap-1.5">
               <span
-                className={`font-mono text-[11px] ${isToday ? "text-primary" : "text-muted-foreground"}`}
+                className={cn(
+                  "text-[11px] font-semibold",
+                  isToday ? "text-brand" : "text-muted-foreground"
+                )}
                 aria-hidden
               >
                 {day.letter}
               </span>
               <span
                 aria-hidden
-                className={`h-7 w-full rounded-lg transition-colors duration-200 ${tone} ${
-                  isToday ? "ring-2 ring-primary" : ""
-                }`}
+                className={cn(
+                  "h-8 w-full rounded-[9px] transition-colors duration-200",
+                  day.done
+                    ? "bg-gradient-to-b from-[hsl(var(--key-top))] to-[hsl(var(--key-bottom))] shadow-[inset_0_1px_0_rgba(255,255,255,0.6),inset_0_-2px_0_rgba(0,0,0,0.14)]"
+                    : "well",
+                  ahead && !day.done ? "opacity-50" : "",
+                  isToday ? "ring-2 ring-brand ring-offset-2 ring-offset-card" : ""
+                )}
               />
             </div>
           );
         })}
       </div>
 
-      <p className="mt-3 font-mono text-xs tabular-nums text-muted-foreground">
-        {view.doneThisWeek > 0
-          ? `${view.doneThisWeek} day${view.doneThisWeek === 1 ? "" : "s"} this week · ${formatVolume(view.volume)} kg moved`
-          : "Nothing logged this week yet"}
-      </p>
+      <h4 className="mt-4 font-display text-[22px] font-extrabold leading-none tracking-tight">
+        {title}
+      </h4>
+      <p className="mt-1.5 text-sm text-muted-foreground">{caption}</p>
     </Card>
   );
 }

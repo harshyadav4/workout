@@ -64,7 +64,7 @@ export function CumulativeCard({
         </>
       }
     >
-      <p className="font-mono text-[2.5rem] font-bold leading-none tracking-tight tabular-nums">
+      <p className="font-display text-[2.5rem] font-extrabold leading-none tracking-tight tabular-nums">
         {formatVolume(total)}
         <span className="ml-1.5 align-baseline text-base font-medium text-muted-foreground">
           kg
@@ -132,7 +132,7 @@ export function CumulativeCard({
                   position: "top",
                   fill: "rgba(226,232,240,0.75)",
                   fontSize: 10,
-                  fontFamily: "var(--font-mono)"
+                  fontFamily: "var(--font-sans)"
                 }}
               />
             ))}

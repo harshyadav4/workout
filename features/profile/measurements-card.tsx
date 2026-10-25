@@ -48,11 +48,11 @@ function CadencePicker({
 }) {
   return (
     <div>
-      <p className="mb-2 text-xs text-muted-foreground">
+      <p className="mb-2 text-xs font-medium text-muted-foreground">
         {label}
         {hint ? <span className="text-foreground"> · {hint}</span> : null}
       </p>
-      <div className="grid grid-cols-4 gap-1 rounded-full bg-background p-1">
+      <div className="well grid grid-cols-4 gap-1 rounded-xl p-1">
         {CADENCES.map((item) => {
           const active = (value ?? "off") === item.id;
           return (
@@ -61,8 +61,8 @@ function CadencePicker({
               type="button"
               aria-pressed={active}
               onClick={() => onChange(item.id)}
-              className={`rounded-full py-3 text-xs font-medium transition active:scale-[0.98] ${
-                active ? "bg-primary text-primary-foreground" : "text-muted-foreground"
+              className={`h-10 rounded-lg text-xs font-semibold transition-colors ${
+                active ? "key" : "text-muted-foreground"
               }`}
             >
               {item.label}
@@ -137,12 +137,12 @@ export function MeasurementsCard() {
       </CardHeader>
       <CardContent className="space-y-4">
         {dueNow.length > 0 ? (
-          <p className="rounded-2xl bg-warning/15 px-4 py-3 text-sm text-warning">
+          <p className="rounded-lg bg-warning/15 px-4 py-3 text-sm font-medium text-warning">
             Time for {dueNow.join(" and ")}.
           </p>
         ) : null}
 
-        <div className="space-y-3 rounded-3xl bg-secondary/50 p-4">
+        <div className="space-y-3 rounded-xl bg-muted p-4">
           <CadencePicker
             label="How often do you weigh in?"
             hint={dueLabel(weightState)}
@@ -161,7 +161,7 @@ export function MeasurementsCard() {
           </p>
         </div>
 
-        <label className="block text-xs text-muted-foreground">
+        <label className="block text-xs font-medium text-muted-foreground">
           Height (cm)
           <Input
             type="number"
@@ -184,8 +184,8 @@ export function MeasurementsCard() {
             return (
               <div key={item.id} className="flex items-center gap-3">
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{labelFor(item.id)}</p>
-                  <p className="font-mono text-xs tabular-nums text-muted-foreground">
+                  <p className="truncate text-sm font-semibold">{labelFor(item.id)}</p>
+                  <p className="text-xs tabular-nums text-muted-foreground">
                     {latest ? `${latest.value} ${unitFor(item.id)}` : "—"}
                     {change !== undefined
                       ? ` · ${change > 0 ? "+" : ""}${change.toFixed(1)}`

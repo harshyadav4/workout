@@ -95,14 +95,14 @@ function ExerciseGif({ exercise }: { exercise: Exercise }) {
 
   if (failed) {
     return (
-      <p className="flex aspect-[4/3] items-center justify-center rounded-2xl bg-secondary/50 px-6 text-center text-sm text-muted-foreground">
+      <p className="flex aspect-[4/3] items-center justify-center rounded-lg bg-muted px-6 text-center text-sm text-muted-foreground">
         The demo animation didn&apos;t load. The steps below still apply.
       </p>
     );
   }
 
   return (
-    <div className="flex aspect-[4/3] items-center justify-center overflow-hidden rounded-2xl bg-secondary/50">
+    <div className="flex aspect-[4/3] items-center justify-center overflow-hidden rounded-lg bg-muted">
       <img
         src={exerciseGifUrl(exercise)}
         alt={`${exercise.name} demonstration`}
@@ -135,13 +135,13 @@ export function ExerciseMediaView({ datasetId, name, onBack }: ExerciseMediaView
             type="button"
             onClick={onBack}
             aria-label="Back to session"
-            className="shrink-0 rounded-full bg-secondary/60 p-2 text-muted-foreground"
+            className="key-quiet flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-foreground"
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
         ) : null}
         <div className="min-w-0">
-          <DialogTitle className="truncate text-lg font-semibold capitalize">{name}</DialogTitle>
+          <DialogTitle className="truncate capitalize">{name}</DialogTitle>
           <DialogDescription className="capitalize">
             {exercise ? `${exercise.target} · ${exercise.equipment}` : "How it is done"}
           </DialogDescription>
@@ -186,7 +186,7 @@ export function ExerciseMediaDialog({ datasetId, name, children }: ExerciseMedia
           <button
             type="button"
             aria-label={`View ${name} demo`}
-            className="shrink-0 rounded-full p-1.5 text-muted-foreground transition hover:bg-secondary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="shrink-0 rounded-full p-1.5 text-muted-foreground transition hover:bg-secondary hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <PlayCircle className="h-4 w-4" />
           </button>
@@ -220,7 +220,7 @@ export function ExerciseDemoThumb({ datasetId, name }: { datasetId: string; name
       <button
         type="button"
         aria-label={`View ${name} demo`}
-        className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-background/70 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-95"
+        className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg well transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-95"
       >
         {exercise && !failed ? (
           <img

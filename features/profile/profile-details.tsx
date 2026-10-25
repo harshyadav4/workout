@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/features/auth/use-auth";
-import { ThemeToggle } from "@/features/profile/theme-toggle";
+import { FeedbackToggle, ThemeToggle } from "@/features/profile/theme-toggle";
 import { retrySync, useSyncStatus } from "@/features/workout/sync-status";
 import { useWorkoutStore, useWorkoutStoreApi } from "@/features/workout/workout-store";
 import { hasGoal } from "@/lib/body-metrics";
@@ -25,11 +25,23 @@ function metadataName(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value : undefined;
 }
 
-function Field({ label, value }: { label: string; value?: string }) {
+/** Who this is: an initial, the name, the address. One block, not two grey boxes. */
+function Identity({ name, email }: { name?: string; email?: string }) {
+  const initial = name?.trim()[0]?.toUpperCase() ?? email?.trim()[0]?.toUpperCase() ?? "?";
   return (
-    <div className="rounded-3xl bg-secondary/50 p-4">
-      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
-      <p className="mt-2 break-words text-lg font-semibold">{value || "—"}</p>
+    <div className="flex items-center gap-4">
+      <span
+        className="key-quiet flex h-14 w-14 shrink-0 items-center justify-center rounded-full font-display text-2xl font-extrabold"
+        aria-hidden
+      >
+        {initial}
+      </span>
+      <div className="min-w-0">
+        <p className="truncate font-display text-[22px] font-extrabold leading-none tracking-tight">
+          {name || "No name yet"}
+        </p>
+        <p className="mt-1.5 truncate text-sm text-muted-foreground">{email || "—"}</p>
+      </div>
     </div>
   );
 }
@@ -48,7 +60,7 @@ function SyncStatus() {
     // sentence and the only one of the two worth a button.
     const stalled = error.stage === "load";
     return (
-      <div className="rounded-3xl border border-danger/40 p-4" role="alert">
+      <div className="rounded-xl border border-danger/40 p-4" role="alert">
         <p className="text-sm font-semibold text-danger">
           {stalled ? "Couldn't read your account" : "Last change hasn't reached the cloud"}
         </p>
@@ -126,18 +138,18 @@ export function ProfileDetails() {
   return (
     <Card>
       <CardContent className="mt-0 space-y-3">
-        {/* Google fills one of these; the profiles trigger stores the same value. */}
-        <Field label="Name" value={metadataName(user?.user_metadata?.full_name) ?? profile.name} />
-        <Field label="Email" value={user?.email ?? profile.email} />
+        {/* Google fills the name; the profiles trigger stores the same value. */}
+        <Identity
+          name={metadataName(user?.user_metadata?.full_name) ?? profile.name}
+          email={user?.email ?? profile.email}
+        />
 
         {/* Written on change rather than behind a save button: it is one number,
             and blank has to mean "no goal" — the Body card's save deliberately
             skips empty fields, which is right for readings and could never
             clear this. */}
-        <label className="block rounded-3xl bg-secondary/50 p-4">
-          <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-            Goal bodyweight (kg)
-          </span>
+        <label className="block rounded-xl bg-muted p-4">
+          <span className="text-xs font-medium text-muted-foreground">Goal bodyweight (kg)</span>
           <Input
             type="number"
             inputMode="decimal"
@@ -165,8 +177,10 @@ export function ProfileDetails() {
 
         <ThemeToggle />
 
+        <FeedbackToggle />
+
         <Button
-          variant="outline"
+          variant="secondary"
           className="w-full"
           onClick={() => {
             setError(null);
@@ -196,7 +210,7 @@ export function ProfileDetails() {
             }
           }}
         />
-        <Button variant="outline" className="w-full" onClick={() => fileInput.current?.click()}>
+        <Button variant="secondary" className="w-full" onClick={() => fileInput.current?.click()}>
           Import a backup
         </Button>
 
@@ -204,7 +218,7 @@ export function ProfileDetails() {
             wrong file is still a wrong file and the user is the only one who
             can tell — so the numbers go in front of the decision. */}
         {staged ? (
-          <div className="rounded-2xl bg-secondary/40 p-3 text-sm">
+          <div className="rounded-xl bg-muted p-3 text-sm">
             <p>
               This file holds <span className="tabular-nums">{importSummary(staged.counts)}</span>.
             </p>
@@ -230,7 +244,7 @@ export function ProfileDetails() {
         ) : null}
 
         <Button
-          variant="secondary"
+          variant="outline"
           className="w-full"
           disabled={pending}
           onClick={() => void signOut()}

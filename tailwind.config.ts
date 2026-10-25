@@ -17,8 +17,12 @@ const config: Config = {
         "card-foreground": "hsl(var(--card-foreground))",
         popover: "hsl(var(--popover))",
         "popover-foreground": "hsl(var(--popover-foreground))",
+        well: "hsl(var(--well))",
         primary: "hsl(var(--primary))",
         "primary-foreground": "hsl(var(--primary-foreground))",
+        // The accent as text, rings and tints. Lime on Graphite, deep green on
+        // Paper. `primary` stays the lime fill in both skins.
+        brand: "hsl(var(--brand))",
         secondary: "hsl(var(--secondary))",
         "secondary-foreground": "hsl(var(--secondary-foreground))",
         muted: "hsl(var(--muted))",
@@ -33,16 +37,31 @@ const config: Config = {
         danger: "hsl(var(--danger))",
         "danger-foreground": "hsl(var(--danger-foreground))"
       },
+      // Plaques are 22, keys 16, wells and inner panels 14. Pills stay `full`.
       borderRadius: {
-        xl: "1rem",
-        "2xl": "1.5rem"
+        lg: "14px",
+        xl: "16px",
+        "2xl": "20px",
+        "3xl": "22px"
       },
       boxShadow: {
-        glow: "0 0 0 1px rgba(255,255,255,0.04), 0 14px 40px rgba(0,0,0,0.35)"
+        plaque: "var(--shadow-plaque)",
+        key: "var(--shadow-key)",
+        quiet: "var(--shadow-quiet)",
+        well: "var(--shadow-well)",
+        dock: "var(--shadow-dock)",
+        // Old name, still on a few call sites until step 2 retires it.
+        glow: "var(--shadow-key)"
       },
       fontFamily: {
-        sans: ["var(--font-sans)"],
-        mono: ["var(--font-mono)", "ui-monospace", "monospace"]
+        sans: ["var(--font-sans)", "system-ui", "sans-serif"],
+        display: ["var(--font-display)", "var(--font-sans)", "sans-serif"],
+        // One typeface. `font-mono` sites get Inter with tabular figures, so the
+        // digits still line up while the mono caps are retired screen by screen.
+        mono: [
+          ["var(--font-sans)", "system-ui", "sans-serif"],
+          { fontFeatureSettings: '"tnum"' }
+        ]
       }
     }
   },

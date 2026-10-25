@@ -3,7 +3,6 @@
 import { ChevronDown, Dumbbell, Pencil, PlayCircle, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -411,16 +410,16 @@ export function PlanBuild() {
 
   return (
     <div className="space-y-4">
-      <Card className="overflow-hidden">
-        {/* Concentric radius: 28 outer minus the Card's 16px padding. */}
-        <div className="rounded-[12px] bg-gradient-to-br from-primary/20 via-card to-accent/10 p-5">
+      <Card className={hasPlan ? "p-2" : ""}>
+        <div className={hasPlan ? "" : "p-2"}>
           {/* Onboarding copy, not a permanent header — once there are sessions to
               manage it is just pushing "Your sessions" below the fold. */}
           {hasPlan ? null : (
             <>
-              <p className="text-sm text-primary">Session builder</p>
-              <h2 className="mt-2 text-2xl font-bold">Build a session once, reuse it forever</h2>
-              <p className="mt-2 text-sm text-muted-foreground">
+              <h2 className="font-display text-[28px] font-extrabold leading-none tracking-tight">
+                Build a session once, reuse it forever
+              </h2>
+              <p className="mt-3 text-sm text-muted-foreground">
                 Pick exercises from the library, set your targets, and name the session like Push or
                 Legs. Then switch to Schedule to drop it onto your week.
               </p>
@@ -436,8 +435,8 @@ export function PlanBuild() {
             }}
           >
             <DialogTrigger asChild>
-              <Button className={hasPlan ? "w-full" : "mt-5 w-full"} onClick={resetBuilder}>
-                <Plus className="mr-2 h-4 w-4" />
+              <Button size="lg" className={hasPlan ? "w-full" : "mt-5 w-full"} onClick={resetBuilder}>
+                <Plus className="h-5 w-5" strokeWidth={2.5} />
                 {hasPlan ? "Add another session" : "Build your first session"}
               </Button>
             </DialogTrigger>
@@ -479,7 +478,7 @@ export function PlanBuild() {
                 <DialogDescription>Name the session, add exercises, and set targets.</DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
-                <label className="block text-xs text-muted-foreground">
+                <label className="block text-xs font-medium text-muted-foreground">
                   Session name
                   <Input
                     className="mt-1"
@@ -497,11 +496,11 @@ export function PlanBuild() {
                 {/* The rule that decides the weight when this session opens.
                     Off keeps the numbers below exactly as typed, which is what
                     every session built before this existed still does. */}
-                <div className="rounded-2xl bg-secondary/30 p-3">
-                  <label className="block text-xs text-muted-foreground">
+                <div className="rounded-xl bg-muted p-3">
+                  <label className="block text-xs font-medium text-muted-foreground">
                     Progression
                     <select
-                      className="mt-1 w-full rounded-2xl bg-secondary/50 px-3 py-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className="well mt-1 h-12 w-full rounded-lg px-4 text-[15px] text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       value={progression.rule}
                       onChange={(event) =>
                         setProgression((current) => ({
@@ -573,12 +572,12 @@ export function PlanBuild() {
                   </p>
                 </div>
                 {builderExercises.map((exercise, exerciseIndex) => (
-                  <div key={exercise.id} className="rounded-3xl bg-secondary/50 p-4">
+                  <div key={exercise.id} className="rounded-xl bg-muted p-4">
                     <div className="mb-3 flex items-center justify-between">
-                      <p className="font-medium">Exercise {exerciseIndex + 1}</p>
+                      <p className="font-display text-lg font-bold tracking-tight">Exercise {exerciseIndex + 1}</p>
                       <button
                         type="button"
-                        className="rounded-full bg-background px-3 py-3.5 text-xs transition active:scale-95 active:bg-secondary disabled:opacity-40"
+                        className="key-quiet h-10 rounded-full px-3.5 text-xs font-semibold disabled:opacity-40"
                         onClick={() =>
                           setBuilderExercises((current) => current.filter((item) => item.id !== exercise.id))
                         }
@@ -606,7 +605,7 @@ export function PlanBuild() {
                           className="shrink-0"
                           onClick={() => setPickerCardId(exercise.id)}
                         >
-                          <Dumbbell className="mr-2 h-4 w-4" />
+                          <Dumbbell className="h-4 w-4" />
                           Library
                         </Button>
                         {builderDatasetId(exercise) ? (
@@ -625,18 +624,16 @@ export function PlanBuild() {
 
                       <button
                         type="button"
-                        className="flex w-full items-center justify-between rounded-2xl bg-background px-4 py-3 text-left"
+                        className="key-quiet flex min-h-12 w-full items-center justify-between rounded-lg px-4 py-3 text-left"
                         onClick={() => setMuscleCardId(exercise.id)}
                       >
-                        <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-                          Muscles worked
-                        </span>
-                        <span className="ml-3 min-w-0 flex-1 truncate text-right text-sm">
+                        <span className="text-xs font-medium text-muted-foreground">Muscles worked</span>
+                        <span className="ml-3 min-w-0 flex-1 truncate text-right text-sm font-semibold">
                           {muscleSummary(exercise.muscles)}
                         </span>
                       </button>
                       {/* A plank, a carry and a run are measured in seconds. */}
-                      <div className="grid grid-cols-2 gap-1 rounded-full bg-background p-1">
+                      <div className="well grid grid-cols-2 gap-1 rounded-xl p-1">
                         {(["reps", "time"] as const).map((item) => {
                           const active = (exercise.metric ?? "reps") === item;
                           return (
@@ -645,10 +642,8 @@ export function PlanBuild() {
                               type="button"
                               aria-pressed={active}
                               onClick={() => setMetric(exercise, item)}
-                              className={`rounded-full py-3 text-xs font-medium transition active:scale-[0.98] ${
-                                active
-                                  ? "bg-primary text-primary-foreground"
-                                  : "text-muted-foreground"
+                              className={`h-10 rounded-lg text-xs font-semibold transition-colors ${
+                                active ? "key" : "text-muted-foreground"
                               }`}
                             >
                               {item === "reps" ? "Reps" : "Hold / time"}
@@ -720,12 +715,12 @@ export function PlanBuild() {
                               }
                               className={cn(
                                 "ml-3 h-6 w-11 shrink-0 rounded-full transition-colors",
-                                exercise.perSide ? "bg-primary" : "bg-secondary"
+                                exercise.perSide ? "bg-primary" : "well"
                               )}
                             >
                               <span
                                 className={cn(
-                                  "block h-5 w-5 rounded-full bg-background transition-transform",
+                                  "block h-5 w-5 rounded-full bg-card shadow-quiet transition-transform",
                                   exercise.perSide ? "translate-x-[22px]" : "translate-x-[2px]"
                                 )}
                               />
@@ -761,7 +756,7 @@ export function PlanBuild() {
                       </div>
 
                       {exercise.metric !== "time" && exercise.sets > 1 ? (
-                        <details className="group rounded-2xl bg-background px-3">
+                        <details className="group rounded-lg bg-card px-3">
                           <summary className="flex cursor-pointer list-none items-center justify-between py-3 text-sm text-muted-foreground [&::-webkit-details-marker]:hidden">
                             Weight per set
                             <ChevronDown className="h-4 w-4 transition group-open:rotate-180" />
@@ -792,7 +787,7 @@ export function PlanBuild() {
                         rows={2}
                         value={exercise.notes ?? ""}
                         onChange={(event) => updateExercise(exercise.id, { notes: event.target.value })}
-                        className="w-full rounded-2xl bg-background px-3 py-2 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="well w-full rounded-lg px-4 py-3 text-base text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
                       />
                     </div>
                   </div>
@@ -801,7 +796,7 @@ export function PlanBuild() {
                   variant="secondary"
                   onClick={() => setBuilderExercises((current) => [...current, createEmptyExercise()])}
                 >
-                  <Plus className="mr-2 h-4 w-4" />
+                  <Plus className="h-4 w-4" />
                   Add exercise
                 </Button>
                 {error?.field === "form" ? (
@@ -809,7 +804,7 @@ export function PlanBuild() {
                 ) : null}
                 {/* Sticky: with six exercise cards the commit action was a long
                     scroll away from wherever you finished editing. */}
-                <div className="sticky bottom-0 border-t border-white/5 bg-card pt-3">
+                <div className="sticky bottom-0 border-t border-border bg-card pt-3">
                   <Button className="w-full" onClick={saveSession}>
                     {editingId ? "Save changes" : "Save session"}
                   </Button>
@@ -830,22 +825,20 @@ export function PlanBuild() {
           </CardHeader>
           <CardContent className="space-y-3">
             {sessionTemplates.map((session) => (
-              <div key={session.id} className="rounded-3xl bg-secondary/50 p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-medium">{session.name}</p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {session.summary.totalSets} sets • {session.summary.totalReps} reps • {session.summary.totalWeight.toFixed(0)} planned kg
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <Badge>
-                      {session.exercises.length} workout{session.exercises.length === 1 ? "" : "s"}
-                    </Badge>
+              <div key={session.id} className="rounded-xl bg-muted p-4">
+                {/* Name on its own line with the two keys; the numbers under it
+                    in one line. The old layout put a badge and both buttons
+                    beside the name, and "Upper · Heavy" wrapped onto two lines
+                    while "17 sets • 118 reps • 764 planned kg" took three. */}
+                <div className="flex items-center justify-between gap-3">
+                  <p className="min-w-0 truncate font-display text-xl font-bold tracking-tight">
+                    {session.name}
+                  </p>
+                  <div className="flex shrink-0 items-center gap-1.5">
                     <button
                       type="button"
                       aria-label={`Edit ${session.name} session`}
-                      className="rounded-full p-3.5 text-muted-foreground transition active:scale-95 active:bg-background active:text-primary"
+                      className="key-quiet flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground"
                       onClick={() => openEdit(session)}
                     >
                       <Pencil className="h-4 w-4" />
@@ -853,13 +846,18 @@ export function PlanBuild() {
                     <button
                       type="button"
                       aria-label={`Delete ${session.name} session`}
-                      className="rounded-full p-3.5 text-muted-foreground transition active:scale-95 active:bg-background active:text-danger"
+                      className="key-quiet flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground"
                       onClick={() => setSessionToDelete({ id: session.id, name: session.name })}
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
                 </div>
+                <p className="mt-1 text-sm text-muted-foreground tabular-nums">
+                  {session.exercises.length} exercise{session.exercises.length === 1 ? "" : "s"} ·{" "}
+                  {session.summary.totalSets} sets · {session.summary.totalReps} reps ·{" "}
+                  {session.summary.totalWeight.toFixed(0)} kg
+                </p>
                 <details className="group mt-3">
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-3 py-2 [&::-webkit-details-marker]:hidden">
                     {/* Outlined, not filled: these are labels inside the summary's
@@ -868,7 +866,7 @@ export function PlanBuild() {
                       {session.exercises.map((exercise) => (
                         <span
                           key={exercise.id}
-                          className="rounded-full border border-white/10 px-3 py-1.5 text-xs capitalize text-muted-foreground"
+                          className="rounded-full border border-border px-2.5 py-1 text-xs font-medium capitalize text-muted-foreground"
                         >
                           {exercise.name}
                         </span>
@@ -878,10 +876,10 @@ export function PlanBuild() {
                   </summary>
                   <div className="mt-3 space-y-2">
                     {session.exercises.map((exercise) => (
-                      <div key={exercise.id} className="rounded-2xl bg-background px-3 py-2.5">
+                      <div key={exercise.id} className="rounded-lg bg-card px-3 py-2.5">
                         <div className="flex items-center justify-between gap-3">
-                          <p className="text-sm font-medium capitalize">{exercise.name}</p>
-                          <p className="shrink-0 text-xs text-muted-foreground">
+                          <p className="text-sm font-semibold capitalize">{exercise.name}</p>
+                          <p className="shrink-0 text-xs text-muted-foreground tabular-nums">
                             {formatTarget(exercise)}
                           </p>
                         </div>
@@ -889,7 +887,7 @@ export function PlanBuild() {
                           {exercise.metric === "time" && exercise.weight === 0
                             ? "Bodyweight"
                             : formatWeights(exercise)}{" "}
-                          • {exercise.restSeconds}s rest
+                          · {exercise.restSeconds}s rest
                         </p>
                         {exercise.notes ? (
                           <p className="mt-1 text-xs italic text-muted-foreground">{exercise.notes}</p>
@@ -928,7 +926,7 @@ export function PlanBuild() {
               Cancel
             </Button>
             <Button
-              className="bg-danger text-danger-foreground hover:bg-danger/90"
+              variant="danger"
               onClick={() => {
                 if (sessionToDelete) {
                   deleteSessionTemplate(sessionToDelete.id);

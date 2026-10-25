@@ -103,6 +103,8 @@ export function sessionTotals(
     done: completed.length,
     total: working.length,
     volume: volumeOf(completed),
+    /** Every working set at the weight written on it — what the day asks for. */
+    planned: volumeOf(working),
     loggedSets: completed.length,
     loggedVolume: volumeOf(completed)
   };

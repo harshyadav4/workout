@@ -10,9 +10,9 @@ import { useAuth } from "@/features/auth/use-auth";
 import { isSupabaseConfigured } from "@/lib/supabase";
 
 const points = [
-  { icon: Dumbbell, label: "Today’s workout opens first" },
-  { icon: Zap, label: "Fast tap-first logging in the gym" },
-  { icon: ShieldCheck, label: "Your plan follows you to any device" }
+  { icon: Dumbbell, label: "Plan a session once, run it for months" },
+  { icon: Zap, label: "Log a set in one tap, rest timer included" },
+  { icon: ShieldCheck, label: "Your history follows you to any phone" }
 ];
 
 export default function LoginPage() {
@@ -29,17 +29,23 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center px-4">
       <Card className="w-full max-w-md p-6">
         <div className="mb-6">
-          <p className="text-sm uppercase tracking-[0.2em] text-primary">GymFlow</p>
-          <h1 className="mt-2 text-3xl font-bold">Train faster on mobile.</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Open the app, see today, and log sets with one hand.
+          <p className="flex items-center gap-2 text-sm font-semibold text-brand">
+            <span className="h-2 w-2 rounded-full bg-primary" aria-hidden />
+            GymFlow
+          </p>
+          <h1 className="mt-3 font-display text-[38px] font-extrabold leading-[0.98] tracking-[-0.025em]">
+            Lift. Log it.<br />Leave.
+          </h1>
+          <p className="mt-3 text-sm text-muted-foreground">
+            Today's session opens first. Sets take one tap. Everything else waits until you are
+            off the floor.
           </p>
         </div>
         <div className="space-y-3">
           {points.map(({ icon: Icon, label }) => (
-            <div key={label} className="flex items-center gap-3 rounded-2xl bg-secondary/60 p-3">
-              <Icon className="h-5 w-5 text-primary" />
-              <p className="text-sm">{label}</p>
+            <div key={label} className="flex items-center gap-3 rounded-lg bg-muted px-4 py-3">
+              <Icon className="h-5 w-5 shrink-0 text-brand" />
+              <p className="text-sm font-medium">{label}</p>
             </div>
           ))}
         </div>

@@ -105,7 +105,7 @@ export function BodyWeightCard({
                   position: "insideTopRight",
                   fill: CHART.axis,
                   fontSize: 10,
-                  fontFamily: "var(--font-mono)"
+                  fontFamily: "var(--font-sans)"
                 }}
               />
             ) : null}

@@ -297,9 +297,13 @@ assert.deepEqual(sessionTotals(undefined), {
   done: 0,
   total: 0,
   volume: 0,
+  planned: 0,
   loggedSets: 0,
   loggedVolume: 0
 });
+// Planned is every working set at its written weight, logged or not — the
+// number the day card shows before anything is ticked.
+assert.equal(live.planned, 2 * 8 * 60 + 2 * 12 * 15);
 
 // --- removing a set ---
 

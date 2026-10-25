@@ -71,26 +71,26 @@ export function MuscleLiftsCard({
           const gained = (trend?.changePercent ?? 0) >= 0;
 
           return (
-            <div key={row.workoutId} className="rounded-2xl bg-secondary/40">
+            <div key={row.workoutId} className="rounded-lg bg-muted">
               <button
                 type="button"
                 aria-expanded={open}
                 onClick={() => setOpenId(open ? undefined : row.workoutId)}
-                className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-colors hover:bg-white/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <span className="min-w-0 flex-1">
                   <span className="flex items-baseline gap-2">
                     <span className="truncate text-sm font-medium">{row.name}</span>
                     <span
                       className={cn(
-                        "shrink-0 font-mono text-[9px] uppercase tracking-[0.12em]",
+                        "shrink-0 text-[10px] font-semibold",
                         direct ? "text-foreground/70" : "text-muted-foreground"
                       )}
                     >
                       {direct ? "direct" : "indirect"}
                     </span>
                   </span>
-                  <span className="mt-0.5 block font-mono text-[11px] tabular-nums text-muted-foreground">
+                  <span className="mt-0.5 block text-[11px] tabular-nums text-muted-foreground">
                     {trend
                       ? `${trend.first} → ${trend.last} kg · ${row.sessions} sessions`
                       : `${row.topSet} kg top set · ${row.sessions} session${row.sessions === 1 ? "" : "s"}`}
@@ -98,8 +98,8 @@ export function MuscleLiftsCard({
                 </span>
 
                 <span
-                  className="shrink-0 font-mono text-xs tabular-nums"
-                  style={{ color: trend ? (gained ? "#3fbf6f" : "#e8785a") : CHART.axis }}
+                  className="shrink-0 text-xs tabular-nums"
+                  style={{ color: trend ? (gained ? "hsl(var(--success))" : "hsl(var(--danger))") : CHART.axis }}
                 >
                   {trend ? `${gained ? "+" : ""}${trend.changePercent.toFixed(0)}%` : "—"}
                 </span>

@@ -1,21 +1,26 @@
 import type { Metadata, Viewport } from "next";
-import { Space_Grotesk, Space_Mono } from "next/font/google";
+import { Bricolage_Grotesque, Inter } from "next/font/google";
 
 import "@/app/globals.css";
 import { AppProviders } from "@/components/layout/app-providers";
+import { THEME_BOOTSTRAP } from "@/lib/theme";
 
-const spaceGrotesk = Space_Grotesk({
+// Everything you read is set in this. Numbers get `tabular-nums` so a stepper
+// does not jitter as it runs.
+const inter = Inter({
   subsets: ["latin"],
-  variable: "--font-sans"
+  variable: "--font-sans",
+  display: "swap"
 });
 
-// Every number on Home — weight, reps, set index — is set in this. Same family
-// lineage as Space Grotesk, and the fixed advance keeps digits from jittering
-// as a stepper runs.
-const spaceMono = Space_Mono({
+// Everything you care about — the session's name, the weight on the bar, the
+// number on the ring. The optical-size axis means the same file draws a big
+// headline with tight joins and a small label with open ones.
+const bricolage = Bricolage_Grotesque({
   subsets: ["latin"],
-  weight: ["400", "700"],
-  variable: "--font-mono"
+  variable: "--font-display",
+  axes: ["opsz"],
+  display: "swap"
 });
 
 export const metadata: Metadata = {
@@ -34,13 +39,11 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0d1420",
+  themeColor: "#0E0F12",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover"
 };
-
-import { THEME_BOOTSTRAP } from "@/lib/theme";
 
 export default function RootLayout({
   children
@@ -48,14 +51,19 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    // No `dark` class: dark is the palette in `:root`, so it is what renders
-    // if anything about the theme script fails. Only light is a class.
-    <html lang="en">
+    // No `dark` class: Graphite is the palette in `:root`, so it is what renders
+    // if anything about the theme script fails. Only Paper is a class.
+    //
+    // suppressHydrationWarning: the bootstrap script below adds that class
+    // before React loads, so on Paper the server HTML and the client disagree
+    // about <html class>. That is the intended order of events, not a bug, and
+    // the attribute stops React logging it as one on every page.
+    <html lang="en" suppressHydrationWarning>
       <head>
         {/* Before first paint, or the page flashes dark and snaps to light. */}
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP }} />
       </head>
-      <body className={`${spaceGrotesk.variable} ${spaceMono.variable}`}>
+      <body className={`${inter.variable} ${bricolage.variable}`}>
         <AppProviders>{children}</AppProviders>
       </body>
     </html>

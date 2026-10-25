@@ -52,10 +52,10 @@ export function ProgressHeadline({
 
   return (
     <Card>
-      <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+      <p className="text-[11px] font-semibold text-muted-foreground">
         Volume · {RANGE_LABELS[range]}
       </p>
-      <p className="mt-2 text-[3.25rem] font-bold leading-none tracking-tight">
+      <p className="mt-2 font-display text-[3.25rem] font-extrabold leading-none tracking-[-0.03em] tabular-nums">
         {formatVolume(summary.volume)}
         <span className="ml-1.5 align-baseline text-lg font-medium text-muted-foreground">kg</span>
       </p>
@@ -63,7 +63,7 @@ export function ProgressHeadline({
 
       {/* The page measured thirteen things and concluded nothing. One sentence,
           chosen by whichever finding is most worth acting on. */}
-      <p className="mt-3 border-l-2 border-primary/40 pl-3 text-sm leading-relaxed">
+      <p className="mt-3 border-l-2 border-brand pl-3 text-sm leading-relaxed">
         {verdict({ summary, change, streaks, weeklySets, daysSincePR })}
       </p>
 
@@ -155,12 +155,12 @@ function Delta({ change, days }: { change?: number; days: number }) {
 
   const flat = Math.abs(change) < 1;
   const Icon = flat ? ArrowRight : change > 0 ? ArrowUpRight : ArrowDownRight;
-  const tone = flat ? "text-muted-foreground" : change > 0 ? "text-[#3fbf6f]" : "text-[#e8785a]";
+  const tone = flat ? "text-muted-foreground" : change > 0 ? "text-success" : "text-danger";
 
   return (
     <p className={`mt-2 flex items-center gap-1.5 text-sm ${tone}`}>
       <Icon className="h-4 w-4" aria-hidden />
-      <span className="font-mono tabular-nums">{formatSigned(change)}%</span>
+      <span className="tabular-nums">{formatSigned(change)}%</span>
       <span className="text-muted-foreground">vs the previous {days} days</span>
     </p>
   );
@@ -178,11 +178,11 @@ function Tile({
   detail?: string;
 }) {
   return (
-    <div className="rounded-2xl bg-secondary/40 p-3">
-      <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+    <div className="well rounded-lg p-3">
+      <p className="text-[11px] font-semibold text-muted-foreground">
         {label}
       </p>
-      <p className="mt-1.5 text-xl font-semibold leading-none">
+      <p className="mt-1.5 font-display text-xl font-extrabold leading-none tracking-tight tabular-nums">
         {value}
         {unit ? <span className="ml-1 text-xs font-medium text-muted-foreground">{unit}</span> : null}
       </p>

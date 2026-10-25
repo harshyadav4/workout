@@ -5,7 +5,7 @@ import { PlanDashboard } from "@/features/planner/plan-dashboard";
 
 export default function PlanPage() {
   return (
-    <MobileShell title="Plan" subtitle="Builder and scheduler">
+    <MobileShell title="Plan">
       {/* PlanDashboard reads ?mode from the URL, which needs a boundary here. */}
       <Suspense>
         <PlanDashboard />

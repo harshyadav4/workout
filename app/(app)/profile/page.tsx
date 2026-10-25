@@ -6,7 +6,7 @@ import { ProfileDetails } from "@/features/profile/profile-details";
 // pages — this was the only page that marked itself "use client".
 export default function ProfilePage() {
   return (
-    <MobileShell title="Profile" subtitle="Athlete details">
+    <MobileShell title="You">
       <ProfileDetails />
       <MeasurementsCard />
     </MobileShell>

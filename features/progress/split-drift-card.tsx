@@ -97,7 +97,7 @@ export function SplitDriftCard({ drift }: { drift: SplitDrift }) {
                   aria-hidden
                 />
                 <span className="truncate text-[11px] text-muted-foreground">{group.label}</span>
-                <span className="ml-auto shrink-0 font-mono text-[10px] tabular-nums">
+                <span className="ml-auto shrink-0 text-[10px] tabular-nums">
                   {Math.round(last?.[group.group] ?? 0)}%
                 </span>
               </li>

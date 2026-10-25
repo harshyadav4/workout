@@ -88,27 +88,35 @@ export function getIntensity(highlights: BodyMuscleHighlight[], muscleId: Muscle
   }, 0);
 }
 
-/** Anything the day did not work at all — a body part at rest reads neutral. */
-export const MUSCLE_IDLE_COLOR = "#b4aea3";
+/**
+ * Anything the day did not work at all — a body part at rest reads neutral.
+ *
+ * The colours are CSS variables, not hex: the map sits on a well that is near
+ * black on Graphite and warm grey on Paper, and no single ramp reads on both.
+ * `globals.css` defines `--map-idle` and `--heat-1` to `--heat-5` per skin.
+ */
+export const MUSCLE_IDLE_COLOR = "var(--map-idle)";
 
 /**
- * A one-hue sequential ramp, light to dark, over the app's warm primary. Steps
- * rather than a gradient: five bands you can actually compare across the body
- * beat a smooth blend where "a bit more red" is unreadable.
+ * A one-hue sequential ramp over warm orange. Steps rather than a gradient:
+ * five bands you can actually compare across the body beat a smooth blend
+ * where "a bit more red" is unreadable.
  *
  * The bands are narrow at the bottom because engagement data is: a session's
  * primary lift lands near 100, but its supporting muscles sit in the teens, and
  * even splitting those apart is the point of the map.
  *
- * Validated against the map's `#F7ECD9` panel — monotone lightness, 9° of hue
- * spread, every gap visible, pale end clearing the surface at 2.01:1.
+ * On Graphite the ramp brightens as it heats — on a dark ground, more light is
+ * more. On Paper it deepens. Both are monotone in lightness, both keep every
+ * step clear of the idle grey, and both stay warm so effort never borrows the
+ * orange that means "go".
  */
 export const MUSCLE_HEAT_STEPS = [
-  { upTo: 15, color: "#e8956b" },
-  { upTo: 30, color: "#de6c3c" },
-  { upTo: 50, color: "#c94d20" },
-  { upTo: 75, color: "#9e3a18" },
-  { upTo: 100, color: "#722b12" }
+  { upTo: 15, color: "var(--heat-1)" },
+  { upTo: 30, color: "var(--heat-2)" },
+  { upTo: 50, color: "var(--heat-3)" },
+  { upTo: 75, color: "var(--heat-4)" },
+  { upTo: 100, color: "var(--heat-5)" }
 ] as const;
 
 export function getHeatColor(intensity: number) {
@@ -127,7 +135,8 @@ export function getHeatColor(intensity: number) {
  * of the ~120 paths.
  */
 /** The halo on the muscle you are pointing at. Only ever one at a time. */
-const GLOW = "drop-shadow(0 0 3px #fff) drop-shadow(0 0 7px currentColor)";
+// Brand-coloured, not the foreground: a dark halo on Paper read as a stain.
+const GLOW = "drop-shadow(0 0 2px hsl(var(--brand))) drop-shadow(0 0 6px hsl(var(--brand)))";
 
 export function muscleHeatVars(highlights: BodyMuscleHighlight[], glowMuscleId?: MuscleId) {
   const lit = glowMuscleId ? resolveMuscleIds(glowMuscleId) : [];

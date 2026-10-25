@@ -7,11 +7,11 @@ import { cn } from "@/lib/utils";
 /**
  * The page's second material.
  *
- * `Card` — glass, 28px, `shadow-glow` — is now spent on exactly one thing: the
- * hero. Everything else is a Panel: flat, one hairline, 16px, and about 40% less
- * chrome around the same chart. Thirteen identical glass boxes was the reason
- * the screen read as a list of widgets rather than one instrument, and no amount
- * of new charts fixes that while every card still weighs the same.
+ * `Card` is a plaque: lit edge, shadow, the thing that sits *on* the page. It
+ * is spent on the hero and the map. Everything else is a Panel: flat, the
+ * card colour, one hairline, and nothing else. Thirteen identical boxes of the
+ * same weight was the reason the screen read as a list of widgets rather than
+ * one instrument, and a hierarchy only exists if something is at the top of it.
  *
  * The `note` is the other half of it. Every card used to carry two lines of grey
  * prose explaining its own convention — the engagement floor, the 10–20 band,
@@ -43,7 +43,7 @@ export function Panel({
 }) {
   const heading = (
     <div className="min-w-0 flex-1">
-      <h3 className="truncate text-sm font-semibold tracking-tight">{title}</h3>
+      <h3 className="truncate text-[15px] font-bold tracking-tight">{title}</h3>
       {caption ? (
         <p className="mt-0.5 text-xs leading-snug text-muted-foreground">{caption}</p>
       ) : null}
@@ -51,7 +51,7 @@ export function Panel({
   );
 
   return (
-    <section className={cn("rounded-2xl border border-white/5 bg-white/[0.02] p-3", className)}>
+    <section className={cn("rounded-xl border border-border bg-card p-3.5", className)}>
       {/* `action` is a sibling of the <details>, never a child of <summary>. A
           button nested inside a summary fires the toggle as well as itself, and
           the workaround is a preventDefault that quietly breaks the keyboard. */}
@@ -86,11 +86,11 @@ export function Panel({
 export function SectionRule({ label, hint }: { label: string; hint?: string }) {
   return (
     <div className="flex items-baseline gap-3 pt-4">
-      <span className="shrink-0 font-mono text-[11px] uppercase tracking-[0.24em] text-muted-foreground">
+      <span className="shrink-0 text-xs font-semibold text-muted-foreground">
         {label}
       </span>
       {hint ? <span className="truncate text-[11px] text-muted-foreground/70">{hint}</span> : null}
-      <span className="h-px flex-1 bg-white/10" />
+      <span className="h-px flex-1 bg-border" />
     </div>
   );
 }

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, Minus, Plus, Trash2 } from "lucide-react";
 
+import { formatRest } from "@/features/home/rest-timer";
 import {
   ExerciseDemoThumb,
   ExerciseMediaDialog,
@@ -38,11 +39,16 @@ function lastSetLabel(setItem: PlannedSet): string {
   }
 
   return setItem.previousReps === undefined
-    ? `last top set ${setItem.previousWeight}kg`
-    : `last ${setItem.previousWeight}kg × ${setItem.previousReps}`;
+    ? `last top set ${setItem.previousWeight} kg`
+    : `last time ${setItem.previousWeight} kg × ${setItem.previousReps}`;
 }
 
-function Stepper({
+/**
+ * A drum: the number big in a well, a quiet key either side of it below. The
+ * number is the input — steppers are right for a nudge between sets; typing is
+ * right for the jump from a 20 kg default to a 100 kg squat, which was 32 taps.
+ */
+function Drum({
   label,
   value,
   suffix,
@@ -80,52 +86,45 @@ function Stepper({
   };
 
   return (
-    <div className="rounded-2xl bg-background/70 p-2">
-      <p className="text-center text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-        {label}
-      </p>
-      <div className="mt-1 flex items-center justify-between gap-1">
+    <div className="well flex flex-col items-center rounded-xl px-2.5 pb-2.5 pt-3">
+      <p className="text-[11px] font-semibold text-muted-foreground">{label}</p>
+      {/* Focus selects, so one tap then type replaces rather than appends.
+          Native spinners are off — this has its own. */}
+      <label className="mt-1 flex w-full items-baseline justify-center">
+        <span className="sr-only">{label}</span>
+        <input
+          type="number"
+          inputMode={decimal ? "decimal" : "numeric"}
+          step={step}
+          min={min}
+          max={max}
+          value={draft ?? value}
+          onFocus={(event) => event.target.select()}
+          onChange={(event) => {
+            setDraft(event.target.value);
+            const parsed = Number(event.target.value);
+            if (event.target.value.trim() !== "" && Number.isFinite(parsed)) {
+              onChange(clamp(parsed));
+            }
+          }}
+          onBlur={(event) => commitDraft(event.target.value)}
+          className="w-full min-w-0 bg-transparent text-center font-display text-[40px] font-extrabold leading-none tabular-nums tracking-tight text-foreground focus-visible:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+        />
+        <span className="ml-1 shrink-0 text-sm font-semibold text-muted-foreground">{suffix}</span>
+      </label>
+      <div className="mt-2.5 flex w-full gap-2">
         <button
           type="button"
           aria-label={`Decrease ${label}`}
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-secondary text-foreground transition-colors hover:bg-secondary/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-95"
+          className="key-quiet flex h-11 flex-1 items-center justify-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           onClick={() => onChange(clamp(value - step))}
         >
           <Minus className="h-5 w-5" />
         </button>
-        {/* The number is the input. Steppers are right for a nudge between
-            sets; typing is right for the jump from a 20kg default to a 100kg
-            squat, which was 32 taps. Focus selects, so one tap then type
-            replaces rather than appends. Native spinners are off — this has
-            its own. */}
-        <label className="flex min-w-0 flex-1 items-baseline justify-center">
-          <span className="sr-only">{label}</span>
-          <input
-            type="number"
-            inputMode={decimal ? "decimal" : "numeric"}
-            step={step}
-            min={min}
-            max={max}
-            value={draft ?? value}
-            onFocus={(event) => event.target.select()}
-            onChange={(event) => {
-              setDraft(event.target.value);
-              const parsed = Number(event.target.value);
-              if (event.target.value.trim() !== "" && Number.isFinite(parsed)) {
-                onChange(clamp(parsed));
-              }
-            }}
-            onBlur={(event) => commitDraft(event.target.value)}
-            className="w-full min-w-0 bg-transparent text-center font-mono text-2xl font-bold tabular-nums tracking-tight text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-          />
-          <span className="ml-0.5 shrink-0 align-top text-[10px] font-normal uppercase tracking-widest text-muted-foreground">
-            {suffix}
-          </span>
-        </label>
         <button
           type="button"
           aria-label={`Increase ${label}`}
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-secondary text-foreground transition-colors hover:bg-secondary/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-95"
+          className="key-quiet flex h-11 flex-1 items-center justify-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           onClick={() => onChange(clamp(value + step))}
         >
           <Plus className="h-5 w-5" />
@@ -133,6 +132,17 @@ function Stepper({
       </div>
     </div>
   );
+}
+
+/** The chip's material by state: an orange key, a lit ring, or a well. */
+function chipTone(state: "done" | "open" | "pending") {
+  if (state === "done") {
+    return "bg-gradient-to-b from-[hsl(var(--key-top))] to-[hsl(var(--key-bottom))] shadow-[inset_0_1px_0_rgba(255,255,255,0.6),0_0_0_1px_rgba(0,0,0,0.25)]";
+  }
+  if (state === "open") {
+    return "bg-card shadow-[inset_0_0_0_2px_hsl(var(--brand)),0_0_14px_hsl(var(--brand)/0.45)]";
+  }
+  return "well";
 }
 
 function SetChip({
@@ -150,20 +160,11 @@ function SetChip({
   onOpen?: () => void;
 }) {
   const state = setItem.completed ? "done" : isOpen ? "open" : "pending";
-  // Pending was `bg-secondary` — 1.34:1 on the card, so the hollow half of the
-  // tally was invisible and the strip only read in one direction. The ring
-  // gives it a shape as well as a colour, which is also what stops done/pending
-  // from being a colour-only distinction.
-  const tone =
-    state === "done"
-      ? "bg-primary"
-      : state === "open"
-        ? "bg-primary/25 ring-1 ring-primary"
-        : "bg-white/15 ring-1 ring-white/30";
+  const tone = chipTone(state);
   const stamp = isStamped ? " set-chip-stamp" : "";
 
   if (!onOpen) {
-    return <span className={`h-2.5 w-6 rounded-full ${tone}`} aria-hidden />;
+    return <span className={`h-3 w-[26px] rounded-full ${tone}`} aria-hidden />;
   }
 
   return (
@@ -172,9 +173,9 @@ function SetChip({
       onClick={onOpen}
       aria-label={`Set ${index + 1}, ${state === "done" ? "logged" : state === "open" ? "in progress" : "not logged"}`}
       aria-pressed={isOpen}
-      className="flex h-12 w-12 items-center justify-center rounded-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:bg-white/10"
+      className="flex h-12 w-12 items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:bg-secondary/60"
     >
-      <span className={`h-2.5 w-6 rounded-full transition-colors duration-200 ${tone}${stamp}`} />
+      <span className={`h-3 w-[26px] rounded-full transition-colors duration-200 ${tone}${stamp}`} />
     </button>
   );
 }
@@ -218,7 +219,7 @@ export function ExerciseLedger({
   // and `nearest` would still nudge the page every log, because a panel this tall
   // usually has a few pixels past the fold. The ref starts at the mounted value,
   // so re-opening the app mid-session does not yank the page either. Scroll
-  // margins keep the panel clear of the sticky rest bar and the fixed bottom nav,
+  // margins keep the panel clear of the sticky session strip and the dock,
   // neither of which `scrollIntoView` can see.
   const ownsOpenSet = interactive && exercise.sets.some((setItem) => setItem.id === openSetId);
   const ownedOpenSet = useRef(ownsOpenSet);
@@ -233,7 +234,7 @@ export function ExerciseLedger({
   // The check belongs beside the tally it annotates, wherever the tally lands.
   const chips = (
     <>
-      {isFinished ? <Check className="h-5 w-5 shrink-0 text-success" /> : null}
+      {isFinished ? <Check className="h-5 w-5 shrink-0 text-brand" aria-label="All sets logged" /> : null}
       {exercise.sets.map((setItem, index) => (
         <SetChip
           key={setItem.id}
@@ -247,54 +248,67 @@ export function ExerciseLedger({
     </>
   );
 
+  // "4 × 5 · 70 kg · 2:30 rest" when nothing is logged yet; the tally once
+  // something is. The plan's numbers are what you want to see before a set,
+  // and the count is what you want after.
+  const first = exercise.sets[0];
+  const planLine =
+    doneCount === 0 && first
+      ? isTime
+        ? `${exercise.sets.length} × ${first.durationSeconds ?? 0}s`
+        : `${exercise.sets.length} × ${first.reps} · ${first.weight} kg`
+      : `${doneCount} of ${exercise.sets.length} sets`;
+  const restLine = exercise.restSeconds ? ` · ${formatRest(exercise.restSeconds)} rest` : "";
+
   return (
-    <div className="border-b border-white/5 py-3 last:border-b-0">
+    <div className="border-b border-border py-3 last:border-b-0">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1">
-            <p className="truncate font-semibold leading-tight">{exercise.templateName}</p>
+            <p
+              className={cn(
+                "truncate text-[15px] font-semibold leading-tight",
+                isFinished && interactive ? "text-muted-foreground" : ""
+              )}
+            >
+              {exercise.templateName}
+            </p>
             {datasetId ? (
               <ExerciseMediaDialog datasetId={datasetId} name={exercise.templateName} />
             ) : null}
           </div>
-          <p className="mt-0.5 font-mono text-xs tabular-nums text-muted-foreground">
-            {doneCount} / {exercise.sets.length} sets
-            {isTime && exercise.sets[0]?.durationSeconds
-              ? ` · ${exercise.sets[0].durationSeconds}s hold`
-              : ""}
-            {exercise.restSeconds ? ` · ${exercise.restSeconds}s rest` : ""}
+          <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
+            {planLine}
+            {restLine}
           </p>
         </div>
-        {/* Read-only chips are 10px pills — they still fit beside the name, so
+        {/* Read-only chips are small pills — they still fit beside the name, so
             the row stays compact for a previewed or finished session. */}
         {interactive ? null : (
           <div className="flex max-w-[55%] flex-wrap items-center justify-end gap-1.5">{chips}</div>
         )}
       </div>
 
-      {/* The note the session was built with. `plannedExercisesFromTemplate`
-          has always carried it onto the planned exercise as `targetNotes` —
-          nothing ever rendered it, so it was write-only until here. Full width
-          and above the chips: it is a cue you read before the set, not while
-          one is open. */}
+      {/* The note the session was built with. Full width and above the chips:
+          it is a cue you read before the set, not while one is open. */}
       {exercise.targetNotes ? (
         <p className="mt-1.5 text-xs italic text-muted-foreground">{exercise.targetNotes}</p>
       ) : null}
 
       {/* Why the weight in the field is that number. A prescribed number with no
           reason gets overridden on instinct, which is the same as having no rule
-          — so this is load-bearing, not a caption. Primary-tinted to separate it
+          — so this is load-bearing, not a caption. Brand-tinted to separate it
           from the user's own note directly above. */}
       {exercise.progressionNote ? (
-        <p className="mt-1.5 text-xs text-primary/80">{exercise.progressionNote}</p>
+        <p className="mt-1.5 text-xs text-brand/80">{exercise.progressionNote}</p>
       ) : null}
 
       {/* Tappable chips get their own row: at a 48px target a five-set exercise
           wrapped inside `max-w-[55%]` and pushed the exercise name to a stub. */}
-      {interactive ? <div className="mt-1.5 flex flex-wrap items-center gap-2">{chips}</div> : null}
+      {interactive ? <div className="mt-1 flex flex-wrap items-center gap-1.5">{chips}</div> : null}
 
       {interactive && openSet ? (
-        <div ref={panelRef} className="mt-3 scroll-mb-28 scroll-mt-20 rounded-3xl bg-secondary/40 p-3">
+        <div ref={panelRef} className="mt-2 scroll-mb-28 scroll-mt-24">
           {/* Only the open set gets a demo, and it loops without being asked.
               It answers "which one is this again" at the moment the question
               actually comes up — behind a tap on the row above, nobody looks.
@@ -305,20 +319,18 @@ export function ExerciseLedger({
               <ExerciseDemoThumb datasetId={datasetId} name={exercise.templateName} />
             ) : null}
             <div className="flex min-w-0 flex-1 items-baseline justify-between gap-2">
-              <p className="font-mono text-xs uppercase tracking-[0.2em] text-primary">
+              <p className="text-sm font-semibold">
                 Set {exercise.sets.indexOf(openSet) + 1}
+                <span className="text-muted-foreground"> of {exercise.sets.length}</span>
               </p>
-              <p className="truncate font-mono text-xs tabular-nums text-muted-foreground">
+              <p className="truncate text-xs text-muted-foreground tabular-nums">
                 {isTime ? <>target {openSet.durationSeconds ?? 0}s</> : lastSetLabel(openSet)}
               </p>
             </div>
           </div>
 
-          {/* Stacked, not side-by-side: two 44px touch targets plus a mono
-              number+suffix ("10 REPS") don't fit a 147px half-column without
-              shoving the + button past the card edge. */}
-          <div className="mt-3 space-y-2">
-            <Stepper
+          <div className="mt-3 grid grid-cols-2 gap-2.5">
+            <Drum
               label="Weight"
               suffix="kg"
               value={openSet.weight}
@@ -329,7 +341,7 @@ export function ExerciseLedger({
               onChange={(weight) => onPatchSet(openSet.id, { weight })}
             />
             {isTime ? (
-              <Stepper
+              <Drum
                 label="Hold"
                 suffix="sec"
                 value={openSet.durationSeconds ?? 0}
@@ -339,7 +351,7 @@ export function ExerciseLedger({
                 onChange={(durationSeconds) => onPatchSet(openSet.id, { durationSeconds })}
               />
             ) : (
-              <Stepper
+              <Drum
                 label="Reps"
                 // The stored number is always the total across both sides — the
                 // split is display only. See lib/per-side.
@@ -351,51 +363,49 @@ export function ExerciseLedger({
                 onChange={(reps) => onPatchSet(openSet.id, { reps })}
               />
             )}
-            {exercise.perSide && openSet.reps > 0 ? (
-              <p className="text-center text-xs text-muted-foreground">
-                {formatPerSide(openSet.reps, true)}
-              </p>
-            ) : null}
           </div>
-
-          {/* A warm-up is logged so the ledger is honest about what happened,
-              then kept out of every total. Off by default: most sets are work. */}
-          <button
-            type="button"
-            role="switch"
-            aria-checked={openSet.type === "warmup"}
-            onClick={() =>
-              onPatchSet(openSet.id, {
-                type: openSet.type === "warmup" ? "normal" : "warmup"
-              })
-            }
-            className={cn(
-              "mt-3 flex min-h-11 w-full items-center justify-between rounded-2xl px-4 text-sm transition-colors",
-              openSet.type === "warmup"
-                ? "bg-warning/15 text-warning ring-1 ring-warning/40"
-                : "bg-secondary/50 text-muted-foreground"
-            )}
-          >
-            <span>Warm-up set</span>
-            <span className="font-mono text-xs uppercase tracking-[0.18em]">
-              {openSet.type === "warmup" ? "not counted" : "counts"}
-            </span>
-          </button>
+          {exercise.perSide && openSet.reps > 0 ? (
+            <p className="mt-2 text-center text-xs text-muted-foreground">
+              {formatPerSide(openSet.reps, true)}
+            </p>
+          ) : null}
 
           <div className="mt-3 flex gap-2">
             <button
               type="button"
               onClick={() => onLogSet(openSet.id)}
-              className="flex h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-primary text-sm font-semibold text-primary-foreground shadow-glow transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.98]"
+              className="key flex h-14 flex-1 items-center justify-center gap-2 rounded-xl font-display text-[18px] font-bold tracking-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <Check className="h-4 w-4" />
+              <Check className="h-5 w-5" strokeWidth={3} />
               {openSet.completed ? "Update set" : "Log set"}
+            </button>
+            {/* A warm-up is logged so the ledger is honest about what happened,
+                then kept out of every total. Off by default: most sets are work. */}
+            <button
+              type="button"
+              role="switch"
+              aria-checked={openSet.type === "warmup"}
+              aria-label={openSet.type === "warmup" ? "Warm-up set, not counted" : "Mark as a warm-up set"}
+              title="Warm-up"
+              onClick={() =>
+                onPatchSet(openSet.id, {
+                  type: openSet.type === "warmup" ? "normal" : "warmup"
+                })
+              }
+              className={cn(
+                "flex h-14 w-14 shrink-0 items-center justify-center rounded-xl text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                openSet.type === "warmup"
+                  ? "bg-warning/15 text-warning ring-1 ring-warning/50"
+                  : "key-quiet text-muted-foreground"
+              )}
+            >
+              W
             </button>
             <button
               type="button"
               onClick={onAddSet}
               aria-label="Add a set to this exercise"
-              className="flex h-12 w-12 items-center justify-center rounded-2xl bg-secondary text-foreground transition-colors hover:bg-secondary/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-95"
+              className="key-quiet flex h-14 w-14 shrink-0 items-center justify-center rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <Plus className="h-5 w-5" />
             </button>
@@ -404,12 +414,15 @@ export function ExerciseLedger({
                 type="button"
                 onClick={() => onRemoveSet(openSet.id)}
                 aria-label={`Remove set ${exercise.sets.indexOf(openSet) + 1}`}
-                className="flex h-12 w-12 items-center justify-center rounded-2xl bg-secondary text-muted-foreground transition-colors hover:bg-secondary/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-95"
+                className="key-quiet flex h-14 w-14 shrink-0 items-center justify-center rounded-xl text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <Trash2 className="h-5 w-5" />
               </button>
             ) : null}
           </div>
+          {openSet.type === "warmup" ? (
+            <p className="mt-2 text-xs text-warning">Warm-up: logged, not counted in totals.</p>
+          ) : null}
         </div>
       ) : null}
     </div>

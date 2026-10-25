@@ -40,21 +40,21 @@ export function Bullet({
     <div className="py-1">
       <div className="flex items-baseline justify-between gap-2">
         <span className="truncate text-xs">{label}</span>
-        <span className="shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
+        <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
           {value.toFixed(1)}
           {unit} · {state}
         </span>
       </div>
 
       <div
-        className="relative mt-1.5 h-2.5 rounded-full bg-white/[0.04]"
+        className="relative mt-1.5 h-2.5 rounded-full bg-muted"
         role="img"
         aria-label={`${label}: ${value.toFixed(1)}${unit}, ${state} of the ${band.low} to ${band.high} range`}
       >
         {/* The target range sits behind the measure, the way a bullet chart's
             qualitative band does — context first, value on top of it. */}
         <span
-          className="absolute inset-y-0 rounded-full bg-white/[0.07]"
+          className="absolute inset-y-0 rounded-full bg-muted"
           style={{ left: pct(band.low), width: pct(band.high - band.low) }}
           aria-hidden
         />

@@ -3,7 +3,7 @@
 import { Minus, Plus, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 /**
  * The rest countdown.
@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 
 const STEP_SECONDS = 15;
 
-function formatRest(seconds: number): string {
+export function formatRest(seconds: number): string {
   const safe = Math.max(0, seconds);
   return `${Math.floor(safe / 60)}:${String(safe % 60).padStart(2, "0")}`;
 }
@@ -84,49 +84,79 @@ export function useRestTimer() {
   return { active: endsAt !== undefined, remaining, start, extend, skip };
 }
 
-interface RestTimerBarProps {
+interface RestDialProps {
   remaining: number;
   onExtend: (deltaSeconds: number) => void;
   onSkip: () => void;
 }
 
-export function RestTimerBar({ remaining, onExtend, onSkip }: RestTimerBarProps) {
+/**
+ * The countdown as a small dial on the session strip. Tap it and the controls
+ * unfold under the strip: fifteen off, fifteen on, skip. It does not dismiss
+ * itself at zero — a phone in a pocket misses the buzz, and the dial is the
+ * only other signal.
+ */
+export function RestDial({ remaining, onExtend, onSkip }: RestDialProps) {
+  const [open, setOpen] = useState(false);
   const done = remaining <= 0;
 
   return (
-    <div
-      // Sticky: the whole point is that it stays readable while you scroll to
-      // the next exercise. It does not auto-dismiss at zero — a phone in a
-      // pocket misses the buzz, and the bar is the only other signal.
-      className="sticky top-2 z-30 flex items-center gap-2 rounded-3xl border border-white/10 bg-card/95 p-2 backdrop-blur-xl"
-      role="status"
-      aria-live="polite"
-    >
-      <Button
-        variant="secondary"
-        size="icon"
-        aria-label={`Take ${STEP_SECONDS} seconds off the rest`}
-        onClick={() => onExtend(-STEP_SECONDS)}
+    <>
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-label={done ? "Rest done. Rest controls" : `${formatRest(remaining)} of rest left. Rest controls`}
+        onClick={() => setOpen((current) => !current)}
+        className={cn(
+          "well flex h-14 min-w-[4.5rem] shrink-0 flex-col items-center justify-center rounded-lg px-3 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          done ? "ring-1 ring-brand" : ""
+        )}
       >
-        <Minus className="h-5 w-5" />
-      </Button>
-
-      <div className="flex-1 text-center">
-        <p className="font-mono text-2xl font-bold tabular-nums">{formatRest(remaining)}</p>
-        <p className="text-xs text-muted-foreground">{done ? "Rest done" : "Rest"}</p>
-      </div>
-
-      <Button
-        variant="secondary"
-        size="icon"
-        aria-label={`Add ${STEP_SECONDS} seconds to the rest`}
-        onClick={() => onExtend(STEP_SECONDS)}
-      >
-        <Plus className="h-5 w-5" />
-      </Button>
-      <Button variant="ghost" size="icon" aria-label="Skip the rest" onClick={onSkip}>
-        <X className="h-5 w-5" />
-      </Button>
-    </div>
+        <span
+          className={cn(
+            "font-display text-xl font-bold leading-none tabular-nums tracking-tight",
+            done ? "text-foreground" : "text-brand"
+          )}
+          role="status"
+          aria-live="polite"
+        >
+          {formatRest(remaining)}
+        </span>
+        <span className="mt-1 text-[10px] font-semibold text-muted-foreground">
+          {done ? "go" : "rest"}
+        </span>
+      </button>
+      {open ? (
+        <div className="col-span-full mt-1 flex gap-2">
+          <button
+            type="button"
+            aria-label={`Take ${STEP_SECONDS} seconds off the rest`}
+            onClick={() => onExtend(-STEP_SECONDS)}
+            className="key-quiet flex h-11 flex-1 items-center justify-center gap-1.5 rounded-lg text-sm font-semibold"
+          >
+            <Minus className="h-4 w-4" /> 15s
+          </button>
+          <button
+            type="button"
+            aria-label={`Add ${STEP_SECONDS} seconds to the rest`}
+            onClick={() => onExtend(STEP_SECONDS)}
+            className="key-quiet flex h-11 flex-1 items-center justify-center gap-1.5 rounded-lg text-sm font-semibold"
+          >
+            <Plus className="h-4 w-4" /> 15s
+          </button>
+          <button
+            type="button"
+            aria-label="Skip the rest"
+            onClick={() => {
+              setOpen(false);
+              onSkip();
+            }}
+            className="key-quiet flex h-11 flex-1 items-center justify-center gap-1.5 rounded-lg text-sm font-semibold"
+          >
+            <X className="h-4 w-4" /> Skip
+          </button>
+        </div>
+      ) : null}
+    </>
   );
 }

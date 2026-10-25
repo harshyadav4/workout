@@ -70,7 +70,7 @@ export function ConsistencyCard({
                 return (
                   <div
                     key={`month-${week.start}`}
-                    className="w-[11px] overflow-visible whitespace-nowrap font-mono text-[10px] uppercase tracking-[0.1em] text-muted-foreground"
+                    className="w-[11px] overflow-visible whitespace-nowrap text-[10px] font-medium text-muted-foreground"
                   >
                     {isNew ? month : ""}
                   </div>
@@ -104,14 +104,14 @@ export function ConsistencyCard({
         </div>
 
         <div className="mt-3 flex items-center justify-end gap-1.5">
-          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+          <span className="text-[11px] font-semibold text-muted-foreground">
             Rest
           </span>
           <span className={CELL} style={{ backgroundColor: REST_CELL }} aria-hidden />
           {HEAT.map((color) => (
             <span key={color} className={CELL} style={{ backgroundColor: color }} aria-hidden />
           ))}
-          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+          <span className="text-[11px] font-semibold text-muted-foreground">
             Heavy
           </span>
         </div>
@@ -203,8 +203,8 @@ function leaveCopy(quietDays: WeekdayStat[]) {
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl bg-secondary/40 p-3">
-      <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+    <div className="well rounded-lg p-3">
+      <p className="text-[11px] font-semibold text-muted-foreground">
         {label}
       </p>
       <p className="mt-1.5 text-lg font-semibold leading-none">{value}</p>

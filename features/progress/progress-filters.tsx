@@ -39,7 +39,7 @@ export function ProgressFilters({
       <div
         role="group"
         aria-label="Time range"
-        className="grid grid-cols-5 gap-1 rounded-full bg-secondary/50 p-1"
+        className="well grid grid-cols-5 gap-1 rounded-xl p-1"
       >
         {RANGE_OPTIONS.map((option) => (
           <button
@@ -48,10 +48,8 @@ export function ProgressFilters({
             aria-pressed={range === option.id}
             onClick={() => onRangeChange(option.id)}
             className={cn(
-              "min-h-[44px] rounded-full font-mono text-xs tracking-[0.14em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              range === option.id
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground"
+              "min-h-[44px] rounded-lg text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              range === option.id ? "key" : "text-muted-foreground hover:text-foreground"
             )}
           >
             {option.label}
@@ -60,7 +58,7 @@ export function ProgressFilters({
       </div>
 
       {range === "custom" ? (
-        <div className="rounded-3xl bg-secondary/50 p-3">
+        <div className="rounded-xl bg-muted p-3">
           <div className="grid grid-cols-2 gap-2">
             <DateField
               label="From"
@@ -75,7 +73,7 @@ export function ProgressFilters({
               onChange={(end) => onWindowChange({ ...window, end })}
             />
           </div>
-          <p className="mt-2 text-center font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+          <p className="mt-2 text-center text-[11px] font-semibold text-muted-foreground">
             {formatDayKey(window.start)} → {formatDayKey(window.end)} · {windowDays(window)} days
           </p>
         </div>
@@ -123,8 +121,8 @@ function DateField({
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="block rounded-2xl bg-white/[0.04] px-3 py-2">
-      <span className="block font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+    <label className="well block rounded-lg px-3 py-2">
+      <span className="block text-[11px] font-semibold text-muted-foreground">
         {label}
       </span>
       <input
@@ -137,7 +135,7 @@ function DateField({
             onChange(event.target.value);
           }
         }}
-        className="mt-1 w-full bg-transparent font-mono text-sm tabular-nums text-foreground [color-scheme:dark] focus-visible:outline-none"
+        className="mt-1 w-full bg-transparent text-sm font-semibold tabular-nums text-foreground focus-visible:outline-none"
       />
     </label>
   );
@@ -158,8 +156,8 @@ function Chip({
       aria-pressed={active}
       onClick={onClick}
       className={cn(
-        "min-h-[44px] whitespace-nowrap rounded-full px-4 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        active ? "bg-primary/20 text-primary" : "bg-secondary/50 text-muted-foreground"
+        "min-h-[44px] whitespace-nowrap rounded-full px-4 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        active ? "bg-brand/15 text-brand ring-1 ring-brand/40" : "key-quiet text-muted-foreground"
       )}
     >
       {children}

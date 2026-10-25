@@ -5,17 +5,18 @@ import * as ProgressPrimitive from "@radix-ui/react-progress";
 
 import { cn } from "@/lib/utils";
 
+/** An orange fill in a well. The fill carries the key's top highlight so it reads as the same material. */
 export const Progress = React.forwardRef<
   React.ElementRef<typeof ProgressPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof ProgressPrimitive.Root>
 >(({ className, value, ...props }, ref) => (
   <ProgressPrimitive.Root
     ref={ref}
-    className={cn("relative h-3 w-full overflow-hidden rounded-full bg-secondary", className)}
+    className={cn("well relative h-2.5 w-full overflow-hidden rounded-full", className)}
     {...props}
   >
     <ProgressPrimitive.Indicator
-      className="h-full bg-primary transition-transform"
+      className="h-full rounded-full bg-gradient-to-b from-[hsl(var(--key-top))] to-[hsl(var(--key-bottom))] transition-transform duration-300 ease-out"
       style={{ transform: `translateX(-${100 - (value || 0)}%)` }}
     />
   </ProgressPrimitive.Root>

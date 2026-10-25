@@ -231,7 +231,7 @@ export function MuscleSplitCard({ groups }: { groups: MuscleGroupVolume[] }) {
               position="insideStart"
               fill="rgba(255,255,255,0.92)"
               fontSize={9}
-              fontFamily="var(--font-mono)"
+              fontFamily="var(--font-sans)"
               offset={8}
             />
           </RadialBar>
@@ -248,7 +248,7 @@ export function MuscleSplitCard({ groups }: { groups: MuscleGroupVolume[] }) {
               aria-hidden
             />
             <span className="truncate text-[11px] text-muted-foreground">{group.label}</span>
-            <span className="ml-auto shrink-0 font-mono text-[10px] tabular-nums">
+            <span className="ml-auto shrink-0 text-[10px] tabular-nums">
               {Math.round((group.volume / total) * 100)}%
             </span>
           </li>

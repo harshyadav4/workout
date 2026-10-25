@@ -68,8 +68,8 @@ export function OneRepMaxCard({
                   type="button"
                   onClick={() => setOpenId(open ? undefined : exercise.workoutId)}
                   className={cn(
-                    "flex min-h-[44px] w-full items-baseline justify-between gap-3 rounded-2xl px-2 text-left",
-                    open && "bg-secondary/40"
+                    "flex min-h-[44px] w-full items-baseline justify-between gap-3 rounded-lg px-2 text-left",
+                    open && "bg-muted"
                   )}
                 >
                   <span className="min-w-0 flex-1">
@@ -79,7 +79,7 @@ export function OneRepMaxCard({
                       {formatDayKey(estimate?.date ?? "")}
                     </span>
                   </span>
-                  <span className="font-mono text-sm tabular-nums text-primary">
+                  <span className="text-sm tabular-nums text-brand">
                     {estimate?.value}kg
                   </span>
                 </button>
@@ -98,7 +98,7 @@ export function OneRepMaxCard({
                       {CALCULATOR_REPS.map((reps) => (
                         <li
                           key={reps}
-                          className="rounded-full bg-secondary/50 px-2.5 py-1 font-mono text-[11px] tabular-nums"
+                          className="rounded-full bg-muted px-2.5 py-1 text-[11px] tabular-nums"
                         >
                           {weightForReps(estimate?.value ?? 0, reps)}kg × {reps}
                         </li>

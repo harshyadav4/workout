@@ -74,7 +74,7 @@ export function WorkoutPicker({ confirmLabel, onConfirm }: WorkoutPickerProps) {
           {group ? "Tap what you're doing." : "What are you training?"}
         </p>
         {pickedIds.length > 0 ? (
-          <p className="font-mono text-xs tabular-nums text-muted-foreground">
+          <p className="text-xs tabular-nums text-muted-foreground">
             {pickedIds.length} picked
           </p>
         ) : null}
@@ -88,7 +88,7 @@ export function WorkoutPicker({ confirmLabel, onConfirm }: WorkoutPickerProps) {
               key={item}
               variant={active ? "default" : "secondary"}
               size="sm"
-              className="h-11 rounded-full px-4 text-sm"
+              className="h-11 rounded-full px-4 text-sm font-semibold"
               aria-pressed={active}
               onClick={() => {
                 // Switching groups clears the picks: they were exercises from
@@ -116,14 +116,14 @@ export function WorkoutPicker({ confirmLabel, onConfirm }: WorkoutPickerProps) {
                 aria-pressed={picked}
                 onClick={() => toggle(template.id)}
                 className={cn(
-                  "flex min-h-14 w-full items-center gap-3 rounded-2xl px-4 py-3 text-left transition-colors",
-                  picked ? "bg-primary/15 ring-1 ring-primary/40" : "bg-secondary/50"
+                  "flex min-h-14 w-full items-center gap-3 rounded-lg px-4 py-3 text-left transition-colors",
+                  picked ? "bg-brand/12 ring-1 ring-brand/50" : "bg-muted active:bg-secondary"
                 )}
               >
                 <span
                   className={cn(
                     "flex h-6 w-6 shrink-0 items-center justify-center rounded-full",
-                    picked ? "bg-primary text-primary-foreground" : "bg-background"
+                    picked ? "bg-primary text-primary-foreground" : "well"
                   )}
                 >
                   {picked ? <Check className="h-4 w-4" /> : null}
@@ -131,7 +131,7 @@ export function WorkoutPicker({ confirmLabel, onConfirm }: WorkoutPickerProps) {
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-semibold">{template.name}</span>
                   {defaults ? (
-                    <span className="block font-mono text-xs tabular-nums text-muted-foreground">
+                    <span className="block text-xs tabular-nums text-muted-foreground">
                       {defaults.sets} × {defaults.reps} · {template.equipment ?? "any"}
                     </span>
                   ) : null}
@@ -141,7 +141,7 @@ export function WorkoutPicker({ confirmLabel, onConfirm }: WorkoutPickerProps) {
           })}
 
           <Button size="lg" className="w-full" disabled={pickedIds.length === 0} onClick={confirm}>
-            <Dumbbell className="mr-2 h-4 w-4" />
+            <Dumbbell className="h-4 w-4" />
             {pickedIds.length === 0
               ? "Pick at least one"
               : `${confirmLabel} · ${pickedIds.length}`}
@@ -158,7 +158,7 @@ export function QuickStart() {
 
   return (
     <Card>
-      <h3 className="text-lg font-semibold tracking-tight">Train now</h3>
+      <h3 className="font-display text-[22px] font-extrabold leading-none tracking-tight">Train now</h3>
       <div className="mt-1">
         <WorkoutPicker
           confirmLabel="Start"

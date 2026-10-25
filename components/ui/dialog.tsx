@@ -22,10 +22,10 @@ export function DialogContent({
 }: DialogPrimitive.DialogContentProps & { hideClose?: boolean }) {
   return (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm" />
+      <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/60" />
       <DialogPrimitive.Content
         className={cn(
-          "fixed bottom-4 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-[28px] border border-white/5 bg-card p-5 shadow-glow outline-none sm:bottom-6",
+          "plaque fixed bottom-4 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-3xl p-5 outline-none sm:bottom-6",
           className
         )}
         {...props}
@@ -36,7 +36,7 @@ export function DialogContent({
         {hideClose ? null : (
           <DialogPrimitive.Close
             aria-label="Close"
-            className="absolute right-2 top-2 rounded-full p-3.5 text-muted-foreground transition active:bg-secondary/60"
+            className="absolute right-2 top-2 rounded-full p-3.5 text-muted-foreground transition-colors hover:text-foreground active:bg-secondary/60"
           >
             <X className="h-4 w-4" />
           </DialogPrimitive.Close>
@@ -59,7 +59,7 @@ export const DialogTitle = ({
   className,
   ...props
 }: DialogPrimitive.DialogTitleProps) => (
-  <DialogPrimitive.Title className={cn("text-lg font-semibold", className)} {...props} />
+  <DialogPrimitive.Title className={cn("font-display text-xl font-bold tracking-tight", className)} {...props} />
 );
 
 export const DialogDescription = ({

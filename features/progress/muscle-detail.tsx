@@ -52,8 +52,8 @@ export function MuscleHeroFooter({
 }) {
   if (!facts) {
     return (
-      <div className="mt-4 rounded-3xl bg-secondary/50 p-4 text-center">
-        <p className="text-sm font-medium">Tap a muscle</p>
+      <div className="mt-4 rounded-xl bg-muted p-4 text-center">
+        <p className="font-display text-lg font-bold tracking-tight">Tap a muscle</p>
         <p className="mt-1 text-sm text-muted-foreground">
           Everything below rebuilds around it — its lifts, its load, and the last time you
           trained it.
@@ -63,18 +63,18 @@ export function MuscleHeroFooter({
   }
 
   return (
-    <div className="mt-4 rounded-3xl bg-secondary/50 p-4">
+    <div className="mt-4 rounded-xl bg-muted p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-xl font-semibold leading-tight">{facts.name}</p>
-          <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+          <p className="font-display text-2xl font-extrabold leading-none tracking-tight">{facts.name}</p>
+          <p className="mt-1 text-xs font-semibold text-muted-foreground">
             #{facts.rank} of {facts.total} by volume · {facts.share.toFixed(1)}%
           </p>
         </div>
         <button
           type="button"
           onClick={onClear}
-          className="min-h-[44px] shrink-0 rounded-full bg-white/5 px-4 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="key-quiet flex h-10 shrink-0 items-center rounded-full px-4 text-xs font-semibold text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           Clear
         </button>
@@ -100,8 +100,8 @@ export function MuscleHeroFooter({
 
 function Figure({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl bg-white/[0.04] p-2.5">
-      <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+    <div className="well rounded-lg p-2.5">
+      <p className="text-[11px] font-semibold text-muted-foreground">
         {label}
       </p>
       <p className="mt-1 truncate text-base font-semibold leading-none">{value}</p>
@@ -138,7 +138,7 @@ export function MuscleDoseCard({ name, setsPerWeek }: { name: string; setsPerWee
         </>
       }
     >
-      <p className="font-mono text-3xl font-semibold leading-none tabular-nums">
+      <p className="font-display text-3xl font-extrabold leading-none tracking-tight tabular-nums">
         {setsPerWeek.toFixed(1)}
         <span className="ml-2 align-baseline font-sans text-xs font-medium text-muted-foreground">
           sets / week

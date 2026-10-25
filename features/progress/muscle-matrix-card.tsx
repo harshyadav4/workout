@@ -73,7 +73,7 @@ export function MuscleMatrixCard({
               <span
                 key={column}
                 className={cn(
-                  "shrink-0 text-center font-mono text-[10px] uppercase text-muted-foreground",
+                  "shrink-0 text-center text-[10px] font-semibold text-muted-foreground",
                   matrix.bucket === "month" ? "w-[24px]" : "w-[15px]"
                 )}
               >
@@ -93,7 +93,7 @@ export function MuscleMatrixCard({
                 onClick={() => onSelectMuscle(row.muscleId)}
                 className={cn(
                   "flex w-full min-h-[26px] items-center gap-[3px] rounded-md pr-1 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  selected ? "bg-primary/15" : "hover:bg-white/[0.03]"
+                  selected ? "bg-brand/15" : "hover:bg-muted"
                 )}
               >
                 <span
@@ -128,7 +128,7 @@ export function MuscleMatrixCard({
         <button
           type="button"
           onClick={() => setExpanded((current) => !current)}
-          className="mt-2 min-h-[44px] w-full rounded-xl bg-white/[0.03] text-xs font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="mt-2 min-h-[44px] w-full rounded-xl bg-muted text-xs font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {expanded
             ? `Show the top ${PAGE}`

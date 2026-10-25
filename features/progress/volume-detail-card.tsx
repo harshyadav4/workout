@@ -67,8 +67,8 @@ export function VolumeDetailCard({
     >
       <div className="grid grid-cols-2 gap-2">
         {rows.map((row) => (
-          <div key={row.label} className="rounded-2xl bg-secondary/40 p-3">
-            <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+          <div key={row.label} className="well rounded-lg p-3">
+            <p className="text-[11px] font-semibold text-muted-foreground">
               {row.label}
             </p>
             <p className="mt-1.5 text-lg font-semibold leading-none">
@@ -78,7 +78,7 @@ export function VolumeDetailCard({
               ) : null}
             </p>
             {row.change === undefined ? null : (
-              <p className="mt-1 font-mono text-[11px] tabular-nums text-muted-foreground">
+              <p className="mt-1 text-[11px] tabular-nums text-muted-foreground">
                 {row.change >= 0 ? "+" : ""}
                 {row.change.toFixed(0)}% vs previous
               </p>

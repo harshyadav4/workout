@@ -44,7 +44,7 @@ export function ProgressTableCard({ logs }: { logs: WorkoutLog[] }) {
         <div
           role="group"
           aria-label="Row grouping"
-          className="mt-1 flex shrink-0 gap-1 rounded-full bg-secondary/50 p-1"
+          className="well mt-1 flex shrink-0 gap-1 rounded-lg p-1"
         >
           {(["session", "week"] as const).map((option) => (
             <button
@@ -53,8 +53,8 @@ export function ProgressTableCard({ logs }: { logs: WorkoutLog[] }) {
               aria-pressed={grain === option}
               onClick={() => setGrain(option)}
               className={cn(
-                "min-h-[36px] rounded-full px-3 font-mono text-[10px] uppercase tracking-[0.14em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                grain === option ? "bg-primary text-primary-foreground" : "text-muted-foreground"
+                "min-h-[36px] rounded-md px-3 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                grain === option ? "key" : "text-muted-foreground"
               )}
             >
               {option === "session" ? "Day" : "Week"}
@@ -70,7 +70,7 @@ export function ProgressTableCard({ logs }: { logs: WorkoutLog[] }) {
             <div className="-mx-1 overflow-x-auto px-1 [mask-image:linear-gradient(to_right,black_calc(100%-14px),transparent)]">
               <table className="w-full min-w-[26rem] border-collapse text-sm">
                 <thead>
-                  <tr className="border-b border-white/5 text-left font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                  <tr className="border-b border-border text-left text-[11px] font-semibold text-muted-foreground">
                     <th scope="col" className="pb-2 pr-3 font-normal">
                       {grain === "week" ? "Week" : "Day"}
                     </th>
@@ -97,8 +97,8 @@ export function ProgressTableCard({ logs }: { logs: WorkoutLog[] }) {
                         <tr
                           onClick={() => setOpenKey(open ? undefined : row.key)}
                           className={cn(
-                            "cursor-pointer border-b border-white/5 transition-colors",
-                            open ? "bg-white/[0.03]" : "hover:bg-white/[0.02]"
+                            "cursor-pointer border-b border-border transition-colors",
+                            open ? "bg-muted" : "hover:bg-muted"
                           )}
                         >
                           <th scope="row" className="py-2.5 pr-3 text-left font-normal">
@@ -116,22 +116,22 @@ export function ProgressTableCard({ logs }: { logs: WorkoutLog[] }) {
                               </span>
                             </button>
                           </th>
-                          <td className="py-2.5 pr-3 text-right font-mono tabular-nums">
+                          <td className="py-2.5 pr-3 text-right tabular-nums">
                             {row.sets}
                           </td>
-                          <td className="py-2.5 pr-3 text-right font-mono tabular-nums">
+                          <td className="py-2.5 pr-3 text-right tabular-nums">
                             {row.reps}
                           </td>
-                          <td className="py-2.5 pr-3 text-right font-mono tabular-nums">
+                          <td className="py-2.5 pr-3 text-right tabular-nums">
                             {formatVolume(row.volume)}
                           </td>
-                          <td className="py-2.5 text-right font-mono tabular-nums">
+                          <td className="py-2.5 text-right tabular-nums">
                             {row.topSet ? `${row.topSet}` : "—"}
                           </td>
                         </tr>
 
                         {open ? (
-                          <tr className="border-b border-white/5">
+                          <tr className="border-b border-border">
                             <td colSpan={COLUMNS} className="px-0 pb-3">
                               <SessionDetail logs={logs} grain={grain} rowKey={row.key} />
                             </td>
@@ -148,7 +148,7 @@ export function ProgressTableCard({ logs }: { logs: WorkoutLog[] }) {
               <button
                 type="button"
                 onClick={() => setExpanded((current) => !current)}
-                className="mt-3 min-h-[44px] w-full rounded-xl bg-white/[0.03] text-xs font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="mt-3 min-h-[44px] w-full rounded-xl bg-muted text-xs font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {expanded ? "Show fewer" : `Show all ${rows.length} rows`}
               </button>
@@ -178,19 +178,19 @@ function SessionDetail({
     .sort((a, b) => b.date.localeCompare(a.date) || b.totalVolume - a.totalVolume);
 
   return (
-    <div className="rounded-2xl bg-secondary/40 p-3">
+    <div className="well rounded-lg p-3">
       <ul className="space-y-1.5">
         {entries.map((log, index) => (
           <li key={log.id ?? `${log.date}-${log.workoutId}-${index}`} className="flex items-baseline gap-3">
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm">{log.name}</span>
-              <span className="block font-mono text-[11px] tabular-nums text-muted-foreground">
+              <span className="block text-[11px] tabular-nums text-muted-foreground">
                 {grain === "week" ? `${formatDayKey(log.date)} · ` : ""}
                 {log.totalSets ?? 0} × {log.totalReps ?? 0} reps
                 {log.peakWeight ? ` · top ${log.peakWeight} kg` : ""}
               </span>
             </span>
-            <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
+            <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
               {formatVolume(log.totalVolume)}
             </span>
           </li>

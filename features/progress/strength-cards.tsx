@@ -73,8 +73,8 @@ export function StrengthGrowthCard({ growth }: { growth: StrengthGrowth[] }) {
               <div className="flex items-baseline justify-between gap-3">
                 <p className="truncate text-sm font-medium">{row.name}</p>
                 <p
-                  className={`font-mono text-xs tabular-nums ${
-                    gained ? "text-[#3fbf6f]" : "text-[#e8785a]"
+                  className={`text-xs tabular-nums ${
+                    gained ? "text-success" : "text-danger"
                   }`}
                 >
                   {gained ? "+" : ""}
@@ -83,7 +83,7 @@ export function StrengthGrowthCard({ growth }: { growth: StrengthGrowth[] }) {
               </div>
 
               <div className="relative mt-2 h-4">
-                <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-white/5" />
+                <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-muted" />
                 <div
                   className="absolute top-1/2 h-0.5 -translate-y-1/2 rounded-full"
                   style={{
@@ -100,7 +100,7 @@ export function StrengthGrowthCard({ growth }: { growth: StrengthGrowth[] }) {
                 />
               </div>
 
-              <p className="mt-1.5 font-mono text-[11px] tabular-nums text-muted-foreground">
+              <p className="mt-1.5 text-[11px] tabular-nums text-muted-foreground">
                 {row.first} → {row.last} kg · {row.sessions} sessions
               </p>
             </div>
@@ -184,7 +184,7 @@ export function TopSetChart({ points }: { points: TopSetPoint[] }) {
                     position: "top",
                     fill: "rgba(226,232,240,0.75)",
                     fontSize: 10,
-                    fontFamily: "var(--font-mono)"
+                    fontFamily: "var(--font-sans)"
                   }}
                 />
               ) : null}

@@ -57,13 +57,13 @@ export function YearSpine({
   return (
     <section className="-mx-4">
       <div className="flex items-baseline justify-between gap-3 px-4">
-        <h2 className="font-mono text-[11px] uppercase tracking-[0.24em] text-muted-foreground">
+        <h2 className="text-xs font-semibold text-muted-foreground">
           {SPINE_LABELS[range]}
         </h2>
         {/* The readout replaces a hover tooltip that a touch device can never
             reach. It holds the last tap rather than clearing on release, so the
             number survives your finger leaving the screen. */}
-        <p className="truncate font-mono text-[11px] tabular-nums text-muted-foreground">
+        <p className="truncate text-[11px] tabular-nums text-muted-foreground">
           {picked
             ? picked.volume > 0
               ? `${formatDayKey(picked.date)} · ${formatVolume(picked.volume)} kg`
@@ -91,7 +91,7 @@ export function YearSpine({
               return (
                 <div
                   key={`month-${week.start}`}
-                  className="w-[13px] overflow-visible whitespace-nowrap font-mono text-[10px] uppercase tracking-[0.1em] text-muted-foreground"
+                  className="w-[13px] overflow-visible whitespace-nowrap text-[10px] font-medium text-muted-foreground"
                 >
                   {isNew ? month : ""}
                 </div>
@@ -142,11 +142,11 @@ export function YearSpine({
 /** Weeks, not days — see `buildStreaks`. A day streak rewards never resting. */
 function Streak({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl bg-white/[0.03] px-3 py-2">
-      <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+    <div className="rounded-xl bg-muted px-3 py-2">
+      <p className="text-[11px] font-semibold text-muted-foreground">
         {label}
       </p>
-      <p className="mt-1 font-mono text-base font-semibold tabular-nums leading-none">{value}</p>
+      <p className="mt-1 font-display text-lg font-extrabold tabular-nums leading-none tracking-tight">{value}</p>
     </div>
   );
 }

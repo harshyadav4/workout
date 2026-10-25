@@ -19,9 +19,29 @@ a calendar, and Home is the cursor pointing at today's entry.
 - Recharts for the progress charts
 - Inline SVG for the body map (`features/body/front.tsx`, `back.tsx`)
 
+## Design
+
+The look is a set of tokens and three materials, all in `app/globals.css`:
+
+- **Two skins.** Graphite (dark) is the palette in `:root`; Paper (light) is the `light` class.
+  Every colour the UI touches is a token, so a skin is a block of numbers and nothing else.
+- **Materials.** `.plaque` (a card: lit top edge, shadow underneath), `.key` (the red-orange button that
+  presses down), `.key-quiet` (the same in the surface's own colour), `.well` (a pressed-in area:
+  inputs, chips not yet logged, the set drums). Each has a per-skin shadow in `--shadow-*`.
+- **One accent.** `primary` is the red-orange fill in both skins. `brand` is the accent *as text
+  and rings*: the same red-orange on Graphite, a brick on Paper, where the bright one on white would
+  fail. Charts are blue and the body-map heat is crimson on purpose, so data never borrows the colour
+  that means "go".
+- **Two typefaces.** Inter for everything you read, Bricolage Grotesque (`font-display`) for
+  everything you care about: session names, the number on the ring, the weight on the bar.
+- **One moment.** Logging a set springs the chip, fills the ring, and — behind a switch on the
+  You page — plays a synthesised click and a 12 ms haptic (`lib/feedback.ts`). Off by default.
+
+`design-preview/not-boring-direction.html` is the mock the direction was chosen from.
+
 ## Mobile-first choices
 
-- Bottom navigation with `env(safe-area-inset-bottom)`, one-handed reach
+- A floating dock with `env(safe-area-inset-bottom)`, one-handed reach
 - 44–48px touch targets; `tabular-nums` on every changing number so digits don't jitter
 - Today's session is the default landing screen
 - Set logging is a strip of tappable chips with one set open at a time
