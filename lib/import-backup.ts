@@ -100,7 +100,7 @@ export interface ParsedBackup {
  */
 export function parseExport(raw: unknown): ParsedBackup {
   if (!isObject(raw)) {
-    throw new ImportError("That file isn't a GymFlow export.");
+    throw new ImportError("That file isn't a Arise export.");
   }
 
   const state: RemoteState = {

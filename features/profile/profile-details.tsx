@@ -188,7 +188,7 @@ export function ProfileDetails() {
           onClick={() => {
             setError(null);
             try {
-              downloadJson(`gymflow-${todayKey()}.json`, buildExport(store.getState()));
+              downloadJson(`arise-${todayKey()}.json`, buildExport(store.getState()));
             } catch (cause) {
               setError(cause instanceof Error ? cause.message : "Could not build the export.");
             }

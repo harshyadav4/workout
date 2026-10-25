@@ -1,17 +1,19 @@
 "use client";
 
-import { Dumbbell, ShieldCheck, Zap } from "lucide-react";
+import { CalendarDays, PersonStanding, TrendingUp } from "lucide-react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
+import ironArt from "@/features/auth/login-iron.webp";
 import { useAuth } from "@/features/auth/use-auth";
 import { isSupabaseConfigured } from "@/lib/supabase";
 
 const points = [
-  { icon: Dumbbell, label: "Plan a session once, run it for months" },
-  { icon: Zap, label: "Log a set in one tap, rest timer included" },
-  { icon: ShieldCheck, label: "Your history follows you to any phone" }
+  { icon: CalendarDays, label: "Plan your week in minutes." },
+  { icon: TrendingUp, label: "Track PRs and strength gains." },
+  { icon: PersonStanding, label: "See which muscles you worked." }
 ];
 
 /** Google's "G", in its own colours, as Google asks sign-in buttons to show it. */
@@ -29,12 +31,18 @@ function GoogleMark() {
 /**
  * The front door.
  *
- * On a phone it is the whole screen, not a card floating on one: brand at the
- * top, the pitch in the middle, the one button at the bottom where a thumb is.
+ * On a phone it is the whole screen, not a card floating on one: the pitch in
+ * the middle, the one button at the bottom where a thumb is.
  * Sized to `100dvh` — the height actually visible — because `100vh` on iPhone
  * Safari is the height with the toolbar hidden, which is what made this page
  * scroll by a few pixels for nothing. On a wide screen the same content sits
  * in a plaque.
+ *
+ * Behind it, an iron aisle in a hardcore gym with mana burning off the plates
+ * (our own generated art, no characters). The words sit low, on the part where the art has faded out.
+ * Imported rather than linked from public/, so it ships as a hashed file under
+ * /_next/static, which the service worker caches: it is there with no signal.
+ * `unoptimized` keeps it off /_next/image for the same reason.
  */
 export default function LoginPage() {
   const router = useRouter();
@@ -47,24 +55,30 @@ export default function LoginPage() {
   }, [router, user]);
 
   return (
-    <main className="flex min-h-[100dvh] items-stretch justify-center sm:items-center sm:px-4">
-      <div className="flex w-full max-w-md flex-col px-6 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] pt-[calc(env(safe-area-inset-top)+2rem)] sm:rounded-3xl sm:border sm:border-border sm:bg-card sm:p-8 sm:shadow-plaque">
-        <div className="flex items-center gap-2.5">
-          <img src="/icon-192.png" alt="" className="h-9 w-9 rounded-[10px]" />
-          <span className="font-display text-lg font-extrabold tracking-tight">GymFlow</span>
-        </div>
+    <main className="login-night relative flex min-h-[100dvh] items-stretch justify-center overflow-hidden sm:items-center sm:px-4">
+      <Image
+        src={ironArt}
+        alt=""
+        fill
+        priority
+        unoptimized
+        placeholder="blur"
+        sizes="100vw"
+        className="object-cover object-top"
+      />
+      <div className="login-night-shade absolute inset-0" />
 
-        <div className="flex flex-1 flex-col justify-center py-8 [@media(max-height:700px)]:py-4 sm:flex-none sm:py-8">
+      <div className="relative flex w-full max-w-md flex-col px-6 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] pt-[calc(env(safe-area-inset-top)+2rem)] sm:rounded-3xl sm:border sm:border-border sm:bg-card/85 sm:p-8 sm:shadow-plaque sm:backdrop-blur">
+        <div className="flex flex-1 flex-col justify-end pb-10 pt-8 [@media(max-height:700px)]:pb-6 sm:flex-none sm:py-8">
           <h1 className="font-display text-[44px] font-extrabold leading-[0.95] tracking-[-0.03em] [@media(max-height:700px)]:text-[38px]">
-            Lift.
+            Train.
             <br />
-            Log it.
+            Level up.
             <br />
-            <span className="text-brand">Leave.</span>
+            <span className="text-brand">Arise.</span>
           </h1>
           <p className="mt-4 max-w-[19rem] text-[15px] leading-relaxed text-muted-foreground">
-            Today&apos;s session opens first. Sets take one tap. Everything else waits until you are
-            off the floor.
+            Start weak. Show up daily. Become the one nobody saw coming.
           </p>
 
           <ul className="mt-8 space-y-4 [@media(max-height:700px)]:mt-5 [@media(max-height:700px)]:space-y-3">
@@ -90,7 +104,7 @@ export default function LoginPage() {
             Continue with Google
           </Button>
           <p className="mt-3 text-center text-xs text-muted-foreground">
-            Your workouts are stored in your own account, never shared.
+            Your progress is saved to your account. Only you see it.
           </p>
           {!isSupabaseConfigured ? (
             <p className="mt-2 text-center text-xs text-warning">

@@ -25,7 +25,7 @@ const bricolage = Bricolage_Grotesque({
 });
 
 export const metadata: Metadata = {
-  title: "GymFlow",
+  title: "Arise",
   description: "Mobile-first workout tracking for the gym floor",
   // Next emits this string verbatim and does not resolve it against public/, so
   // it has to match the file on disk. It said "/manifest.json" and 404'd, which
@@ -44,10 +44,10 @@ export const metadata: Metadata = {
   // the status bar drawn over the app's own dark top.
   appleWebApp: {
     capable: true,
-    title: "GymFlow",
+    title: "Arise",
     statusBarStyle: "black-translucent"
   },
-  applicationName: "GymFlow",
+  applicationName: "Arise",
   formatDetection: { telephone: false }
 };
 

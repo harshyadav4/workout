@@ -1,5 +1,5 @@
 /*
- * GymFlow service worker. Lets the installed app open in a gym basement with no
+ * Arise service worker. Lets the installed app open in a gym basement with no
  * signal: the app shell and its code come from the cache, and the data is
  * already on the phone (the store lives in localStorage and syncs when it can).
  *
@@ -12,7 +12,7 @@
  *
  * Bump VERSION to drop every old cache on the next visit.
  */
-const VERSION = "v1";
+const VERSION = "v2";
 const SHELL = `gymflow-shell-${VERSION}`;
 const STATIC = `gymflow-static-${VERSION}`;
 const PRECACHE = ["/", "/plan", "/progress", "/profile", "/manifest.webmanifest", "/icon-192.png"];

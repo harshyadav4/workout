@@ -60,7 +60,7 @@ export function PlanDashboard() {
           variant="outline"
           className="flex-1"
           onClick={() =>
-            downloadJson(`gymflow-plan-${todayKey()}.json`, buildPlanExport(store.getState()))
+            downloadJson(`arise-plan-${todayKey()}.json`, buildPlanExport(store.getState()))
           }
         >
           <Share2 className="h-4 w-4" />

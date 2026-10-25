@@ -60,7 +60,7 @@ function download(url: URL, redirectsLeft: number): Promise<Uint8Array> {
       {
         lookup: safeLookup as never,
         timeout: TIMEOUT_MS,
-        headers: { "user-agent": "GymFlow media fetch", accept: "image/gif" }
+        headers: { "user-agent": "Arise media fetch", accept: "image/gif" }
       },
       (response) => {
         const status = response.statusCode ?? 0;

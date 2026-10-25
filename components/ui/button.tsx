@@ -7,7 +7,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 /**
- * Keys. The default is the orange key: the one thing on the screen you are meant
+ * Keys. The default is the mana-blue key: the one thing on the screen you are meant
  * to press. `secondary` is a quiet key in the surface's own material. `ghost`
  * and `outline` are flat — for actions that should not look like a button
  * until you need them.

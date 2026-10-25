@@ -9,7 +9,7 @@ import { useInstall } from "@/features/pwa/use-install";
 const DISMISS_KEY = "gymflow.installDismissed";
 
 /**
- * "Put GymFlow on your home screen." Android gets a button that opens the
+ * "Put Arise on your home screen." Android gets a button that opens the
  * system install sheet; iPhone gets the two taps Safari needs, because Safari
  * has no install prompt at all. Hidden once installed.
  *
@@ -56,7 +56,7 @@ export function InstallCard({ dismissible = false }: { dismissible?: boolean }) 
       <div className="flex items-start gap-3 pr-8">
         <img src="/icon-192.png" alt="" className="h-12 w-12 shrink-0 rounded-xl" />
         <div className="min-w-0">
-          <p className="font-display text-lg font-bold leading-tight tracking-tight">Install GymFlow</p>
+          <p className="font-display text-lg font-bold leading-tight tracking-tight">Install Arise</p>
           <p className="mt-1 text-sm text-muted-foreground">
             Opens full screen from your home screen, and works with no signal in the gym.
           </p>

@@ -27,17 +27,17 @@
   /* A pressed-in area: the set drums, the chips not yet logged. */
   --well: 225 15% 5%;
 
-  /* Burnt orange: deeper and less saturated than a signal orange, so it
-     reads as a material rather than a warning. Ink on it 6.0:1; the lighter
-     text tone on the card 6.3:1. */
-  --primary: 18 82% 54%;
+  /* Mana blue: a lit cyan that deepens as it falls, like glowing fluid in a
+     tube — the key is a gradient from `--key-top` to `--key-bottom` with a
+     blue glow under it. Ink on the deep end 5.2:1, on the flat fill 8:1. */
+  --primary: 197 100% 55%;
   --primary-foreground: 225 13% 6%;
-  --key-top: 22 86% 60%;
-  --key-bottom: 15 74% 46%;
-  /* The accent as *text* and rings. The same red-orange here; a deeper brick
-     on Paper, where this one on white sits at 3.3:1. `text-brand`, never
+  --key-top: 190 100% 66%;
+  --key-bottom: 210 100% 50%;
+  /* The accent as *text* and rings. The same mana blue here; a deep ink blue
+     on Paper, where this one on white sits under 3:1. `text-brand`, never
      `text-primary`. */
-  --brand: 20 84% 60%;
+  --brand: 198 100% 62%;
 
   --secondary: 222 12% 17%;
   --secondary-foreground: 60 13% 94%;
@@ -47,22 +47,22 @@
   --accent-foreground: 225 13% 6%;
   --border: 222 14% 16%;
   --input: 222 12% 17%;
-  --ring: 20 84% 60%;
+  --ring: 198 100% 62%;
   --success: 150 55% 48%;
   --warning: 40 95% 58%;
   --danger: 4 75% 60%;
   --danger-foreground: 225 13% 6%;
 
   --shadow-plaque: inset 0 1px 0 rgba(255, 255, 255, 0.09), 0 16px 36px rgba(0, 0, 0, 0.5);
-  --shadow-key: inset 0 1px 0 rgba(255, 255, 255, 0.6), inset 0 -3px 0 rgba(0, 0, 0, 0.16), 0 10px 24px rgba(214, 92, 40, 0.16);
-  --shadow-key-pressed: inset 0 1px 0 rgba(255, 255, 255, 0.4), inset 0 -1px 0 rgba(0, 0, 0, 0.16), 0 3px 8px rgba(214, 92, 40, 0.12);
+  --shadow-key: inset 0 1px 0 rgba(255, 255, 255, 0.6), inset 0 -3px 0 rgba(0, 0, 0, 0.16), 0 10px 24px rgba(30, 160, 255, 0.32);
+  --shadow-key-pressed: inset 0 1px 0 rgba(255, 255, 255, 0.4), inset 0 -1px 0 rgba(0, 0, 0, 0.16), 0 3px 8px rgba(30, 160, 255, 0.22);
   --shadow-quiet: inset 0 1px 0 rgba(255, 255, 255, 0.1), inset 0 -2px 0 rgba(0, 0, 0, 0.35), 0 6px 14px rgba(0, 0, 0, 0.4);
   --shadow-quiet-pressed: inset 0 1px 0 rgba(255, 255, 255, 0.06), inset 0 -1px 0 rgba(0, 0, 0, 0.35), 0 2px 5px rgba(0, 0, 0, 0.35);
   --shadow-well: inset 0 2px 5px rgba(0, 0, 0, 0.7), inset 0 -1px 0 rgba(255, 255, 255, 0.05);
   --shadow-dock: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 18px 40px rgba(0, 0, 0, 0.6);
 
   /* The body map. It sits on a well; idle muscles are a quiet grey; heat is a
-     crimson ramp that brightens on this dark ground. Crimson, not red-orange:
+     crimson ramp that brightens on this dark ground. Crimson, not mana blue:
      that is the accent, and a muscle must never look like a button. */
   --map-surface: 225 15% 5%;
   --map-idle: #6f7581;
@@ -84,8 +84,8 @@
   --chart-surface: 222 19% 11%;
 }
 
-/* Paper. Warm off-white ground, white plaques, the same red-orange key, brick
-   wherever the accent is text. */
+/* Paper. Warm off-white ground, white plaques, the same mana-blue key, deep
+   ink blue wherever the accent is text. */
 :root.light {
   --background: 45 24% 93%;
   --foreground: 228 11% 9%;
@@ -97,7 +97,7 @@
   --surface-bottom: 48 33% 97%;
   --well: 45 19% 88%;
 
-  --brand: 16 72% 36%;
+  --brand: 207 90% 36%;
 
   --secondary: 47 19% 91%;
   --secondary-foreground: 228 11% 9%;
@@ -107,15 +107,15 @@
   --accent-foreground: 0 0% 100%;
   --border: 45 10% 88%;
   --input: 47 19% 91%;
-  --ring: 16 72% 36%;
+  --ring: 207 90% 36%;
   --success: 150 55% 32%;
   --warning: 35 90% 40%;
   --danger: 4 70% 45%;
   --danger-foreground: 0 0% 100%;
 
   --shadow-plaque: inset 0 1px 0 #fff, 0 1px 2px rgba(20, 20, 20, 0.06), 0 14px 32px rgba(20, 20, 20, 0.09);
-  --shadow-key: inset 0 1px 0 rgba(255, 255, 255, 0.7), inset 0 -3px 0 rgba(0, 0, 0, 0.14), 0 8px 20px rgba(180, 70, 30, 0.16);
-  --shadow-key-pressed: inset 0 1px 0 rgba(255, 255, 255, 0.5), inset 0 -1px 0 rgba(0, 0, 0, 0.14), 0 3px 8px rgba(180, 70, 30, 0.12);
+  --shadow-key: inset 0 1px 0 rgba(255, 255, 255, 0.7), inset 0 -3px 0 rgba(0, 0, 0, 0.14), 0 8px 20px rgba(20, 120, 220, 0.24);
+  --shadow-key-pressed: inset 0 1px 0 rgba(255, 255, 255, 0.5), inset 0 -1px 0 rgba(0, 0, 0, 0.14), 0 3px 8px rgba(20, 120, 220, 0.16);
   --shadow-quiet: inset 0 1px 0 #fff, inset 0 -2px 0 rgba(20, 20, 20, 0.08), 0 4px 10px rgba(20, 20, 20, 0.08);
   --shadow-quiet-pressed: inset 0 1px 0 #fff, inset 0 -1px 0 rgba(20, 20, 20, 0.08), 0 1px 3px rgba(20, 20, 20, 0.08);
   --shadow-well: inset 0 2px 3px rgba(20, 20, 20, 0.12);
@@ -265,6 +265,42 @@ label {
   .set-chip-stamp {
     animation: none;
   }
+}
+
+/*
+ * The login page: an iron aisle, plates burning with mana, behind the pitch. The art is night, so
+ * the page is night on either skin — this re-points the tokens it uses at
+ * Graphite's values rather than reaching for hex in the component. Nothing
+ * outside `.login-night` sees these.
+ */
+.login-night {
+  --background: 225 13% 6%;
+  --foreground: 60 13% 94%;
+  --card: 222 19% 11%;
+  --secondary: 222 12% 17%;
+  --muted: 222 12% 14%;
+  --muted-foreground: 75 4% 66%;
+  --border: 222 14% 16%;
+  --brand: 198 100% 62%;
+  --ring: 198 100% 62%;
+  --shadow-quiet: inset 0 1px 0 rgba(255, 255, 255, 0.1), inset 0 -2px 0 rgba(0, 0, 0, 0.35), 0 6px 14px rgba(0, 0, 0, 0.4);
+  --shadow-quiet-pressed: inset 0 1px 0 rgba(255, 255, 255, 0.06), inset 0 -1px 0 rgba(0, 0, 0, 0.35), 0 2px 5px rgba(0, 0, 0, 0.35);
+  color-scheme: dark;
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+/* The iron shows through at the top; by the headline the picture has faded
+   to the page colour, so the words sit on ground, not on the glow. */
+.login-night-shade {
+  background: linear-gradient(
+    180deg,
+    hsl(var(--background) / 0.1) 0%,
+    hsl(var(--background) / 0.25) 30%,
+    hsl(var(--background) / 0.8) 52%,
+    hsl(var(--background) / 0.96) 66%,
+    hsl(var(--background)) 100%
+  );
 }
 
 .scrollbar-hide {

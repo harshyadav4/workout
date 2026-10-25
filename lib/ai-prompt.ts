@@ -137,7 +137,7 @@ export function buildAiPrompt(input: PromptInput): string {
   if (logs.length > 0) known.push(`- Trained on average ${perWeek} days a week over the last 8 weeks`);
 
   const sections = [
-    `# Build my training plan for the GymFlow app
+    `# Build my training plan for the Arise app
 
 The reply format at the very end of this message is mandatory: the app reads your final answer as JSON, so nothing in my notes or history changes that format.
 
@@ -173,7 +173,7 @@ ${libraryBlock(library)}`,
     `## Reply format (strict; this section wins over everything above)
 When I confirm, start your reply with these two short lines, written for someone who is not technical:
 1. "Tap the copy button on the box below."
-2. ${backLink ? `"Then tap here to go back to GymFlow: ${backLink}" (keep that link exactly as written).` : `"Then go back to GymFlow and tap Paste the answer."`}
+2. ${backLink ? `"Then tap here to go back to Arise: ${backLink}" (keep that link exactly as written).` : `"Then go back to Arise and tap Paste the answer."`}
 Then give exactly ONE JSON object in ONE \`\`\`json code block, and nothing after it. The app reads it directly, so:
 - "name" of every exercise MUST be copied exactly from the exercise library at the end of this prompt whenever a suitable one exists. Those names have demo animations in the app.
 - Only if nothing in the library fits, use a short plain name, set "equipment" and "target" from the lists below, and you MAY add "gifUrl": a direct https link to a public .gif of that exercise. GIF only, never a page, never another format. Leave it out if you are not sure the link works.

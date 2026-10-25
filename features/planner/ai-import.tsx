@@ -246,7 +246,7 @@ export function AiImportSheet({
       const blob = new Blob([text], { type: "text/plain" });
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
-      link.download = "gymflow-question-for-ai.txt";
+      link.download = "arise-question-for-ai.txt";
       link.click();
       URL.revokeObjectURL(link.href);
     });
@@ -479,7 +479,7 @@ export function AiImportSheet({
                     onClick={() => {
                       void navigator.clipboard
                         .writeText(
-                          `GymFlow could not import your plan: ${error} Please fix that and send the complete plan again as one json code block, following every rule in the reply format.`
+                          `Arise could not import your plan: ${error} Please fix that and send the complete plan again as one json code block, following every rule in the reply format.`
                         )
                         .then(() => setFixCopied(true))
                         .catch(() => setFixCopied(false));
