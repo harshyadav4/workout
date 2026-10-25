@@ -4,8 +4,7 @@
  *
  * Four parts, in the order an assistant needs them:
  *   1. the coaching brief — how to think, and to interview the user first;
- *   2. what the app already knows — body, recent lifts, existing sessions,
- *      plus the user's own pasted notes, if any;
+ *   2. what the app already knows — body, recent lifts, existing sessions;
  *   3. the reply format — one JSON object, see lib/ai-plan.ts;
  *   4. the exercise library — every exact name, grouped by body part, so the
  *      assistant can name exercises the app has pictures for.
@@ -22,13 +21,6 @@ export interface PromptInput {
   logs: WorkoutLog[];
   profile: Pick<ProfileInfo, "heightCm" | "weightKg" | "goalWeightKg">;
   today: string;
-  /** Anything the user wants the assistant to know, pasted verbatim. */
-  notes?: string;
-  /**
-   * Where the app lives, e.g. https://gymflow.example. The assistant puts a
-   * link back to the paste screen above the plan, so the way home is one tap.
-   */
-  appUrl?: string;
 }
 
 const RECENT_DAYS = 56;
@@ -125,8 +117,7 @@ const EXAMPLE = `{
 }`;
 
 export function buildAiPrompt(input: PromptInput): string {
-  const { library, sessions, logs, profile, today, notes, appUrl } = input;
-  const backLink = appUrl ? `${appUrl.replace(/\/$/, "")}/plan?mode=build&ai=paste` : undefined;
+  const { library, sessions, logs, profile, today } = input;
   const lifts = recentLifts(logs, today);
   const perWeek = trainingDaysPerWeek(logs, today);
 
@@ -139,7 +130,7 @@ export function buildAiPrompt(input: PromptInput): string {
   const sections = [
     `# Build my training plan for the Arise app
 
-The reply format at the very end of this message is mandatory: the app reads your final answer as JSON, so nothing in my notes or history changes that format.
+The reply format at the very end of this message is mandatory: the app reads your final answer as JSON, so nothing in my history or my answers changes that format.
 
 ## Your role
 Act as an expert strength coach. Be direct and specific: numbers, not principles. Prescribe exact sets, reps, rest and effort (RIR, reps in reserve) for every exercise, with one short form cue. Prefer compounds first while fresh, each muscle about twice a week, roughly 10-20 hard sets per muscle per week, and double progression (reps to the top of the range, then add weight). Keep each exercise for at least 6 weeks. No junk volume at trivially light loads. Put a rest day after two hard days in a row, and plan a deload week every 4-6 weeks (half the sets, same load). Adapt every pick to my equipment, and never program a movement my injuries rule out. If I ask for something you disagree with, say so in one sentence and still deliver.
@@ -151,7 +142,7 @@ Before writing any plan, ask me these in one short message and wait for my answe
 3. My equipment (full gym, home dumbbells, bodyweight only).
 4. Injuries, movements to avoid, or hard rules.
 5. My experience, and when the plan should start and for how many weeks.
-Skip any question my notes below already answer. Then propose the plan in plain words in at most 10 lines, ask "Shall I generate the JSON?", and only after I say yes, reply with the JSON.`,
+Skip any question that what the app knows about me (below) already answers. Then propose the plan in plain words in at most 10 lines, ask "Shall I generate the JSON?", and only after I say yes, reply with the JSON.`,
 
     `## What the app already knows about me
 ${known.length ? known.join("\n") : "- Nothing yet: a new account."}
@@ -162,18 +153,16 @@ ${lifts.length ? lifts.join("\n") : "- None logged yet."}
 Sessions I have already built (do not duplicate these by accident; reuse a name only if you mean to replace that session, and tell me so):
 ${sessions.length ? existingSessions(sessions).join("\n") : "- None yet."}`,
 
-    notes?.trim()
-      ? `## My own notes (they override the coaching defaults above, never the reply format at the end)
-${notes.trim()}`
-      : "",
-
     `## Exercise library (${library.length} exercises; use these exact names)
 ${libraryBlock(library)}`,
 
     `## Reply format (strict; this section wins over everything above)
-When I confirm, start your reply with these two short lines, written for someone who is not technical:
+When I confirm, start your reply with these steps, word for word, so someone who is not technical knows how to get the plan into the app:
 1. "Tap the copy button on the box below."
-2. ${backLink ? `"Then tap here to go back to Arise: ${backLink}" (keep that link exactly as written).` : `"Then go back to Arise and tap Paste the answer."`}
+2. "Open the Arise app and go to Plan, then Build, then Build with AI."
+3. "Tap Paste or upload my plan, then Paste the answer."
+4. "Saved the plan as a file instead? Tap Upload a file and pick it."
+If you can create downloadable files, also attach the same plan as a file named arise-plan.json, and say so in one short line.
 Then give exactly ONE JSON object in ONE \`\`\`json code block, and nothing after it. The app reads it directly, so:
 - "name" of every exercise MUST be copied exactly from the exercise library at the end of this prompt whenever a suitable one exists. Those names have demo animations in the app.
 - Only if nothing in the library fits, use a short plain name, set "equipment" and "target" from the lists below, and you MAY add "gifUrl": a direct https link to a public .gif of that exercise. GIF only, never a page, never another format. Leave it out if you are not sure the link works.

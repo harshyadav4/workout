@@ -1,7 +1,7 @@
 "use client";
 
-import { AlertTriangle, Check, ClipboardCopy, ClipboardPaste, ExternalLink, Sparkles } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { AlertTriangle, Check, ClipboardCopy, ClipboardPaste, Sparkles, Upload } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -33,37 +33,8 @@ import { storeGif } from "@/lib/media";
 import { formatDayKey } from "@/lib/progress-metrics";
 import { cn, todayKey } from "@/lib/utils";
 
-const NOTES_KEY = "gymflow.aiNotes";
-const PENDING_KEY = "gymflow.aiPending";
-/** How long after copying the question the app assumes an answer is on its way. */
-const PENDING_MS = 6 * 60 * 60 * 1000;
-
-/** True while the user has copied the question and not yet brought an answer back. */
-export function hasPendingAiPlan(): boolean {
-  try {
-    const at = Number(localStorage.getItem(PENDING_KEY) ?? 0);
-    return at > 0 && Date.now() - at < PENDING_MS;
-  } catch {
-    return false;
-  }
-}
-
-function setPending(on: boolean) {
-  try {
-    if (on) localStorage.setItem(PENDING_KEY, String(Date.now()));
-    else localStorage.removeItem(PENDING_KEY);
-  } catch {
-    // The app just won't remember the step across a reload.
-  }
-}
-
-/** Where people already have a free account. The question is too long for a link, so it goes by clipboard. */
-const ASSISTANTS = [
-  { name: "ChatGPT", url: "https://chatgpt.com/" },
-  { name: "Claude", url: "https://claude.ai/new" },
-  { name: "Gemini", url: "https://gemini.google.com/app" }
-];
-
+/** Where the old "Tell the AI about you" box kept its text; cleared on open. */
+const RETIRED_NOTES_KEY = "gymflow.aiNotes";
 /**
  * The checker speaks in field paths ("sessions[0] exercise 2 needs either reps
  * or seconds"); people need to know what to do. The technical line stays, small,
@@ -72,6 +43,9 @@ const ASSISTANTS = [
 function friendly(message: string): { headline: string; advice: string } {
   if (/Nothing was pasted/.test(message)) {
     return { headline: "Nothing to paste yet.", advice: "Copy the AI's whole answer first, then tap Paste the answer." };
+  }
+  if (/file could not be read/.test(message)) {
+    return { headline: "That file could not be opened.", advice: "Pick the plan file the AI gave you. It ends in .json or .txt." };
   }
   if (/No JSON object|must be an object|incomplete or broken/.test(message)) {
     return {
@@ -161,7 +135,6 @@ export function AiImportSheet({
   const [view, setView] = useState<View>("start");
   const [library, setLibrary] = useState<Exercise[]>([]);
   const [libraryError, setLibraryError] = useState(false);
-  const [notes, setNotes] = useState("");
   const [copied, setCopied] = useState(false);
   const [pasted, setPasted] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -174,6 +147,7 @@ export function AiImportSheet({
   const [summary, setSummary] = useState<string>("");
   const [showBox, setShowBox] = useState(false);
   const [fixCopied, setFixCopied] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!open) {
@@ -181,13 +155,10 @@ export function AiImportSheet({
       reset();
       return;
     }
-    // Back from the AI app (iPhone often reloads the page on the way):
-    // go straight to pasting.
-    setView(hasPendingAiPlan() ? "paste" : "start");
     try {
-      setNotes(localStorage.getItem(NOTES_KEY) ?? "");
+      localStorage.removeItem(RETIRED_NOTES_KEY);
     } catch {
-      // Storage can be unavailable; the notes box just starts empty.
+      // Storage can be unavailable; then there is nothing to clear either.
     }
     loadExercises()
       .then(setLibrary)
@@ -195,7 +166,7 @@ export function AiImportSheet({
   }, [open]);
 
   const reset = () => {
-    setView(hasPendingAiPlan() ? "paste" : "start");
+    setView("start");
     setCopied(false);
     setPasted("");
     setError(null);
@@ -209,15 +180,6 @@ export function AiImportSheet({
     setFixCopied(false);
   };
 
-  const saveNotes = (value: string) => {
-    setNotes(value);
-    try {
-      localStorage.setItem(NOTES_KEY, value);
-    } catch {
-      // Kept for this visit only.
-    }
-  };
-
   const prompt = () => {
     const state = store.getState();
     return buildAiPrompt({
@@ -225,21 +187,17 @@ export function AiImportSheet({
       sessions: state.sessionTemplates,
       logs: state.logs,
       profile: state.profile,
-      today: todayKey(),
-      notes,
-      appUrl: window.location.origin
+      today: todayKey()
     });
   };
 
   /**
    * Copy the question. Called inside the tap, before any await, so iPhone
-   * Safari still counts it as the user's gesture. `then` is what happens after:
-   * opening the assistant is a plain link the browser follows itself, so no
-   * popup blocker is involved.
+   * Safari still counts it as the user's gesture. Which AI they paste it into
+   * is theirs to choose; the app opens nothing.
    */
   const copyPrompt = () => {
     const text = prompt();
-    setPending(true);
     setCopied(true);
     void navigator.clipboard.writeText(text).catch(() => {
       // Clipboard refused (permissions, older browser): hand over a file.
@@ -266,6 +224,24 @@ export function AiImportSheet({
   };
 
   const check = () => checkText(pasted);
+
+  /** The plan as a file the AI let them download: read it and check it like a paste. */
+  const uploadFile = async (file: File | undefined) => {
+    if (!file) {
+      return;
+    }
+    setError(null);
+    try {
+      const text = await file.text();
+      setPasted(text);
+      checkText(text);
+    } catch {
+      setError("The file could not be read.");
+    } finally {
+      // Picking the same file again after fixing it must still fire a change.
+      if (fileInput.current) fileInput.current.value = "";
+    }
+  };
 
   const checkText = (text: string) => {
     setError(null);
@@ -315,7 +291,6 @@ export function AiImportSheet({
       today: todayKey()
     });
     importAiPlan(built);
-    setPending(false);
     setSummary(
       `${built.sessions.length} session${built.sessions.length === 1 ? "" : "s"} added${
         built.scheduleConfig ? `, calendar filled ${formatDayKey(built.scheduleConfig.startDate)} to ${formatDayKey(built.scheduleConfig.endDate)}` : ""
@@ -371,10 +346,10 @@ export function AiImportSheet({
             </DialogHeader>
             <ol className="space-y-2.5 text-sm">
               {[
-                "Tap your AI below. Your question is copied for you.",
-                "Paste it into the chat and answer its questions.",
-                "When it shows your plan, tap the copy button on the plan box.",
-                "Come back here and tap Paste the answer."
+                "Copy the question below.",
+                "Paste it into any AI chat (ChatGPT, Claude, Gemini) and answer its questions.",
+                "When it shows your plan, copy it, or save it as a file.",
+                "Come back here and tap Paste or upload my plan."
               ].map((step, index) => (
                 <li key={step} className="flex gap-3">
                   <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand/15 text-xs font-bold text-brand">
@@ -389,74 +364,28 @@ export function AiImportSheet({
               <p className="mt-3 text-sm text-danger">The exercise list did not load. Check your connection.</p>
             ) : null}
 
-            <div className="mt-5 space-y-2">
-              {ASSISTANTS.map((assistant, index) => (
-                <a
-                  key={assistant.name}
-                  href={assistant.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-disabled={library.length === 0}
-                  onClick={(event) => {
-                    if (library.length === 0) {
-                      event.preventDefault();
-                      return;
-                    }
-                    copyPrompt();
-                  }}
-                  className={cn(
-                    "flex h-14 w-full items-center justify-center gap-2 rounded-xl text-[15px] font-semibold",
-                    index === 0 ? "key font-display text-[17px] font-bold tracking-tight" : "key-quiet",
-                    library.length === 0 ? "pointer-events-none opacity-50" : ""
-                  )}
-                >
-                  <ExternalLink className="h-4 w-4" />
-                  Copy and open {assistant.name}
-                </a>
-              ))}
-            </div>
+            <Button size="lg" className="mt-5 h-14 w-full" disabled={library.length === 0} onClick={() => copyPrompt()}>
+              {copied ? <Check className="h-5 w-5" /> : <ClipboardCopy className="h-5 w-5" />}
+              {copied ? "Copied" : "Copy the question"}
+            </Button>
             {copied ? (
               <p className="mt-3 flex items-center justify-center gap-1.5 text-sm text-success" role="status">
                 <Check className="h-4 w-4" />
-                Question copied. Paste it into the chat.
+                Now paste it into your AI chat.
               </p>
             ) : null}
 
-            <details className="mt-4 rounded-xl bg-muted px-4 py-1">
-              <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between text-sm font-semibold [&::-webkit-details-marker]:hidden">
-                Tell the AI about you (optional)
-                <span className="text-xs font-normal text-muted-foreground">{notes.trim() ? "added" : "skip"}</span>
-              </summary>
-              <textarea
-                rows={4}
-                value={notes}
-                onChange={(event) => saveNotes(event.target.value)}
-                placeholder="Goals, injuries, weak points, how many days you can train."
-                className="well mb-3 mt-1 w-full rounded-lg px-4 py-3 text-base text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
-              />
-              <p className="mb-3 text-xs text-muted-foreground">
-                Remembered on this phone. The AI also gets your height, weight, recent lifts and the
-                sessions you already have, so you don&apos;t need to type those.
-              </p>
-            </details>
-
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <Button variant="ghost" className="w-full" disabled={library.length === 0} onClick={() => copyPrompt()}>
-                <ClipboardCopy className="h-4 w-4" />
-                Copy only
-              </Button>
-              <Button variant="secondary" className="w-full" onClick={() => setView("paste")}>
-                I have the answer
-              </Button>
-            </div>
+            <Button variant="secondary" className="mt-4 w-full" onClick={() => setView("paste")}>
+              Paste or upload my plan
+            </Button>
           </>
         ) : view === "paste" ? (
           <>
             <DialogHeader>
               <DialogTitle>Bring your plan in</DialogTitle>
               <DialogDescription>
-                In your AI app, tap the copy button on the plan box (or copy its whole last answer).
-                Then tap below.
+                Copy the plan from your AI chat and tap Paste. If the AI gave you a file, tap Upload
+                a file.
               </DialogDescription>
             </DialogHeader>
 
@@ -464,6 +393,22 @@ export function AiImportSheet({
               <ClipboardPaste className="h-5 w-5" />
               Paste the answer
             </Button>
+            <Button
+              variant="secondary"
+              className="mt-2 h-12 w-full"
+              disabled={library.length === 0}
+              onClick={() => fileInput.current?.click()}
+            >
+              <Upload className="h-4 w-4" />
+              Upload a file
+            </Button>
+            <input
+              ref={fileInput}
+              type="file"
+              accept=".json,.txt,application/json,text/plain"
+              className="hidden"
+              onChange={(event) => void uploadFile(event.target.files?.[0])}
+            />
 
             {error ? (
               <div className="mt-4 rounded-xl bg-danger/10 p-4 ring-1 ring-danger/25" role="alert">

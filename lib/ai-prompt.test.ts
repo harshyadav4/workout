@@ -34,27 +34,28 @@ const prompt = buildAiPrompt({
   sessions,
   logs,
   profile: { heightCm: 176, weightKg: 74, goalWeightKg: 70 },
-  today: "2026-10-25",
-  notes: "No overhead pressing: left shoulder.",
-  appUrl: "https://gymflow.example/"
+  today: "2026-10-25"
 });
 
-// The way back: a link to the paste screen, and plain words before the plan.
-assert.match(prompt, /https:\/\/gymflow\.example\/plan\?mode=build&ai=paste/);
+// The way back is plain steps to the paste screen, not a link, and the file
+// route is offered too.
+assert.doesNotMatch(prompt, /ai=paste/);
 assert.match(prompt, /Tap the copy button on the box below/);
+assert.match(prompt, /Plan, then Build, then Build with AI/);
+assert.match(prompt, /Tap Paste or upload my plan/);
+assert.match(prompt, /Tap Upload a file/);
+assert.match(prompt, /arise-plan\.json/);
 
 // The interview comes before any plan.
 assert.match(prompt, /First, interview me/);
 assert.ok(prompt.indexOf("First, interview me") < prompt.indexOf("Reply format"));
 
 // The contract survives a long prompt: it is announced at the top, it comes
-// after the user's notes, history and the whole library, and the self-check
+// after the user's history and the whole library, and the self-check
 // and example are the last thing the assistant reads.
 assert.ok(prompt.indexOf("reply format at the very end") < 300, "the format is announced up front");
-assert.ok(prompt.indexOf("My own notes") < prompt.indexOf("## Exercise library"));
 assert.ok(prompt.indexOf("## Exercise library") < prompt.indexOf("## Reply format"));
 assert.ok(prompt.trimEnd().endsWith("```"), "the example closes the prompt");
-assert.match(prompt, /never the reply format/, "notes cannot override the format");
 
 // What the app knows is in it.
 assert.match(prompt, /Height: 176 cm/);
@@ -62,7 +63,6 @@ assert.match(prompt, /Goal bodyweight: 70 kg/);
 assert.match(prompt, /barbell bench press: 77\.5 kg top set, 2 sessions/);
 assert.doesNotMatch(prompt, /barbell full squat: 140/, "only the last 8 weeks count as recent");
 assert.match(prompt, /"Push"\n    - barbell bench press: 4 x 8 @ 70 kg/);
-assert.match(prompt, /No overhead pressing: left shoulder\./);
 
 // Today's date, the closed vocabularies and every library name are given.
 assert.match(prompt, /today is 2026-10-25/);
@@ -72,9 +72,8 @@ for (const exercise of library) {
   assert.ok(prompt.includes(exercise.name), `library name missing from prompt: ${exercise.name}`);
 }
 
-// Notes are optional: no empty heading when there are none.
+// A new account: the prompt still reads, with nothing to report.
 const bare = buildAiPrompt({ library, sessions: [], logs: [], profile: { heightCm: 0, weightKg: 0 }, today: "2026-10-25" });
-assert.doesNotMatch(bare, /My own notes/);
 assert.match(bare, /Nothing yet: a new account/);
 
 // The example inside the prompt teaches the format, so it must itself parse

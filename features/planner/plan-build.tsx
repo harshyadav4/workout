@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronDown, Dumbbell, Pencil, PlayCircle, Plus, Sparkles, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,7 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { NumberInput } from "@/components/ui/number-input";
 import { ThemedSelect } from "@/components/ui/select";
-import { AiImportSheet, hasPendingAiPlan } from "@/features/planner/ai-import";
+import { AiImportSheet } from "@/features/planner/ai-import";
 import { ExercisePicker } from "@/features/planner/exercise-picker";
 import { MuscleSelectView } from "@/features/planner/muscle-drawer";
 import { ExerciseMediaView, templateDatasetId } from "@/features/workout/exercise-media-dialog";
@@ -158,20 +158,6 @@ export function PlanBuild() {
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
-  // Back from the AI: its answer links to /plan?mode=build&ai=paste. Open the
-  // sheet (which lands on Paste while an answer is pending) and drop the
-  // parameter, so a refresh does not reopen it.
-  const [aiPending, setAiPending] = useState(false);
-  useEffect(() => {
-    setAiPending(hasPendingAiPlan());
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("ai") === "paste") {
-      setAiOpen(true);
-      params.delete("ai");
-      const query = params.toString();
-      window.history.replaceState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}`);
-    }
-  }, [aiOpen]);
   const [sessionName, setSessionName] = useState("");
   // ponytail: session-level only. The model also honours a per-exercise
   // override (see SessionTemplateExercise.progression) — expose it when
@@ -859,13 +845,9 @@ export function PlanBuild() {
               )}
             </DialogContent>
           </Dialog>
-          <Button
-            variant={aiPending ? "default" : "secondary"}
-            className="mt-2 w-full"
-            onClick={() => setAiOpen(true)}
-          >
-            <Sparkles className={aiPending ? "h-4 w-4" : "h-4 w-4 text-brand"} />
-            {aiPending ? "Paste your AI plan" : "Build with AI"}
+          <Button variant="secondary" className="mt-2 w-full" onClick={() => setAiOpen(true)}>
+            <Sparkles className="h-4 w-4 text-brand" />
+            Build with AI
           </Button>
           <AiImportSheet open={aiOpen} onOpenChange={setAiOpen} />
         </div>
