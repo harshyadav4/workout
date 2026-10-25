@@ -15,6 +15,14 @@ export type InstallState =
   | { kind: "prompt"; install: () => Promise<void> }
   /** iPhone / iPad Safari: no prompt exists; the user adds it from Share. */
   | { kind: "ios" }
+  /**
+   * Android, but the browser has not offered the install (yet): Chrome waits
+   * for some use first, holds back for weeks after a "no", and Firefox, the
+   * in-app browsers and several makers' own browsers never offer it at all.
+   * Every one of them still has it in its menu, so the card shows those steps
+   * — and switches to the one-tap button if the offer arrives later.
+   */
+  | { kind: "android" }
   /** A browser that cannot install, or has not offered it yet. */
   | { kind: "unavailable" };
 
@@ -42,6 +50,10 @@ function isStandalone() {
     // iOS Safari's own flag for a home-screen web app.
     (navigator as Navigator & { standalone?: boolean }).standalone === true
   );
+}
+
+function isAndroid() {
+  return /Android/i.test(navigator.userAgent);
 }
 
 function isIos() {
@@ -87,6 +99,9 @@ export function useInstall(): InstallState {
         rerender((n) => n + 1);
       }
     };
+  }
+  if (isAndroid()) {
+    return { kind: "android" };
   }
   return { kind: "unavailable" };
 }

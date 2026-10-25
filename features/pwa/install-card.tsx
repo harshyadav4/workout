@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, Share, SquarePlus, X } from "lucide-react";
+import { Download, EllipsisVertical, Share, SquarePlus, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -10,8 +10,9 @@ const DISMISS_KEY = "gymflow.installDismissed";
 
 /**
  * "Put Arise on your home screen." Android gets a button that opens the
- * system install sheet; iPhone gets the two taps Safari needs, because Safari
- * has no install prompt at all. Hidden once installed.
+ * system install sheet when the browser offers one, and the two menu taps when
+ * it does not; iPhone gets the two taps Safari needs, because Safari has no
+ * install prompt at all. Hidden once installed.
  *
  * `dismissible` is for Home, where it can be closed for good; on the You page
  * it always shows until the app is installed.
@@ -67,6 +68,27 @@ export function InstallCard({ dismissible = false }: { dismissible?: boolean }) 
           <Download className="h-4 w-4" />
           Install the app
         </Button>
+      ) : state.kind === "android" ? (
+        <ol className="mt-4 space-y-2 text-sm">
+          <li className="flex items-center gap-3 rounded-lg bg-muted px-3 py-2.5">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand/15 text-xs font-bold text-brand">
+              1
+            </span>
+            <span className="flex flex-wrap items-center gap-1">
+              Tap <EllipsisVertical className="mx-0.5 inline h-4 w-4 text-brand" aria-label="the menu" /> in your
+              browser&apos;s toolbar
+            </span>
+          </li>
+          <li className="flex items-center gap-3 rounded-lg bg-muted px-3 py-2.5">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand/15 text-xs font-bold text-brand">
+              2
+            </span>
+            <span className="flex flex-wrap items-center gap-1">
+              Choose <Download className="mx-0.5 inline h-4 w-4 text-brand" aria-hidden /> Install app, or Add to
+              Home screen
+            </span>
+          </li>
+        </ol>
       ) : (
         <ol className="mt-4 space-y-2 text-sm">
           <li className="flex items-center gap-3 rounded-lg bg-muted px-3 py-2.5">
