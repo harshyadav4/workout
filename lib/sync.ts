@@ -370,15 +370,20 @@ export function snapshotState(state: SyncableState): SyncableState {
  * docs say Postgres usually puts the actionable fix there, not in `message`.
  */
 export function syncErrorMessage(error: unknown): string {
-  const shape = error as { message?: unknown; hint?: unknown } | null | undefined;
+  const shape = error as { message?: unknown; hint?: unknown; code?: unknown } | null | undefined;
   const message = typeof shape?.message === "string" ? shape.message.trim() : "";
   const hint = typeof shape?.hint === "string" ? shape.hint.trim() : "";
+  // PGRST205 is "table not found" and 42703 "column not found": almost always
+  // a migration in supabase/migrations that has not been run on this project.
+  const code = typeof shape?.code === "string" ? shape.code : "";
+  const missingSchema = code === "PGRST205" || code === "42703";
 
   if (!message) {
     return "Unknown error";
   }
 
-  return hint ? `${message} — ${hint}` : message;
+  const text = hint ? `${message} — ${hint}` : message;
+  return missingSchema ? `${text} (run the migrations in supabase/migrations)` : text;
 }
 
 /**

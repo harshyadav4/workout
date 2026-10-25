@@ -98,7 +98,9 @@ export function SupabaseSync() {
         .catch((error: unknown) => {
           // Leave syncedRef alone so the next change retries this diff. The
           // local copy is safe in localStorage either way.
-          console.error("[supabase-sync] push failed", error);
+          // The message, not the object: a PostgrestError is an Error, and its
+          // fields do not serialise, so logging it whole printed `{}`.
+          console.error(`[supabase-sync] push failed: ${syncErrorMessage(error)}`, error);
           if (!cancelled) {
             setSyncStatus({ error: { stage: "push", message: syncErrorMessage(error) } });
           }
@@ -137,7 +139,9 @@ export function SupabaseSync() {
         // Recoverable now: the subscriber above is live and will push against an
         // empty base, so work still reaches the account. What is missing is
         // anything this account holds that this device has never seen.
-        console.error("[supabase-sync] load failed", error);
+        // The message, not the object: a PostgrestError is an Error, and its
+          // fields do not serialise, so logging it whole printed `{}`.
+          console.error(`[supabase-sync] load failed: ${syncErrorMessage(error)}`, error);
         loadFailedRef.current = true;
         if (!cancelled) {
           setSyncStatus({ error: { stage: "load", message: syncErrorMessage(error) } });
