@@ -135,7 +135,7 @@ function DateField({
             onChange(event.target.value);
           }
         }}
-        className="mt-1 w-full bg-transparent text-sm font-semibold tabular-nums text-foreground focus-visible:outline-none"
+        className="mt-1 w-full bg-transparent text-base font-semibold tabular-nums text-foreground focus-visible:outline-none"
       />
     </label>
   );

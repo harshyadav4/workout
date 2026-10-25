@@ -48,6 +48,46 @@ const DAY_NAMES: Record<string, string> = {
 };
 
 /**
+ * A whole-row switch. Native checkboxes were 20px targets inside the sheet,
+ * easy to miss on a small phone.
+ */
+function Switch({
+  checked,
+  onChange,
+  label,
+  children
+}: {
+  checked: boolean;
+  onChange: (next: boolean) => void;
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={() => onChange(!checked)}
+      className="flex min-h-12 w-full items-center justify-between gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <span className="min-w-0 flex-1">{children}</span>
+      <span
+        aria-hidden
+        className={cn("relative h-7 w-12 shrink-0 rounded-full transition-colors", checked ? "bg-primary" : "well")}
+      >
+        <span
+          className={cn(
+            "absolute top-1 h-5 w-5 rounded-full bg-card shadow-quiet transition-transform",
+            checked ? "translate-x-6" : "translate-x-1"
+          )}
+        />
+      </span>
+    </button>
+  );
+}
+
+/**
  * "Build with AI": copy a prompt, let an outside assistant interview you and
  * write the plan, paste its JSON back, review, import.
  *
@@ -309,7 +349,7 @@ export function AiImportSheet({
                 setError(null);
               }}
               placeholder='{ "gymflow": "sessions/v1", "sessions": [ … ] }'
-              className="well w-full rounded-lg px-4 py-3 font-mono text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+              className="well w-full rounded-lg px-4 py-3 font-mono text-base text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
             />
             {error ? (
               <p className="mt-2 flex items-start gap-2 text-sm text-danger" role="alert">
@@ -349,28 +389,25 @@ export function AiImportSheet({
                       </p>
                     </div>
                     {clash ? (
-                      <label className="mt-2 flex items-center justify-between gap-3 rounded-lg bg-warning/10 px-3 py-2 text-sm">
-                        <span>
-                          You already have &quot;{session.name}&quot;.{" "}
-                          <span className="text-muted-foreground">
-                            {replace.has(session.name) ? "Yours will be replaced." : `Imported as "${session.name} (AI)".`}
-                          </span>
-                        </span>
-                        <input
-                          type="checkbox"
-                          className="h-5 w-5 shrink-0 accent-[hsl(var(--primary))]"
+                      <div className="mt-2 rounded-lg bg-warning/10 px-3 py-1 text-sm">
+                        <Switch
+                          label={`Replace my ${session.name}`}
                           checked={replace.has(session.name)}
-                          aria-label={`Replace my ${session.name}`}
-                          onChange={(event) =>
+                          onChange={(on) =>
                             setReplace((current) => {
                               const next = new Set(current);
-                              if (event.target.checked) next.add(session.name);
+                              if (on) next.add(session.name);
                               else next.delete(session.name);
                               return next;
                             })
                           }
-                        />
-                      </label>
+                        >
+                          You already have &quot;{session.name}&quot;.{" "}
+                          <span className="text-muted-foreground">
+                            {replace.has(session.name) ? "Yours will be replaced." : `Imported as "${session.name} (AI)".`}
+                          </span>
+                        </Switch>
+                      </div>
                     ) : null}
                     <div className="mt-2 space-y-1.5">
                       {session.exercises.map((item, exerciseIndex) => {
@@ -461,23 +498,21 @@ export function AiImportSheet({
 
               {plan.schedule ? (
                 <div className="rounded-xl bg-muted p-3">
-                  <label className="flex items-center justify-between gap-3 px-1">
-                    <span>
+                  <div className="px-1">
+                    <Switch
+                      label="Fill my calendar with this schedule"
+                      checked={applySchedule}
+                      onChange={setApplySchedule}
+                    >
                       <span className="block font-display text-lg font-bold tracking-tight">Schedule</span>
                       <span className="block text-xs text-muted-foreground">
-                        {plan.schedule.startDate ? formatDayKey(plan.schedule.startDate) : "From today"} to{" "}
+                        {applySchedule ? "Fills your calendar" : "Not applied: sessions only"} ·{" "}
+                        {plan.schedule.startDate ? formatDayKey(plan.schedule.startDate) : "from today"} to{" "}
                         {plan.schedule.endDate ? formatDayKey(plan.schedule.endDate) : "8 weeks later"}
                       </span>
-                    </span>
-                    <input
-                      type="checkbox"
-                      className="h-5 w-5 shrink-0 accent-[hsl(var(--primary))]"
-                      checked={applySchedule}
-                      aria-label="Fill my calendar with this schedule"
-                      onChange={(event) => setApplySchedule(event.target.checked)}
-                    />
-                  </label>
-                  <div className="mt-2 grid grid-cols-7 gap-1">
+                    </Switch>
+                  </div>
+                  <div className={cn("mt-2 grid grid-cols-7 gap-1 transition-opacity", applySchedule ? "" : "opacity-40")}>
                     {WEEKDAYS.slice(1)
                       .concat(WEEKDAYS[0])
                       .map((day) => {
