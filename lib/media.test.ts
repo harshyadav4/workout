@@ -1,7 +1,10 @@
 // Run with: npm run check
 import assert from "node:assert/strict";
 
-import { releaseUnusedMedia } from "@/lib/media";
+import { readFileSync } from "node:fs";
+
+import { PRESET_DATASET_IDS, releaseUnusedMedia } from "@/lib/media";
+import { presetWorkouts } from "@/lib/seed-data";
 import { removedMediaPaths } from "@/lib/sync";
 import type { SessionTemplate, WorkoutTemplate } from "@/lib/types";
 
@@ -41,3 +44,27 @@ assert.deepEqual(removedMediaPaths(shared, [shared[0], template("b")]), []);
 assert.deepEqual(removedMediaPaths(shared, [template("a"), template("b")]), ["u/same.gif"]);
 
 console.log("media cleanup checks passed");
+
+// Every built-in exercise has a demo, and every demo it points at exists. A
+// preset added without an entry here silently ships with no video.
+{
+  const raw = JSON.parse(readFileSync("public/exercises.json", "utf8"));
+  const entries: { id: string }[] = Array.isArray(raw) ? raw : Object.values(raw)[0] as { id: string }[];
+  const library = new Set(entries.map((entry) => entry.id));
+
+  for (const preset of presetWorkouts) {
+    const id = PRESET_DATASET_IDS[preset.id];
+    assert.ok(id, `${preset.name} has a library demo`);
+    assert.ok(library.has(id), `${preset.name} points at ${id}, which is in the library`);
+  }
+}
+
+// Deleting a template must not strip the demo from sessions on the calendar.
+{
+  const onCalendar = [{ exercises: [{ workoutId: "sled" } as never] }];
+  assert.equal(
+    releaseUnusedMedia(templates, [session("s", ["landmine"])], onCalendar),
+    templates,
+    "a GIF a scheduled session still uses is kept, template or not"
+  );
+}

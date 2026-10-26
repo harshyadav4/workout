@@ -435,29 +435,6 @@ export function buildExport(state: SyncableState) {
 }
 
 /**
- * A plan without a training history — what you hand to someone else.
- *
- * The same payload shape as `buildExport`, with every performed thing removed:
- * no logs, no sets, no measurements, no profile. That is a privacy decision as
- * much as a size one — a plan is a routine, and handing over a year of
- * bodyweights with it is not what "share my plan" means to anyone.
- *
- * It reads back through `parseExport` with no special case: the missing arrays
- * validate as empty, and `reconcile` merges empty collections by adding nothing.
- * So importing someone's plan cannot touch your own workouts.
- */
-export function buildPlanExport(state: SyncableState) {
-  return {
-    exportedAt: new Date().toISOString(),
-    kind: "plan" as const,
-    templates: state.templates.filter((template) => !template.isPreset),
-    sessionTemplates: state.sessionTemplates,
-    scheduledSessions: state.scheduledSessions,
-    scheduleConfig: state.scheduleConfig
-  };
-}
-
-/**
  * Stored GIFs that the previous state referenced and the next one does not —
  * the files to delete. Content-addressed paths can be shared, so a path still
  * used by any template survives.

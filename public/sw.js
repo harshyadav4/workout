@@ -7,14 +7,19 @@
  *   - pages:          network first, last good copy when offline
  *   - /_next/static:  cache first (file names are content hashes, never stale)
  *   - exercises.json, icons: stale while revalidate
- *   - everything else, and every other origin (Supabase, the demo GIF CDN,
- *     /api): not touched at all, so no request is ever served stale data.
+ *   - /api/demo:      cache first (library demos never change under their
+ *                     name; kept so a demo opens with no signal)
+ *   - everything else, and every other origin (Supabase, the rest of /api):
+ *     not touched at all, so no request is ever served stale data.
  *
  * Bump VERSION to drop every old cache on the next visit.
  */
-const VERSION = "v2";
+const VERSION = "v3";
 const SHELL = `gymflow-shell-${VERSION}`;
 const STATIC = `gymflow-static-${VERSION}`;
+// Not versioned: the files are immutable, and re-downloading every demo on each
+// release would cost the user's data for nothing.
+const DEMOS = "gymflow-demos";
 const PRECACHE = ["/", "/plan", "/progress", "/profile", "/manifest.webmanifest", "/icon-192.png"];
 
 self.addEventListener("install", (event) => {
@@ -31,7 +36,7 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((keys) => Promise.all(keys.filter((key) => key !== SHELL && key !== STATIC).map((key) => caches.delete(key))))
+      .then((keys) => Promise.all(keys.filter((key) => key !== SHELL && key !== STATIC && key !== DEMOS).map((key) => caches.delete(key))))
       .then(() => self.clients.claim())
   );
 });
@@ -41,6 +46,18 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET") return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+  if (url.pathname.startsWith("/api/demo/")) {
+    event.respondWith(
+      caches.open(DEMOS).then(async (cache) => {
+        const hit = await cache.match(request);
+        if (hit) return hit;
+        const response = await fetch(request);
+        if (response.ok) cache.put(request, response.clone());
+        return response;
+      })
+    );
+    return;
+  }
   if (url.pathname.startsWith("/api/")) return;
 
   if (request.mode === "navigate") {

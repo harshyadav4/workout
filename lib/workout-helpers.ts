@@ -73,6 +73,83 @@ export function removeSetFromExercises(
 }
 
 /**
+ * Drop one exercise from today's session — the plan it came from is not
+ * touched, so it is back next time. Logged sets go with it: removing it means
+ * it did not happen today. The last exercise stays, so the session never
+ * empties into a card with nowhere to add work back.
+ */
+export function removeExerciseFromExercises(
+  exercises: PlannedExercise[],
+  exerciseId: string
+): PlannedExercise[] {
+  return exercises.length > 1 ? exercises.filter((exercise) => exercise.id !== exerciseId) : exercises;
+}
+
+/**
+ * The set to open when an exercise is picked by name: its first unlogged one,
+ * or its first set when everything is logged — tapping a finished exercise is
+ * a request to correct it, not a no-op.
+ */
+export function exerciseEntrySetId(exercise: PlannedExercise): string | undefined {
+  return (exercise.sets.find((setItem) => !setItem.completed) ?? exercise.sets[0])?.id;
+}
+
+/**
+ * Re-plan every session not started yet — today's and the days ahead — from
+ * what has been logged since it was scheduled. A session's numbers were fixed
+ * the day it was put on the calendar, so a lift logged at 30 kg × 5 this
+ * morning still showed next week at the 40 kg it was created with.
+ *
+ * Only sessions with nothing in them yet are touched: started, finished,
+ * rest, or a session with a set ticked off are left exactly as they are.
+ * Ids are kept where the shape still matches, and a session whose numbers did
+ * not move is returned as the same object — sync uploads changed rows only, so
+ * opening the app does not re-send the whole calendar.
+ */
+export function refreshUpcomingSessions(
+  sessions: ScheduledSession[],
+  templates: SessionTemplate[],
+  history: PerformanceHistory,
+  today: string
+): ScheduledSession[] {
+  let changed = false;
+
+  const next = sessions.map((session) => {
+    const template = templates.find((item) => item.id === session.sessionTemplateId);
+    const untouched = session.exercises.every((exercise) => exercise.sets.every((setItem) => !setItem.completed));
+    if (
+      !template ||
+      session.type !== "workout" ||
+      session.status !== "planned" ||
+      session.date < today ||
+      !untouched
+    ) {
+      return session;
+    }
+
+    const fresh = plannedExercisesFromTemplate(template, history).map((exercise, index) => {
+      const before = session.exercises[index];
+      if (!before || before.workoutId !== exercise.workoutId) {
+        return exercise;
+      }
+      return {
+        ...exercise,
+        id: before.id,
+        sets: exercise.sets.map((setItem, setIndex) => ({ ...setItem, id: before.sets[setIndex]?.id ?? setItem.id }))
+      };
+    });
+
+    if (JSON.stringify(fresh) === JSON.stringify(session.exercises)) {
+      return session;
+    }
+    changed = true;
+    return { ...session, exercises: fresh };
+  });
+
+  return changed ? next : sessions;
+}
+
+/**
  * Live counts for the day header. `done`/`volume` are what you have actually
  * logged; `logged*` is what Finish would record — the same completed-only
  * sets as buildLogFromSession, never the plan.
@@ -314,6 +391,79 @@ export function lastPerformance(
   return { weight: newest.peakWeight, date: newest.date, source: "rollup" };
 }
 
+/** One set as it was last done — what `carriedSets` hands to the next plan. */
+export interface CarriedSet {
+  weight: number;
+  reps: number;
+  durationSeconds?: number;
+}
+
+/**
+ * Every session that logged this lift, newest first, each as its set rows.
+ * Sessions are told apart by their log, not their date — the same lift twice
+ * in one day is two sessions. Newest by date, then store order, which puts the
+ * latest finish first (logs are prepended). A session where the lift was
+ * skipped or removed logged nothing for it, so it is simply not here.
+ */
+function loggedSessions(workoutId: string, setLogs: SetLog[]): SetLog[][] {
+  const sessions = new Map<string, SetLog[]>();
+  setLogs
+    .filter((row) => row.workoutId === workoutId)
+    // Stable, so rows of one date keep store order.
+    .sort((a, b) => (a.date === b.date ? 0 : a.date > b.date ? -1 : 1))
+    .forEach((row) => sessions.set(row.logId, [...(sessions.get(row.logId) ?? []), row]));
+  return [...sessions.values()];
+}
+
+const carry = (row: SetLog): CarriedSet => ({
+  weight: row.weight,
+  reps: row.reps,
+  durationSeconds: row.durationSeconds
+});
+
+/** How many sets the latest session that did this lift logged; 0 if none ever did. */
+export function lastSessionSetCount(workoutId: string, setLogs: SetLog[]): number {
+  return loggedSessions(workoutId, setLogs)[0]?.length ?? 0;
+}
+
+/**
+ * Set `index` (0-based, working sets only) as the latest session that reached
+ * it did it. Undefined when no session ever got that far — no fallback here;
+ * the caller decides what a set nobody has done starts at.
+ */
+export function loggedSetAt(workoutId: string, setLogs: SetLog[], index: number): CarriedSet | undefined {
+  for (const session of loggedSessions(workoutId, setLogs)) {
+    const found = session.find((row) => row.setIndex === index);
+    if (found) {
+      return carry(found);
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Where each set of the next session starts, when no progression rule is set:
+ * what you actually did, not what the session was typed with months ago.
+ *
+ * Set by set, looking back: set N comes from the most recent session that
+ * logged a set N of this lift (`loggedSetAt`). A skipped session is passed
+ * over on its own; a session that stopped at 2 of 4 leaves sets 3 and 4 to an
+ * earlier one. A set no session ever reached copies the last set of the latest
+ * session. Nothing logged at all is `undefined`, and the plan's numbers stand.
+ */
+export function carriedSets(
+  workoutId: string,
+  setLogs: SetLog[],
+  count: number
+): (CarriedSet | undefined)[] {
+  const latest = loggedSessions(workoutId, setLogs)[0];
+  if (!latest) {
+    return Array.from({ length: count }, () => undefined);
+  }
+  const lastSet = latest.reduce((last, row) => (row.setIndex > last.setIndex ? row : last));
+  return Array.from({ length: count }, (_, index) => loggedSetAt(workoutId, setLogs, index) ?? carry(lastSet));
+}
+
 /** Everything `lastPerformance` needs, as the store holds it. */
 export interface PerformanceHistory {
   logs: WorkoutLog[];
@@ -359,6 +509,17 @@ export function plannedExercisesFromTemplate(
     // Zero when no rule ran, so `weights` passes through untouched.
     const shift = target.weight - plannedTop;
 
+    // No rule: each set starts where you actually left it (see carriedSets).
+    // A rule reads the same history its own way, so it keeps the final say.
+    //
+    // The count follows last time too: did 10, plan 10; trimmed back to 3,
+    // plan 3. Never below the session's own count — one short day does not
+    // shrink the plan; editing it in Build does.
+    const setCount = settings?.rule
+      ? exercise.sets
+      : Math.max(exercise.sets, lastSessionSetCount(exercise.workoutId, history.setLogs));
+    const carried = settings?.rule ? [] : carriedSets(exercise.workoutId, history.setLogs, setCount);
+
     return {
       id: crypto.randomUUID(),
       workoutId: exercise.workoutId,
@@ -368,7 +529,19 @@ export function plannedExercisesFromTemplate(
       metric: exercise.metric,
       perSide: exercise.perSide,
       progressionNote: target.reason || undefined,
-      sets: Array.from({ length: exercise.sets }).map((_, index) => {
+      sets: Array.from({ length: setCount }).map((_, index) => {
+        const from = carried[index];
+        if (from) {
+          return {
+            id: crypto.randomUUID(),
+            reps: isTime ? 0 : from.reps,
+            weight: from.weight,
+            durationSeconds: isTime ? from.durationSeconds ?? exercise.durationSeconds ?? 0 : undefined,
+            previousReps: last?.reps,
+            previousWeight: last?.weight,
+            type: "normal" as const
+          };
+        }
         return {
           id: crypto.randomUUID(),
           // Zero reps for a held set — that is what keeps volume, totalReps and

@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { ThemedSelect } from "@/components/ui/select";
+import { SessionPreview } from "@/features/planner/session-preview";
 import { MuscleMapCard } from "@/features/home/muscle-map-card";
 import { useExercisesFromSessionTemplate, useWorkoutStore } from "@/features/workout/workout-store";
 import { formatDayKey } from "@/lib/progress-metrics";
@@ -82,6 +83,9 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
   const [restWeekdays, setRestWeekdays] = useState<number[]>([]);
   const [selectedDate, setSelectedDate] = useState(todayKey);
   const [confirmation, setConfirmation] = useState<string | null>(null);
+  // The session chips wait behind one button: a day is for reading what is on
+  // it, and a row of "+ Upper · Pump" keys under it read as more of the plan.
+  const [adding, setAdding] = useState(false);
   // Own selection, not Home's global `selectedMuscleId` — this previews a
   // possibly-future day, so picking a muscle here must not also change what
   // Home highlights for today.
@@ -105,6 +109,9 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
   const weekDates = buildWeekDates(weekOffset);
   const today = todayKey();
   const sessionsForDay = scheduledSessions.filter((session) => session.date === selectedDate);
+  // A past day is history: what you did (or skipped) stays as it was. Adding,
+  // moving or removing there would rewrite the record the charts read from.
+  const isPastDay = selectedDate < today;
   const selectedDay = weekDates.find((item) => item.key === selectedDate) ?? weekDates[0];
 
   const dayWorkoutIds = useMemo(
@@ -127,6 +134,7 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
     setWeekOffset(offset);
     setSelectedDate(dates.some((item) => item.key === today) ? today : dates[0].key);
     setConfirmation(null);
+    setAdding(false);
   };
 
   const addSessionToDay = (templateId: string) => {
@@ -147,6 +155,7 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
       exercises: buildExercises(template)
     });
     setConfirmation(null);
+    setAdding(false);
   };
 
   const pillFor = (key: string) => {
@@ -340,7 +349,10 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
                 type="button"
                 aria-current={isSelected ? "date" : undefined}
                 aria-label={`${item.dayLabel} ${item.dayNumber}${pill ? `, ${pill.type === "rest" ? "rest" : pill.sessionName}` : ""}`}
-                onClick={() => setSelectedDate(item.key)}
+                onClick={() => {
+                  setSelectedDate(item.key);
+                  setAdding(false);
+                }}
                 className={`flex flex-col items-center gap-1.5 rounded-lg px-0.5 pb-2 pt-2 transition-colors ${
                   isSelected ? "key-quiet ring-2 ring-brand" : "well"
                 }`}
@@ -377,26 +389,36 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
           {sessionsForDay.length > 0 ? (
             <div className="space-y-2">
               {sessionsForDay.map((session) => (
-                <div
-                  key={session.id}
-                  className="flex items-center justify-between gap-3 rounded-lg bg-muted py-1.5 pl-4 pr-1.5"
-                >
-                  <div className="flex min-w-0 items-center gap-2.5">
-                    <span
-                      className={`h-2 w-2 shrink-0 rounded-full ${
-                        session.type === "rest" ? "bg-muted-foreground/50" : "bg-primary"
-                      }`}
-                    />
-                    <span className="truncate text-sm font-semibold">{session.sessionName}</span>
+                <div key={session.id} className="rounded-lg bg-muted py-1.5 pl-4 pr-1.5">
+                  <div className="flex min-h-10 items-center justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <span
+                        className={`h-2 w-2 shrink-0 rounded-full ${
+                          session.type === "rest" ? "bg-muted-foreground/50" : "bg-primary"
+                        }`}
+                      />
+                      <span className="truncate text-sm font-semibold">{session.sessionName}</span>
+                    </div>
+                    {/* Only a session still ahead of you can move or go. A
+                        finished one owns logged sets; one under way is the
+                        workout you are in; a past day is history. */}
+                    {session.status === "completed" ? (
+                      <span className="shrink-0 pr-2.5 text-xs font-semibold text-success">Done</span>
+                    ) : session.status === "active" ? (
+                      <span className="shrink-0 pr-2.5 text-xs font-semibold text-brand">In progress</span>
+                    ) : isPastDay ? null : (
+                      <button
+                        type="button"
+                        aria-label={`Move or remove ${session.sessionName}`}
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground active:bg-secondary"
+                        onClick={() => setSessionToRemove(session)}
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
                   </div>
-                  <button
-                    type="button"
-                    aria-label={`Move or remove ${session.sessionName}`}
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground active:bg-secondary"
-                    onClick={() => setSessionToRemove(session)}
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
+                  {/* What the day asks, so you can get ready for it. */}
+                  {session.type === "workout" ? <SessionPreview session={session} /> : null}
                 </div>
               ))}
             </div>
@@ -406,24 +428,43 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
 
           {/* Buttons, not a <select>: this performs an action, it does not pick
               a value — the select's own first option was a no-op instruction. */}
-          <div className="mt-3">
-            <p className="mb-2 text-xs text-muted-foreground">
-              Add to {selectedDay.dayLabel} {selectedDay.dayNumber}
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {sessionTemplates.map((template) => (
+          {isPastDay ? (
+            <p className="mt-3 text-xs text-muted-foreground">Past day: kept as your history.</p>
+          ) : adding ? (
+            <div className="mt-3">
+              <p className="mb-2 text-xs text-muted-foreground">
+                Add to {selectedDay.dayLabel} {selectedDay.dayNumber}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {sessionTemplates.map((template) => (
+                  <button
+                    key={template.id}
+                    type="button"
+                    onClick={() => addSessionToDay(template.id)}
+                    className="key-quiet flex h-10 items-center gap-1 rounded-full pl-3 pr-3.5 text-sm font-semibold"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    {template.name}
+                  </button>
+                ))}
                 <button
-                  key={template.id}
                   type="button"
-                  onClick={() => addSessionToDay(template.id)}
-                  className="key-quiet flex h-10 items-center gap-1 rounded-full pl-3 pr-3.5 text-sm font-semibold"
+                  onClick={() => {
+                    setAdding(false);
+                    setConfirmation(null);
+                  }}
+                  className="flex h-10 items-center rounded-full px-3.5 text-sm font-semibold text-muted-foreground"
                 >
-                  <Plus className="h-3.5 w-3.5" />
-                  {template.name}
+                  Cancel
                 </button>
-              ))}
+              </div>
             </div>
-          </div>
+          ) : sessionTemplates.length > 0 ? (
+            <Button variant="ghost" className="mt-2 w-full" onClick={() => setAdding(true)}>
+              <Plus className="h-4 w-4" />
+              {sessionsForDay.length > 0 ? "Add more session" : "Add session"}
+            </Button>
+          ) : null}
           {confirmation ? (
             <p className="mt-3 flex items-center gap-1.5 text-sm text-success">
               <Check className="h-4 w-4" />

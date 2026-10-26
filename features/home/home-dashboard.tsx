@@ -7,13 +7,15 @@ import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { LevelUpGem, QuestScroll } from "@/features/home/artifacts";
+import { LevelUpGem } from "@/features/home/artifacts";
 import { ExerciseLedger } from "@/features/home/exercise-ledger";
+import { FinishConfirm } from "@/features/home/finish-confirm";
 import { MuscleMapCard } from "@/features/home/muscle-map-card";
 import { MeasurementPrompt } from "@/features/home/measurement-prompt";
 import { QuickStart, WorkoutPicker } from "@/features/home/quick-start";
 import { useScreenWakeLock } from "@/features/home/use-wake-lock";
 import { RestDial, useRestTimer } from "@/features/home/rest-timer";
+import { SessionRecap } from "@/features/home/session-recap";
 import { SessionRing } from "@/features/home/session-ring";
 import { StreakCard } from "@/features/home/streak-card";
 import { InstallCard } from "@/features/pwa/install-card";
@@ -24,12 +26,13 @@ import {
 } from "@/features/workout/workout-store";
 import { logSetFeedback } from "@/lib/feedback";
 import { isLevelUp, previousBest } from "@/lib/hunter";
-import { summarizeSession, type SessionSummary } from "@/lib/progress-metrics";
+import { summarizeSession } from "@/lib/progress-metrics";
 import { resolveDayState } from "@/lib/schedule";
 import type { PlannedSet, ScheduledSession } from "@/lib/types";
 import { cn, formatVolume } from "@/lib/utils";
 import {
   buildMuscleHighlightsFromWorkoutIds,
+  exerciseEntrySetId,
   firstPendingSetId,
   nextPendingSetId,
   sessionTotals
@@ -64,7 +67,8 @@ function DayHeader({
   tag: string;
   tone: DayTone;
   title: string;
-  detail: string;
+  /** One line of numbers. Omit where the body below already carries them. */
+  detail?: string;
   /** Sets done out of planned. Renders the ring; omit where there is no work. */
   progress?: { done: number; total: number };
 }) {
@@ -81,7 +85,7 @@ function DayHeader({
             </span>
           ))}
         </h2>
-        <p className="mt-2 text-sm text-muted-foreground tabular-nums">{detail}</p>
+        {detail ? <p className="mt-2 text-sm text-muted-foreground tabular-nums">{detail}</p> : null}
       </div>
       {progress && progress.total > 0 ? (
         <SessionRing
@@ -151,91 +155,6 @@ function NextUp({ session }: { session?: ScheduledSession }) {
 }
 
 /**
- * What the session earned, in place of "Logged. It is on your progress charts."
- *
- * Nothing here is rendered when it is not known: a first run of a session shows
- * no comparison rather than +0%, and a first-ever lift is a baseline, not a PR.
- */
-function FinishSummary({ summary }: { summary?: SessionSummary }) {
-  if (!summary) {
-    return (
-      <div className="mt-4 flex items-center gap-3 rounded-lg bg-muted px-4 py-3 text-sm">
-        <Info className="h-4 w-4 shrink-0 text-muted-foreground" />
-        <p className="text-muted-foreground">
-          Finished with nothing logged — no sets were ticked off, so there is nothing to save.
-        </p>
-      </div>
-    );
-  }
-
-  const change = summary.volumeChange;
-
-  return (
-    <div className="system-pop mt-4 space-y-3 rounded-xl bg-success/10 p-4 ring-1 ring-success/25">
-      <div className="flex items-center gap-2.5">
-        <QuestScroll className="h-9 w-[42px]" />
-        <div>
-          <p className="font-display text-lg font-bold leading-tight tracking-tight">Daily quest cleared</p>
-          <p className="text-xs text-muted-foreground">Today&apos;s session is logged.</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-3 gap-2 text-center">
-        {[
-          { label: "Sets", value: String(summary.sets) },
-          { label: "Reps", value: String(summary.reps) },
-          { label: "Volume", value: `${formatVolume(summary.volume)} kg` }
-        ].map((stat) => (
-          <div key={stat.label} className="well rounded-lg px-2 py-2.5">
-            <p className="font-display text-xl font-extrabold tabular-nums tracking-tight">{stat.value}</p>
-            <p className="mt-0.5 text-[11px] font-semibold text-muted-foreground">{stat.label}</p>
-          </div>
-        ))}
-      </div>
-
-      {change === undefined ? null : (
-        <p className="text-sm">
-          <span className={change >= 0 ? "font-semibold text-success" : "font-semibold text-warning"}>
-            {change >= 0 ? "+" : ""}
-            {Math.round(change)}%
-          </span>{" "}
-          <span className="text-muted-foreground">volume against the last time you ran this</span>
-        </p>
-      )}
-
-      {summary.personalRecords.length > 0 ? (
-        <p className="text-sm">
-          <span className="font-semibold text-brand">
-            {summary.personalRecords.length === 1 ? "New best" : "New bests"}
-          </span>{" "}
-          <span className="text-muted-foreground">
-            {summary.personalRecords
-              .map((record) => `${record.name} at ${record.weight} kg`)
-              .join(", ")}
-          </span>
-        </p>
-      ) : null}
-
-      {summary.muscles.length > 0 ? (
-        <div>
-          <p className="text-xs font-semibold text-muted-foreground">What you hit</p>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {summary.muscles.map((muscle) => (
-              <span
-                key={muscle.muscleId}
-                className="rounded-full bg-card px-3 py-1 text-xs font-medium tabular-nums"
-              >
-                {muscle.name} {Math.round(muscle.share)}%
-              </span>
-            ))}
-          </div>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-/**
  * "Level up!": a new best, caught on the set that made it, instead of only in
  * the summary at the end. Sits just above the tab bar for a moment and goes —
  * low, so it never covers the strip with the rest timer, or the set being logged.
@@ -276,9 +195,11 @@ export function HomeDashboard() {
   const logs = useWorkoutStore((state) => state.logs);
   const addExerciseToSession = useWorkoutStore((state) => state.addExerciseToSession);
   const removeSetFromSession = useWorkoutStore((state) => state.removeSetFromSession);
+  const removeExerciseFromSession = useWorkoutStore((state) => state.removeExerciseFromSession);
   const logTodayWorkout = useWorkoutStore((state) => state.logTodayWorkout);
   const rest = useRestTimer();
   const [addingExercise, setAddingExercise] = useState(false);
+  const [confirmingFinish, setConfirmingFinish] = useState(false);
 
   const [pickedSetId, setPickedSetId] = useState<string>();
   // ponytail: the stamp replays only when this id changes, so re-logging the
@@ -310,15 +231,18 @@ export function HomeDashboard() {
   useScreenWakeLock(day.kind === "logging");
 
   // The logs this session just wrote, against everything logged before today.
-  const sessionSummary = useMemo(() => {
-    if (day.kind !== "done") {
-      return undefined;
-    }
-    const written = logs.filter(
-      (log) => log.date === activeDate && (log.sessionId ?? "") === (day.session.sessionTemplateId ?? day.session.id)
-    );
-    return summarizeSession(written, logs);
-  }, [activeDate, day, logs]);
+  const writtenLogs = useMemo(
+    () =>
+      day.kind === "done"
+        ? logs.filter(
+            (log) =>
+              log.date === activeDate &&
+              (log.sessionId ?? "") === (day.session.sessionTemplateId ?? day.session.id)
+          )
+        : [],
+    [activeDate, day, logs]
+  );
+  const sessionSummary = useMemo(() => summarizeSession(writtenLogs, logs), [writtenLogs, logs]);
 
   const session = day.kind === "setup" || day.kind === "open" ? undefined : day.session;
   const next = day.kind === "setup" ? undefined : day.next;
@@ -394,9 +318,35 @@ export function HomeDashboard() {
     }
   };
 
+  /** Gone from today. If it was the one open, the panel moves on to what comes after it. */
+  const removeExercise = (exerciseId: string) => {
+    if (!session) {
+      return;
+    }
+    const index = session.exercises.findIndex((item) => item.id === exerciseId);
+    const wasOpen = session.exercises[index]?.sets.some((item) => item.id === openSetId);
+    removeExerciseFromSession(session.id, exerciseId);
+
+    if (wasOpen) {
+      const rest = session.exercises.filter((item) => item.id !== exerciseId);
+      const order = [...rest.slice(index), ...rest.slice(0, index)];
+      setPickedSetId(order.flatMap((item) => item.sets).find((item) => !item.completed)?.id);
+    }
+  };
+
   const finishSession = () => {
+    setConfirmingFinish(false);
     rest.skip();
     logTodayWorkout();
+  };
+
+  // With every set logged there is nothing to lose, so no question.
+  const requestFinish = () => {
+    if (totals.done < totals.total) {
+      setConfirmingFinish(true);
+    } else {
+      finishSession();
+    }
   };
 
   const exerciseCount = (count: number) => `${count} exercise${count === 1 ? "" : "s"}`;
@@ -528,8 +478,9 @@ export function HomeDashboard() {
             tone={isDone ? "success" : "default"}
             title={day.session.sessionName}
             detail={
+              // Done: the recap's stat tiles say it; a line here only repeated them.
               isDone
-                ? `${totals.loggedSets} sets · ${formatVolume(totals.loggedVolume)} kg logged`
+                ? undefined
                 : `${exerciseCount(day.session.exercises.length)} · ${totals.total} sets · ${formatVolume(totals.planned)} kg planned`
             }
             // Done says its piece in the green banner below; a full ring there
@@ -548,7 +499,7 @@ export function HomeDashboard() {
 
           {isDone ? (
             <>
-              <FinishSummary summary={sessionSummary} />
+              <SessionRecap summary={sessionSummary} exercises={day.session.exercises} logs={writtenLogs} />
               {/* Below the payoff, never above it. The reward comes first. */}
               <MeasurementPrompt />
             </>
@@ -556,11 +507,13 @@ export function HomeDashboard() {
         </Card>
       )}
 
-      {day.session.exercises.length > 0 ? (
+      {/* Once done, the recap above lists every set with its numbers; this
+          ledger would only repeat it as pills. */}
+      {day.session.exercises.length > 0 && !isDone ? (
         <Card className="pb-2 pt-2">
           <div className="flex items-baseline justify-between py-2">
             <h3 className="text-[15px] font-bold tracking-tight">
-              {isDone ? "What you did" : "The work"}
+              The work
             </h3>
             <p className="text-xs text-muted-foreground tabular-nums">
               {exerciseCount(day.session.exercises.length)}
@@ -579,6 +532,10 @@ export function HomeDashboard() {
                 onLogSet={(setId) => logSet(exercise.id, setId)}
                 onAddSet={() => addSetToSession(day.session.id, exercise.id)}
                 onRemoveSet={(setId) => removeSetFromSession(day.session.id, exercise.id, setId)}
+                onPick={() => setPickedSetId(exerciseEntrySetId(exercise))}
+                onRemove={
+                  day.session.exercises.length > 1 ? () => removeExercise(exercise.id) : undefined
+                }
               />
             ))}
           </div>
@@ -606,7 +563,7 @@ export function HomeDashboard() {
         </Card>
       ) : null}
 
-      {isLogging && totals.done < totals.total ? (
+      {isLogging && totals.done < totals.total && !confirmingFinish ? (
         <div className="flex items-start gap-2.5 rounded-xl bg-warning/10 px-4 py-3 text-sm ring-1 ring-warning/25">
           <Info className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
           <p className="text-muted-foreground">
@@ -618,9 +575,21 @@ export function HomeDashboard() {
       ) : null}
 
       {isLogging ? (
-        <Button size="lg" className="w-full" onClick={finishSession}>
-          Finish session
-        </Button>
+        confirmingFinish ? (
+          <FinishConfirm
+            exercises={day.session.exercises}
+            onCancel={() => setConfirmingFinish(false)}
+            onFinish={finishSession}
+            onPick={(exercise) => {
+              setConfirmingFinish(false);
+              setPickedSetId(exerciseEntrySetId(exercise));
+            }}
+          />
+        ) : (
+          <Button size="lg" className="w-full" onClick={requestFinish}>
+            Finish session
+          </Button>
+        )
       ) : null}
 
       {isDone ? <NextUp session={next} /> : null}

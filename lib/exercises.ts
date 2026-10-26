@@ -170,7 +170,9 @@ export function deriveEngagement(
   return result;
 }
 
-const MEDIA_BASE = "https://raw.githubusercontent.com/hasaneyldrm/exercises-dataset/main/";
+// Same-origin, through app/api/demo: the upstream host is slow on some mobile
+// networks, and only a same-origin URL can be kept by the service worker.
+const MEDIA_BASE = "/api/demo/";
 
 export function exerciseImageUrl(exercise: Pick<Exercise, "image">): string {
   return MEDIA_BASE + exercise.image;

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, Minus, Plus, Trash2 } from "lucide-react";
 
+import { ManaBurst, ManaCharge, ManaVial } from "@/features/home/mana-vial";
 import { formatRest } from "@/features/home/rest-timer";
 import {
   ExerciseDemoThumb,
@@ -136,16 +137,9 @@ function Drum({
   );
 }
 
-/** The chip's material by state: an orange key, a lit ring, or a well. */
-function chipTone(state: "done" | "open" | "pending") {
-  if (state === "done") {
-    return "bg-gradient-to-b from-[hsl(var(--key-top))] to-[hsl(var(--key-bottom))] shadow-[inset_0_1px_0_rgba(255,255,255,0.6),0_0_0_1px_rgba(0,0,0,0.25)]";
-  }
-  if (state === "open") {
-    return "bg-card shadow-[inset_0_0_0_2px_hsl(var(--brand)),0_0_14px_hsl(var(--brand)/0.45)]";
-  }
-  return "well";
-}
+/** The logged chip: the solid key, lit with mana. */
+const DONE_TONE =
+  "mana-glow bg-gradient-to-b from-[hsl(var(--key-top))] to-[hsl(var(--key-bottom))] shadow-[inset_0_1px_0_rgba(255,255,255,0.6),0_0_0_1px_rgba(0,0,0,0.25)]";
 
 function SetChip({
   index,
@@ -162,11 +156,22 @@ function SetChip({
   onOpen?: () => void;
 }) {
   const state = setItem.completed ? "done" : isOpen ? "open" : "pending";
-  const tone = chipTone(state);
-  const stamp = isStamped ? " set-chip-stamp" : "";
+  // A golden-ratio step spreads the wave starts evenly, however many sets.
+  const phase = (index * 0.618) % 1;
+  const pill = (
+    <span className="relative block">
+      {state === "open" ? <ManaCharge /> : null}
+      {state === "done" ? (
+        <span className={cn("block h-3 w-[26px] rounded-full", DONE_TONE, isStamped && "set-chip-stamp")} />
+      ) : (
+        <ManaVial state={state} phase={phase} />
+      )}
+      {state === "done" && isStamped ? <ManaBurst /> : null}
+    </span>
+  );
 
   if (!onOpen) {
-    return <span className={`h-3 w-[26px] rounded-full ${tone}`} aria-hidden />;
+    return pill;
   }
 
   return (
@@ -177,7 +182,7 @@ function SetChip({
       aria-pressed={isOpen}
       className="flex h-12 w-12 items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:bg-secondary/60"
     >
-      <span className={`h-3 w-[26px] rounded-full transition-colors duration-200 ${tone}${stamp}`} />
+      {pill}
     </button>
   );
 }
@@ -195,6 +200,44 @@ interface ExerciseLedgerProps {
   onLogSet: (setId: string) => void;
   onAddSet: () => void;
   onRemoveSet: (setId: string) => void;
+  /** The row was tapped: open this exercise, wherever it sits in the session. */
+  onPick: () => void;
+  /** Drop this exercise from today. Absent on the last one left. */
+  onRemove?: () => void;
+}
+
+const DISARM_MS = 3000;
+
+/**
+ * "Remove from today", inside the open exercise only. Two taps, no dialog: the
+ * first arms it and says what the second does, and it disarms itself if the
+ * second never comes. A modal would cover the set you are logging; a stray tap
+ * mid-set should cost nothing. Quiet text, not an icon on every row — a row of
+ * X's read as a list of things to get rid of.
+ */
+function RemoveExerciseButton({ name, onRemove }: { name: string; onRemove: () => void }) {
+  const [armed, setArmed] = useState(false);
+
+  useEffect(() => {
+    if (!armed) {
+      return;
+    }
+    const id = window.setTimeout(() => setArmed(false), DISARM_MS);
+    return () => window.clearTimeout(id);
+  }, [armed]);
+
+  return (
+    <button
+      type="button"
+      onClick={armed ? onRemove : () => setArmed(true)}
+      className={cn(
+        "mx-auto mt-2 flex min-h-11 items-center justify-center rounded-lg px-4 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        armed ? "bg-danger/15 text-danger ring-1 ring-danger/50" : "text-muted-foreground"
+      )}
+    >
+      <span aria-live="polite">{armed ? `Tap again to remove ${name}` : "Remove from today"}</span>
+    </button>
+  );
 }
 
 export function ExerciseLedger({
@@ -206,7 +249,9 @@ export function ExerciseLedger({
   onPatchSet,
   onLogSet,
   onAddSet,
-  onRemoveSet
+  onRemoveSet,
+  onPick,
+  onRemove
 }: ExerciseLedgerProps) {
   const openSet = exercise.sets.find((setItem) => setItem.id === openSetId);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -268,20 +313,45 @@ export function ExerciseLedger({
   const restLine = exercise.restSeconds ? ` · ${formatRest(exercise.restSeconds)} rest` : "";
 
   return (
-    <div className="border-b border-border py-3 last:border-b-0">
+    // The open exercise is lit, so in a superset — two exercises taken in
+    // turns — it is plain which one the panel is logging.
+    <div
+      className={cn(
+        "border-b border-border py-3 last:border-b-0",
+        ownsOpenSet && "-mx-3 rounded-xl border-transparent bg-brand/[0.06] px-3 ring-1 ring-brand/30"
+      )}
+    >
+      {/* The whole head of the row is the way in — name, plan line and notes —
+          so switching mid-session (the machine is busy, or a superset) is one
+          tap anywhere on it, not a hunt for a 26px chip. The name stays a real
+          button for keyboards and screen readers; this is the wide touch area. */}
+      <div onClick={interactive ? onPick : undefined} className={cn(interactive && "cursor-pointer")}>
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1">
-            <p
-              className={cn(
-                "truncate text-[15px] font-semibold leading-tight",
-                isFinished && interactive ? "text-muted-foreground" : ""
-              )}
-            >
-              {exercise.templateName}
-            </p>
-            {hasMedia ? (
-              <ExerciseMediaDialog datasetId={datasetId} gifUrl={gifUrl} name={exercise.templateName} />
+            {interactive ? (
+              <button
+                type="button"
+                onClick={onPick}
+                aria-pressed={ownsOpenSet}
+                className={cn(
+                  "-my-2 min-h-11 min-w-0 truncate rounded-md py-2 text-left text-[15px] font-semibold leading-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  ownsOpenSet ? "text-brand" : isFinished ? "text-muted-foreground" : ""
+                )}
+              >
+                {exercise.templateName}
+              </button>
+            ) : (
+              <p className="truncate text-[15px] font-semibold leading-tight">{exercise.templateName}</p>
+            )}
+            {/* Clicks in the demo sheet bubble through the React tree even from
+                its portal; stopped here so watching a demo never re-picks a set.
+                Not on the open exercise: its panel's demo thumbnail is the same
+                door, and two of them a few rows apart is one too many. */}
+            {hasMedia && !ownsOpenSet ? (
+              <span onClick={(event) => event.stopPropagation()} className="contents">
+                <ExerciseMediaDialog datasetId={datasetId} gifUrl={gifUrl} name={exercise.templateName} />
+              </span>
             ) : null}
           </div>
           <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
@@ -309,6 +379,7 @@ export function ExerciseLedger({
       {exercise.progressionNote ? (
         <p className="mt-1.5 text-xs text-brand/80">{exercise.progressionNote}</p>
       ) : null}
+      </div>
 
       {/* Tappable chips get their own row: at a 48px target a five-set exercise
           wrapped inside `max-w-[55%]` and pushed the exercise name to a stub. */}
@@ -430,6 +501,7 @@ export function ExerciseLedger({
           {openSet.type === "warmup" ? (
             <p className="mt-2 text-xs text-warning">Warm-up: logged, not counted in totals.</p>
           ) : null}
+          {onRemove ? <RemoveExerciseButton name={exercise.templateName} onRemove={onRemove} /> : null}
         </div>
       ) : null}
     </div>

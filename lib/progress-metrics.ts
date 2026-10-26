@@ -789,7 +789,7 @@ export interface SessionSummary {
   /** The muscles this session actually loaded, heaviest first, at head level. */
   muscles: { muscleId: MuscleId; name: string; share: number }[];
   /** Exercises whose top set beat everything before it. */
-  personalRecords: { name: string; weight: number }[];
+  personalRecords: { workoutId: string; name: string; weight: number }[];
 }
 
 export function summarizeSession(
@@ -832,7 +832,7 @@ export function summarizeSession(
         // first time you do something is not a record, it is a baseline.
         return best > 0 && (log.peakWeight ?? 0) > best;
       })
-      .map((log) => ({ name: log.name, weight: log.peakWeight ?? 0 }))
+      .map((log) => ({ workoutId: log.workoutId, name: log.name, weight: log.peakWeight ?? 0 }))
   };
 }
 

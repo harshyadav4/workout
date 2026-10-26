@@ -33,6 +33,9 @@ import {
 } from "@/lib/schedule";
 import {
   buildLogFromSession,
+  loggedSetAt,
+  refreshUpcomingSessions,
+  removeExerciseFromExercises,
   plannedExercisesFromTemplate,
   type PerformanceHistory,
   removeSetFromExercises
@@ -93,6 +96,8 @@ interface WorkoutState {
   /** The rack was taken. Adds to a session already under way. */
   addExerciseToSession: (sessionId: string, exercises: PlannedExercise[]) => void;
   removeSetFromSession: (sessionId: string, exerciseId: string, setId: string) => void;
+  /** Drops one exercise from today's session only. The plan keeps it. */
+  removeExerciseFromSession: (sessionId: string, exerciseId: string) => void;
   setSelectedMuscle: (muscleId?: string) => void;
   logTodayWorkout: () => void;
   setActiveDate: (date: string) => void;
@@ -100,6 +105,8 @@ interface WorkoutState {
   claimFor: (userId: string) => void;
   logMeasurement: (metric: BodyMetric, value: number, date?: string) => void;
   hydrateRemote: (payload: RemoteState) => void;
+  /** Re-plan sessions not started yet from the latest logs (see refreshUpcomingSessions). */
+  refreshUpcoming: () => void;
 }
 
 // v4 adds `owner`. v3 is not migrated on purpose: an untagged blob cannot be
@@ -127,6 +134,23 @@ function exerciseFromSessionTemplate(
   return plannedExercisesFromTemplate(template, history);
 }
 
+/**
+ * Sessions not started yet, re-planned from everything logged so far — so the
+ * next one opens at what you last lifted. The same state back when nothing
+ * moved, so callers can apply it freely without a write or a sync.
+ */
+function withFreshUpcoming<S extends Pick<WorkoutState, "scheduledSessions" | "sessionTemplates" | "logs" | "setLogs">>(
+  state: S
+): S {
+  const scheduledSessions = refreshUpcomingSessions(
+    state.scheduledSessions,
+    state.sessionTemplates,
+    { logs: state.logs, setLogs: state.setLogs },
+    todayKey()
+  );
+  return scheduledSessions === state.scheduledSessions ? state : { ...state, scheduledSessions };
+}
+
 function createInitialState(): Omit<
   WorkoutState,
   | "addTemplate"
@@ -146,6 +170,7 @@ function createInitialState(): Omit<
   | "addSetToSession"
   | "addExerciseToSession"
   | "removeSetFromSession"
+  | "removeExerciseFromSession"
   | "setSelectedMuscle"
   | "logTodayWorkout"
   | "setActiveDate"
@@ -153,6 +178,7 @@ function createInitialState(): Omit<
   | "claimFor"
   | "logMeasurement"
   | "hydrateRemote"
+  | "refreshUpcoming"
 > {
   // A new account starts empty and lands in Home's `setup` state. `muscles` and
   // `presetWorkouts` are static reference data that ships with the app, not the
@@ -303,7 +329,7 @@ function createWorkoutStore() {
           );
           // An exercise edited out of the session may have been the last user
           // of a stored GIF.
-          return { ...state, sessionTemplates, templates: releaseUnusedMedia(state.templates, sessionTemplates) };
+          return { ...state, sessionTemplates, templates: releaseUnusedMedia(state.templates, sessionTemplates, state.scheduledSessions) };
         });
 
         return true;
@@ -313,7 +339,7 @@ function createWorkoutStore() {
           const sessionTemplates = state.sessionTemplates.filter((template) => template.id !== id);
           // Clearing a template's mediaPath is what makes the sync layer delete
           // the stored GIF — see `removedMediaPaths` in lib/sync.ts.
-          return { ...state, sessionTemplates, templates: releaseUnusedMedia(state.templates, sessionTemplates) };
+          return { ...state, sessionTemplates, templates: releaseUnusedMedia(state.templates, sessionTemplates, state.scheduledSessions) };
         }),
       importAiPlan: ({ templates, sessions, scheduleConfig }) =>
         setAndPersist((state) => {
@@ -335,7 +361,7 @@ function createWorkoutStore() {
           ];
           const base = {
             ...state,
-            templates: releaseUnusedMedia(nextTemplates, sessionTemplates),
+            templates: releaseUnusedMedia(nextTemplates, sessionTemplates, state.scheduledSessions),
             sessionTemplates
           };
           if (!scheduleConfig) {
@@ -505,16 +531,21 @@ function createWorkoutStore() {
         })),
       selectSession: (sessionId) =>
         setAndPersist((state) => ({ ...state, selectedSessionId: sessionId })),
+      // Re-planned on the way in, so the numbers you start with are current
+      // even if the app has been open since before your last session.
       startSession: (sessionId) =>
-        setAndPersist((state) => ({
-          ...state,
-          selectedSessionId: sessionId,
-          scheduledSessions: state.scheduledSessions.map((session) =>
-            session.id === sessionId && session.type === "workout"
-              ? { ...session, status: "active" as const }
-              : session
-          )
-        })),
+        setAndPersist((current) => {
+          const state = withFreshUpcoming(current);
+          return {
+            ...state,
+            selectedSessionId: sessionId,
+            scheduledSessions: state.scheduledSessions.map((session) =>
+              session.id === sessionId && session.type === "workout"
+                ? { ...session, status: "active" as const }
+                : session
+            )
+          };
+        }),
       updateSessionSet: (sessionId, exerciseId, setId, patch) =>
         setAndPersist((state) => ({
           ...state,
@@ -536,6 +567,9 @@ function createWorkoutStore() {
               : session
           )
         })),
+      // A new set starts where the latest session that reached it left it —
+      // add a 4th set and it is your last 4th set, from whichever session last
+      // had one. A set nobody has done yet copies the one above it.
       addSetToSession: (sessionId, exerciseId) =>
         setAndPersist((state) => ({
           ...state,
@@ -543,29 +577,35 @@ function createWorkoutStore() {
             session.id === sessionId
               ? {
                   ...session,
-                  exercises: session.exercises.map((exercise) =>
-                    exercise.id === exerciseId
-                      ? {
-                          ...exercise,
-                          sets: [
-                            ...exercise.sets,
-                            {
-                              id: crypto.randomUUID(),
-                              reps: exercise.sets.at(-1)?.reps ?? 8,
-                              weight: exercise.sets.at(-1)?.weight ?? 20,
-                              // Without this a 4th set on a hold clones reps 0
-                              // and no duration — a silent zero-second set.
-                              durationSeconds: exercise.sets.at(-1)?.durationSeconds,
-                              // The set you just did, genuinely. Undefined when
-                              // this is the first — no invented 8 × 20kg.
-                              previousReps: exercise.sets.at(-1)?.reps,
-                              previousWeight: exercise.sets.at(-1)?.weight,
-                              type: "normal" as const
-                            }
-                          ]
+                  exercises: session.exercises.map((exercise) => {
+                    if (exercise.id !== exerciseId) {
+                      return exercise;
+                    }
+                    const above = exercise.sets.at(-1);
+                    // Logged set rows count working sets only, so index the same way.
+                    const index = exercise.sets.filter((setItem) => setItem.type !== "warmup").length;
+                    const logged = loggedSetAt(exercise.workoutId, state.setLogs, index);
+                    return {
+                      ...exercise,
+                      sets: [
+                        ...exercise.sets,
+                        {
+                          id: crypto.randomUUID(),
+                          reps: logged?.reps ?? above?.reps ?? 8,
+                          weight: logged?.weight ?? above?.weight ?? 20,
+                          // Without this a 4th set on a hold clones reps 0
+                          // and no duration — a silent zero-second set.
+                          durationSeconds: logged ? logged.durationSeconds : above?.durationSeconds,
+                          // What you did on this set last time when there is
+                          // one; else the set you just did. Undefined when this
+                          // is the first — no invented 8 × 20kg.
+                          previousReps: logged?.reps ?? above?.reps,
+                          previousWeight: logged?.weight ?? above?.weight,
+                          type: "normal" as const
                         }
-                      : exercise
-                  )
+                      ]
+                    };
+                  })
                 }
               : session
           )
@@ -591,6 +631,15 @@ function createWorkoutStore() {
               : session
           )
         })),
+      removeExerciseFromSession: (sessionId, exerciseId) =>
+        setAndPersist((state) => ({
+          ...state,
+          scheduledSessions: state.scheduledSessions.map((session) =>
+            session.id === sessionId
+              ? { ...session, exercises: removeExerciseFromExercises(session.exercises, exerciseId) }
+              : session
+          )
+        })),
       setSelectedMuscle: (muscleId) =>
         setAndPersist((state) => ({ ...state, selectedMuscleId: muscleId })),
       logTodayWorkout: () =>
@@ -608,7 +657,8 @@ function createWorkoutStore() {
             state.profile.weightKg
           );
 
-          return {
+          // Then everything ahead picks up what was just lifted.
+          return withFreshUpcoming({
             ...state,
             logs: [...logged.logs, ...state.logs],
             setLogs: [...logged.setLogs, ...state.setLogs],
@@ -617,7 +667,7 @@ function createWorkoutStore() {
                 ? { ...session, status: "completed" as const }
                 : session
             )
-          };
+          });
         }),
       setActiveDate: (date) =>
         setAndPersist((state) => ({
@@ -670,8 +720,10 @@ function createWorkoutStore() {
         ),
       // Was a replace-outright, which destroyed every local write that had not
       // reached Supabase yet — the failure `lib/reconcile.ts` exists to end.
+      // Logs from another device can move the plan, so re-plan after merging.
       hydrateRemote: (payload) =>
-        setAndPersist((state) => ({ ...state, ...reconcile(state, payload) }))
+        setAndPersist((state) => withFreshUpcoming({ ...state, ...reconcile(state, payload) })),
+      refreshUpcoming: () => setAndPersist((state) => withFreshUpcoming(state))
     };
   });
 }
@@ -692,6 +744,8 @@ export function WorkoutStoreProvider({ children }: { children: React.ReactNode }
     if (store && store.getState().activeDate !== todayKey()) {
       store.getState().setActiveDate(todayKey());
     }
+    // Sessions scheduled before this rule, or before logs since, catch up.
+    store?.getState().refreshUpcoming();
   }, []);
 
   return (

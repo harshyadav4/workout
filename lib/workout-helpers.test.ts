@@ -4,11 +4,17 @@ import assert from "node:assert/strict";
 import { starterScheduledSessions } from "@/lib/seed-data";
 import {
   buildLogFromSession,
+  carriedSets,
+  exerciseEntrySetId,
   firstPendingSetId,
   nextPendingSetId,
+  refreshUpcomingSessions,
   normalizeMuscleHeat,
   lastPerformance,
+  lastSessionSetCount,
+  loggedSetAt,
   plannedExercisesFromTemplate,
+  removeExerciseFromExercises,
   removeSetFromExercises,
   sessionTotals
 } from "@/lib/workout-helpers";
@@ -603,8 +609,16 @@ const rampedNoRule = plannedExercisesFromTemplate(
 );
 assert.deepEqual(
   rampedNoRule[0].sets.map((set) => set.weight),
+  [60, 60, 60],
+  "with no rule each set starts from what was logged — one logged set carries to all three"
+);
+assert.deepEqual(
+  plannedExercisesFromTemplate({
+    ...progressionTemplate(),
+    exercises: [{ ...progressionTemplate().exercises[0], weights: [40, 50, 60] }]
+  })[0].sets.map((set) => set.weight),
   [40, 50, 60],
-  "and with no rule the weights pass through exactly as typed"
+  "and with no history at all the weights pass through exactly as typed"
 );
 
 // Both libs are right on their own; the combination is where the bug was. Double
@@ -655,3 +669,169 @@ assert.deepEqual(
   [45, 45, 45],
   "with no rule the template's own hold stands"
 );
+
+// --- picking an exercise by tapping its row ---
+
+const busyRack = session([
+  { name: "bench", sets: [set(8, 60, true), set(8, 60, true)] },
+  { name: "incline", sets: [set(10, 40)] },
+  { name: "fly", sets: [set(12, 15)] },
+  { name: "dips", sets: [set(10, 0)] }
+]);
+const [benchEx, inclineEx, flyEx, dipsEx] = busyRack.exercises;
+
+assert.equal(exerciseEntrySetId(flyEx), flyEx.sets[0].id, "picking by name opens the first unlogged set");
+assert.equal(
+  exerciseEntrySetId(benchEx),
+  benchEx.sets[0].id,
+  "a finished exercise opens its first set, to correct it"
+);
+
+// --- removing an exercise from today ---
+
+assert.deepEqual(
+  removeExerciseFromExercises(busyRack.exercises, dipsEx.id).map((item) => item.id),
+  [benchEx.id, inclineEx.id, flyEx.id],
+  "the exercise leaves today's list"
+);
+assert.deepEqual(
+  removeExerciseFromExercises(busyRack.exercises, benchEx.id).map((item) => item.id),
+  [inclineEx.id, flyEx.id, dipsEx.id],
+  "logged sets go with it"
+);
+const onlyBench = busyRack.exercises.slice(0, 1);
+assert.equal(removeExerciseFromExercises(onlyBench, benchEx.id), onlyBench, "the only exercise stays");
+
+// --- next time starts from what you actually did (carriedSets) ---
+
+const row = (logId: string, date: string, setIndex: number, weight: number, reps: number, workoutId = "bench") => ({
+  id: `${logId}-${setIndex}`,
+  logId,
+  workoutId,
+  date,
+  setIndex,
+  weight,
+  reps
+});
+
+// Three sessions ago: all four sets. Two ago: bench removed, so nothing for it
+// (a row for another lift only). Last time: stopped at 2 of 4.
+const lookBack = [
+  row("last", "2026-10-26", 0, 32.5, 5),
+  row("last", "2026-10-26", 1, 32.5, 4),
+  row("two-ago", "2026-10-22", 0, 50, 8, "row"),
+  row("three-ago", "2026-10-19", 0, 30, 5),
+  row("three-ago", "2026-10-19", 1, 30, 5),
+  row("three-ago", "2026-10-19", 2, 30, 5),
+  row("three-ago", "2026-10-19", 3, 27.5, 6)
+];
+assert.deepEqual(
+  carriedSets("bench", lookBack, 4).map((item) => item && `${item.weight}x${item.reps}`),
+  ["32.5x5", "32.5x4", "30x5", "27.5x6"],
+  "set by set from the latest session that reached it; a skipped session is passed over"
+);
+assert.deepEqual(
+  carriedSets("bench", lookBack, 5).map((item) => item && `${item.weight}x${item.reps}`),
+  ["32.5x5", "32.5x4", "30x5", "27.5x6", "32.5x4"],
+  "a set no session ever reached copies the last set of the latest session"
+);
+assert.deepEqual(carriedSets("squat", lookBack, 2), [undefined, undefined], "never done: the plan's own numbers stand");
+
+// Order is by date, not by where a row sits in the store.
+const shuffled = [lookBack[3], lookBack[0], lookBack[6], lookBack[1]];
+assert.equal(carriedSets("bench", shuffled, 1)[0]?.weight, 32.5, "the newest date wins wherever it is stored");
+
+// End to end: the example from the user — 30 kg × 5 on set 1 last time.
+const pushTemplate = {
+  ...progressionTemplate(),
+  exercises: [{ ...progressionTemplate().exercises[0], sets: 3, reps: 8, weights: [40, 40, 40] }]
+};
+const pushNext = plannedExercisesFromTemplate(pushTemplate, {
+  logs: [],
+  setLogs: [row("today", "2026-10-26", 0, 30, 5), row("today", "2026-10-26", 1, 32.5, 5), row("today", "2026-10-26", 2, 32.5, 4)]
+});
+assert.deepEqual(
+  pushNext[0].sets.map((item) => `${item.weight}x${item.reps}`),
+  ["30x5", "32.5x5", "32.5x4"],
+  "the next session opens at last time's sets, not the numbers it was created with"
+);
+
+// A rule still has the final say.
+const ruled = plannedExercisesFromTemplate(
+  { ...pushTemplate, progression: { rule: "linear" } },
+  { logs: [], setLogs: [row("today", "2026-10-26", 0, 30, 5)] }
+);
+assert.ok(ruled[0].progressionNote, "with a rule set, the rule decides and says why");
+
+// --- upcoming sessions follow what was logged since they were scheduled ---
+
+const upcomingTemplate = { ...pushTemplate, id: "push" };
+const scheduledAt = (date: string, status: "planned" | "active" | "completed" = "planned") => ({
+  id: `s-${date}-${status}`,
+  date,
+  dayIndex: 0,
+  sessionName: "Push",
+  sessionTemplateId: "push",
+  type: "workout" as const,
+  status,
+  source: "manual" as const,
+  exercises: plannedExercisesFromTemplate(upcomingTemplate)
+});
+const calendar = [scheduledAt("2026-10-25"), scheduledAt("2026-10-26", "active"), scheduledAt("2026-10-28")];
+const loggedToday = { logs: [], setLogs: [row("today", "2026-10-26", 0, 30, 5)] };
+
+const refreshed = refreshUpcomingSessions(calendar, [upcomingTemplate], loggedToday, "2026-10-26");
+assert.equal(refreshed[2].exercises[0].sets[0].weight, 30, "a session ahead opens at what was logged today");
+assert.equal(refreshed[2].exercises[0].id, calendar[2].exercises[0].id, "keeping its ids");
+assert.equal(refreshed[0], calendar[0], "a past day is history, not re-planned");
+assert.equal(refreshed[1], calendar[1], "a session under way is never re-planned under you");
+
+assert.equal(
+  refreshUpcomingSessions(refreshed, [upcomingTemplate], loggedToday, "2026-10-26"),
+  refreshed,
+  "nothing new logged: the same array back, so nothing is synced"
+);
+
+const startedAhead = {
+  ...calendar[2],
+  exercises: calendar[2].exercises.map((exercise, index) =>
+    index === 0 ? { ...exercise, sets: exercise.sets.map((item, i) => ({ ...item, completed: i === 0 })) } : exercise
+  )
+};
+assert.equal(
+  refreshUpcomingSessions([startedAhead], [upcomingTemplate], loggedToday, "2026-10-26")[0],
+  startedAhead,
+  "a session with a set already ticked is left alone"
+);
+
+// --- the set count follows last time; an added set pulls its own history ---
+// The user's own example: plan 3 → day 2 did 10 → day 3 trimmed to 3 → day 4
+// adds a 4th, which should be day 2's 4th set.
+
+const day = (logId: string, date: string, sets: [number, number][]) =>
+  sets.map(([weight, reps], index) => row(logId, date, index, weight, reps));
+const day1 = day("d1", "2026-10-01", [[30, 5], [30, 5], [30, 5]]);
+const day2 = day("d2", "2026-10-03", Array.from({ length: 10 }, (_, i) => [30 + i * 2.5, 5] as [number, number]));
+const day3 = day("d3", "2026-10-05", [[35, 5], [35, 5], [35, 4]]);
+
+const plannedAfter = (setLogs: ReturnType<typeof row>[]) =>
+  plannedExercisesFromTemplate(pushTemplate, { logs: [], setLogs })[0].sets;
+
+assert.equal(plannedAfter(day1).length, 3, "day 1 did the plan's 3: plan 3");
+assert.equal(plannedAfter([...day2, ...day1]).length, 10, "day 2 did 10: plan 10");
+assert.deepEqual(
+  plannedAfter([...day2, ...day1]).slice(8).map((item) => item.weight),
+  [50, 52.5],
+  "and the extra sets open at day 2's numbers"
+);
+assert.equal(plannedAfter([...day3, ...day2, ...day1]).length, 3, "day 3 trimmed back to 3: plan 3");
+assert.deepEqual(
+  loggedSetAt("bench", [...day3, ...day2, ...day1], 3),
+  { weight: 37.5, reps: 5, durationSeconds: undefined },
+  "day 4 adds a 4th set: it pulls day 2's 4th, the latest session that had one"
+);
+assert.equal(loggedSetAt("bench", [...day3, ...day2, ...day1], 10), undefined, "a set no session reached: nothing to pull");
+
+const shortDay = day("short", "2026-10-07", [[35, 5], [35, 5]]);
+assert.equal(lastSessionSetCount("bench", [...shortDay, ...day3]), 2, "the last session logged 2");
+assert.equal(plannedAfter([...shortDay, ...day3]).length, 3, "but one short day never plans below the session's 3");

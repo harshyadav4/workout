@@ -11,14 +11,17 @@ import {
   DialogTrigger,
   DRAWER_CONTENT
 } from "@/components/ui/dialog";
+import { useWorkoutStore } from "@/features/workout/workout-store";
 import { exerciseGifUrl, exerciseImageUrl, loadExercises, type Exercise } from "@/lib/exercises";
+import { PRESET_DATASET_IDS, mediaUrl } from "@/lib/media";
 import type { WorkoutTemplate } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 const DB_PREFIX = "db-";
 
 /**
- * Dataset id for a catalog template, or undefined for hand-entered exercises
- * (which have no media). Templates saved before `dbId` existed carry the id
+ * Dataset id for a catalog template or a built-in one, or undefined for
+ * hand-entered exercises (which have no media). Templates saved before `dbId` existed carry the id
  * only inside their `db-0001` template id, hence the prefix fallback.
  */
 export function templateDatasetId(
@@ -30,7 +33,10 @@ export function templateDatasetId(
   if (template.dbId) {
     return template.dbId;
   }
-  return template.id.startsWith(DB_PREFIX) ? template.id.slice(DB_PREFIX.length) : undefined;
+  if (template.id.startsWith(DB_PREFIX)) {
+    return template.id.slice(DB_PREFIX.length);
+  }
+  return Object.hasOwn(PRESET_DATASET_IDS, template.id) ? PRESET_DATASET_IDS[template.id] : undefined;
 }
 
 /**
@@ -94,27 +100,80 @@ function usePrefersReducedMotion() {
   return reduced;
 }
 
-// The remote CDN is third-party and 404s on a few entries: swap in text rather
-// than leave a broken-image icon in the sheet.
-function ExerciseGif({ exercise }: { exercise: Exercise }) {
-  const [failed, setFailed] = useState(false);
+const SLOW_GIF_MS = 15000;
 
-  if (failed) {
+/**
+ * The still frame first, the animation over it once it has arrived.
+ *
+ * The GIFs are 80–100 KB from a third-party host that can take minutes on a
+ * slow mobile network. Before, the sheet sat on the image's alt text the whole
+ * time — it looked broken, not busy. The still is ~6 KB and is the same frame,
+ * so there is something true to look at at once, and the GIF fades in over it.
+ * Reduced motion gets the still only (see `usePrefersReducedMotion`).
+ */
+function ExerciseGif({ exercise }: { exercise: Exercise }) {
+  const still = usePrefersReducedMotion();
+  const [gif, setGif] = useState<"loading" | "ready" | "slow" | "failed">("loading");
+  const [stillFailed, setStillFailed] = useState(false);
+
+  useEffect(() => {
+    if (gif !== "loading") {
+      return;
+    }
+    const id = window.setTimeout(() => setGif("slow"), SLOW_GIF_MS);
+    return () => window.clearTimeout(id);
+  }, [gif]);
+
+  const showGif = !still && gif !== "failed";
+  const note =
+    still || gif === "ready"
+      ? undefined
+      : gif === "loading"
+        ? "Loading video…"
+        : gif === "slow"
+          ? "Video is slow on this network"
+          : "The video didn't load";
+
+  if (stillFailed && !showGif) {
     return (
       <p className="flex aspect-[4/3] items-center justify-center rounded-lg bg-muted px-6 text-center text-sm text-muted-foreground">
-        The demo animation didn&apos;t load. The steps below still apply.
+        The demo didn&apos;t load. The steps below still apply.
       </p>
     );
   }
 
   return (
-    <div className="flex aspect-[4/3] items-center justify-center overflow-hidden rounded-lg bg-muted">
-      <img
-        src={exerciseGifUrl(exercise)}
-        alt={`${exercise.name} demonstration`}
-        className="h-full w-full object-contain"
-        onError={() => setFailed(true)}
-      />
+    <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden rounded-lg bg-muted">
+      {stillFailed ? null : (
+        <img
+          src={exerciseImageUrl(exercise)}
+          alt={`${exercise.name} demonstration`}
+          className="absolute inset-0 h-full w-full object-contain"
+          onError={() => setStillFailed(true)}
+        />
+      )}
+      {/* A late GIF still wins over "slow": the label was a progress report,
+          not a verdict. */}
+      {showGif ? (
+        <img
+          src={exerciseGifUrl(exercise)}
+          alt=""
+          className={cn(
+            "absolute inset-0 h-full w-full object-contain transition-opacity duration-300",
+            gif === "ready" ? "opacity-100" : "opacity-0"
+          )}
+          onLoad={() => setGif("ready")}
+          onError={() => setGif("failed")}
+        />
+      ) : null}
+      {note ? (
+        <p
+          role="status"
+          className="absolute bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-background/85 px-3 py-1 text-xs font-medium text-muted-foreground backdrop-blur"
+        >
+          {note}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -261,6 +320,35 @@ export function ExerciseDemoThumb({
         ) : (
           <PlayCircle className="h-5 w-5 text-muted-foreground" />
         )}
+      </button>
+    </ExerciseMediaDialog>
+  );
+}
+
+/**
+ * The demo, opened from a list row — the finish card, a day in the plan. A
+ * full 44px target, unlike the ledger's 28px icon beside a name mid-set: these
+ * sit in lists of rows. Renders nothing for an exercise with no demo.
+ */
+export function ExerciseDemoButton({ workoutId, name }: { workoutId: string; name: string }) {
+  const datasetId = templateDatasetId({ id: workoutId });
+  // An exercise from outside the library may carry a stored GIF instead.
+  const gifUrl = mediaUrl(
+    useWorkoutStore((state) => state.templates.find((item) => item.id === workoutId)?.mediaPath)
+  );
+
+  if (!datasetId && !gifUrl) {
+    return null;
+  }
+
+  return (
+    <ExerciseMediaDialog datasetId={datasetId} gifUrl={gifUrl} name={name}>
+      <button
+        type="button"
+        aria-label={`View ${name} demo`}
+        className="-my-2.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:bg-secondary/60"
+      >
+        <PlayCircle className="h-5 w-5" />
       </button>
     </ExerciseMediaDialog>
   );
