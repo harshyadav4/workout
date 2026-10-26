@@ -4,6 +4,7 @@ import { Minus, Plus, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { RecoveryPotion } from "@/features/home/recovery-potion";
+import { REST_KEY, readStorage, restoreRest, writeStorage } from "@/lib/timer";
 import { cn } from "@/lib/utils";
 
 /**
@@ -31,6 +32,17 @@ export function useRestTimer() {
   // The whole rest, so the dial can show how far the mana has refilled.
   const [total, setTotal] = useState(0);
   const buzzedRef = useRef(false);
+
+  // The deadline is also kept on the device (lib/timer), so closing the app
+  // mid-rest and opening it again brings the potion back where it really is.
+  // Read once, after mount: the server has no storage to render from.
+  useEffect(() => {
+    const saved = restoreRest(readStorage(REST_KEY), Date.now());
+    if (saved) {
+      setTotal(saved.total);
+      setEndsAt(saved.endsAt);
+    }
+  }, []);
 
   useEffect(() => {
     if (endsAt === undefined) {
@@ -61,11 +73,14 @@ export function useRestTimer() {
   const start = useCallback((seconds?: number) => {
     if (!seconds || seconds <= 0) {
       setEndsAt(undefined);
+      writeStorage(REST_KEY, undefined);
       return;
     }
     buzzedRef.current = false;
+    const next = Date.now() + seconds * 1000;
     setTotal(seconds);
-    setEndsAt(Date.now() + seconds * 1000);
+    setEndsAt(next);
+    writeStorage(REST_KEY, { endsAt: next, total: seconds });
   }, []);
 
   const extend = useCallback((deltaSeconds: number) => {
@@ -85,7 +100,18 @@ export function useRestTimer() {
     setTotal((current) => Math.max(1, current + deltaSeconds));
   }, []);
 
-  const skip = useCallback(() => setEndsAt(undefined), []);
+  // Saved after the fact rather than inside the setters above, which React may
+  // run twice. A rest that has run out is dropped, so it is not restored.
+  useEffect(() => {
+    if (endsAt !== undefined && total > 0) {
+      writeStorage(REST_KEY, endsAt > Date.now() ? { endsAt, total } : undefined);
+    }
+  }, [endsAt, total]);
+
+  const skip = useCallback(() => {
+    setEndsAt(undefined);
+    writeStorage(REST_KEY, undefined);
+  }, []);
 
   return { active: endsAt !== undefined, remaining, total, start, extend, skip };
 }

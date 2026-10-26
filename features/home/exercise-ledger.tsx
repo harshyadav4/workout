@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, Minus, Plus, Trash2 } from "lucide-react";
 
+import { LiveTimerControl } from "@/features/home/live-timer";
 import { ManaBurst, ManaCharge, ManaVial } from "@/features/home/mana-vial";
 import { formatRest } from "@/features/home/rest-timer";
 import {
@@ -204,6 +205,15 @@ interface ExerciseLedgerProps {
   onPick: () => void;
   /** Drop this exercise from today. Absent on the last one left. */
   onRemove?: () => void;
+  /** The session's one live clock, for timed sets (see live-timer). */
+  timer?: {
+    /** The set the clock is running for, if any. */
+    setId?: string;
+    elapsed: number;
+    onStart: (setId: string) => void;
+    onFinish: () => void;
+    onCancel: () => void;
+  };
 }
 
 const DISARM_MS = 3000;
@@ -251,7 +261,8 @@ export function ExerciseLedger({
   onAddSet,
   onRemoveSet,
   onPick,
-  onRemove
+  onRemove,
+  timer
 }: ExerciseLedgerProps) {
   const openSet = exercise.sets.find((setItem) => setItem.id === openSetId);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -442,6 +453,17 @@ export function ExerciseLedger({
               />
             )}
           </div>
+          {/* A hold is timed, not typed: Start, hold, Finish fills the seconds. */}
+          {isTime && timer ? (
+            <LiveTimerControl
+              running={timer.setId === openSet.id}
+              elapsed={timer.elapsed}
+              targetSeconds={openSet.durationSeconds}
+              onStart={() => timer.onStart(openSet.id)}
+              onFinish={timer.onFinish}
+              onCancel={timer.onCancel}
+            />
+          ) : null}
           {exercise.perSide && openSet.reps > 0 ? (
             <p className="mt-2 text-center text-xs text-muted-foreground">
               {formatPerSide(openSet.reps, true)}

@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { LevelUpGem } from "@/features/home/artifacts";
 import { ExerciseLedger } from "@/features/home/exercise-ledger";
 import { FinishConfirm } from "@/features/home/finish-confirm";
+import { useLiveTimer } from "@/features/home/live-timer";
 import { MuscleMapCard } from "@/features/home/muscle-map-card";
 import { MeasurementPrompt } from "@/features/home/measurement-prompt";
 import { QuickStart, WorkoutPicker } from "@/features/home/quick-start";
@@ -198,6 +199,7 @@ export function HomeDashboard() {
   const removeExerciseFromSession = useWorkoutStore((state) => state.removeExerciseFromSession);
   const logTodayWorkout = useWorkoutStore((state) => state.logTodayWorkout);
   const rest = useRestTimer();
+  const live = useLiveTimer();
   const [addingExercise, setAddingExercise] = useState(false);
   const [confirmingFinish, setConfirmingFinish] = useState(false);
 
@@ -292,7 +294,9 @@ export function HomeDashboard() {
     const exercise = session.exercises.find((item) => item.id === exerciseId);
     const alreadyLogged = exercise?.sets.find((item) => item.id === setId)?.completed;
 
-    updateSessionSet(session.id, exerciseId, setId, { completed: true });
+    // Logging the set the clock is running for stops it, and its seconds count.
+    const timed = live.setId === setId ? { durationSeconds: Math.max(1, live.stop()) } : {};
+    updateSessionSet(session.id, exerciseId, setId, { ...timed, completed: true });
     setStampedSetId(setId);
     // Forward from the set just logged, not back to the first gap in the
     // session — see `nextPendingSetId`. Correcting a set already logged keeps
@@ -334,7 +338,18 @@ export function HomeDashboard() {
     }
   };
 
+  /** Finish on the live clock: its seconds become the set's hold. */
+  const finishLive = () => {
+    const setId = live.setId;
+    const seconds = live.stop();
+    const exercise = session?.exercises.find((item) => item.sets.some((setItem) => setItem.id === setId));
+    if (session && exercise && setId) {
+      updateSessionSet(session.id, exercise.id, setId, { durationSeconds: Math.max(1, seconds) });
+    }
+  };
+
   const finishSession = () => {
+    live.cancel();
     setConfirmingFinish(false);
     rest.skip();
     logTodayWorkout();
@@ -536,6 +551,13 @@ export function HomeDashboard() {
                 onRemove={
                   day.session.exercises.length > 1 ? () => removeExercise(exercise.id) : undefined
                 }
+                timer={{
+                  setId: live.setId,
+                  elapsed: live.elapsed,
+                  onStart: live.start,
+                  onFinish: finishLive,
+                  onCancel: live.cancel
+                }}
               />
             ))}
           </div>
