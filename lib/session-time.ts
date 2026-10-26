@@ -75,6 +75,8 @@ export interface SetTiming {
   at: string;
   /** Seconds since the previous logged set, or since Start for the first: the set and the rest before it. */
   gap: number;
+  /** The session's first logged set: its gap is measured from Start, not from a set. */
+  fromStart: boolean;
 }
 
 export interface ExerciseTiming {
@@ -98,10 +100,11 @@ export function sessionBreakdown(session: ScheduledSession): ExerciseTiming[] {
   const byExercise = new Map<string, ExerciseTiming>();
   let previous = session.startedAt;
   logged.forEach(({ exercise, setId, at }) => {
+    const fromStart = previous === session.startedAt;
     const gap = previous ? secondsBetween(previous, at) : 0;
     previous = at;
     const entry = byExercise.get(exercise.id) ?? { exerciseId: exercise.id, name: exercise.templateName, seconds: 0, sets: [] };
-    entry.sets.push({ setId, at, gap });
+    entry.sets.push({ setId, at, gap, fromStart });
     entry.seconds += gap;
     byExercise.set(exercise.id, entry);
   });

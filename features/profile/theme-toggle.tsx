@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { setDetailedTiming, useDetailedTiming } from "@/features/workout/use-detailed-timing";
 import { setDistanceUnit, useDistanceUnit } from "@/features/workout/use-distance-unit";
 import { feedbackEnabled, haptic, setFeedbackEnabled } from "@/lib/feedback";
 import { applyTheme, isTheme, THEME_KEY, type Theme } from "@/lib/theme";
@@ -152,5 +153,34 @@ export function DistanceUnitToggle() {
         ))}
       </div>
     </div>
+  );
+}
+
+/** Per workout and per set times on the finish card and in the Plan. Always recorded; this shows them. */
+export function DetailedTimingToggle() {
+  const on = useDetailedTiming();
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      onClick={() => setDetailedTiming(!on)}
+      className="flex min-h-14 w-full items-center justify-between gap-3 rounded-xl bg-muted px-4 py-3 text-left transition-colors active:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <span>
+        <span className="block text-sm font-semibold">Detailed timing</span>
+        <span className="mt-0.5 block text-xs text-muted-foreground">
+          Time per workout and per set — when each set was logged and the gap before it. Session length always shows.
+        </span>
+      </span>
+      <span aria-hidden className={cn("relative h-7 w-12 shrink-0 rounded-full transition-colors", on ? "bg-primary" : "well")}>
+        <span
+          className={cn(
+            "absolute top-1 h-5 w-5 rounded-full bg-card shadow-quiet transition-transform",
+            on ? "translate-x-6" : "translate-x-1"
+          )}
+        />
+      </span>
+    </button>
   );
 }

@@ -6,12 +6,14 @@ import { useMemo } from "react";
 
 import { LevelUpGem, QuestScroll } from "@/features/home/artifacts";
 import { ExerciseDemoButton } from "@/features/workout/exercise-media-dialog";
+import { useDetailedTiming } from "@/features/workout/use-detailed-timing";
 import { useDistanceUnit } from "@/features/workout/use-distance-unit";
 import { useWorkoutStore } from "@/features/workout/workout-store";
 import { levelTarget, levelUps } from "@/lib/skills";
 import { type DistanceUnit, formatDistance, formatPace } from "@/lib/cardio";
 import type { SessionSummary } from "@/lib/progress-metrics";
-import type { PlannedExercise, PlannedSet, WorkoutLog } from "@/lib/types";
+import { type ExerciseTiming, formatDuration, formatTimeOfDay, secondsBetween, sessionBreakdown } from "@/lib/session-time";
+import type { PlannedExercise, PlannedSet, ScheduledSession, WorkoutLog } from "@/lib/types";
 import { formatClock } from "@/lib/timer";
 import { cn, formatVolume } from "@/lib/utils";
 
@@ -63,16 +65,20 @@ function topSetId(sets: PlannedSet[]) {
 function ExerciseRecap({
   exercise,
   volume,
-  isRecord
+  isRecord,
+  timing
 }: {
   exercise: PlannedExercise;
   /** From the log Finish wrote, so it agrees with the totals above. */
   volume?: number;
   isRecord: boolean;
+  /** Per workout and per set times, when Detailed timing is on. */
+  timing?: ExerciseTiming;
 }) {
   const done = exercise.sets.filter((setItem) => setItem.completed);
   const isTime = exercise.metric === "time";
   const isDistance = exercise.metric === "distance";
+  const setTimes = new Map((timing?.sets ?? []).map((item) => [item.setId, item]));
   const unit = useDistanceUnit();
   // "Top set" is a lifting idea; a run's rows are read by pace, shown on each.
   const top = isDistance ? undefined : topSetId(done);
@@ -120,6 +126,9 @@ function ExerciseRecap({
               {volume ? <> · {formatVolume(volume)} kg</> : null}
             </>
           )}
+          {timing && timing.seconds > 0 ? (
+            <span className="block text-brand">{formatDuration(timing.seconds)}</span>
+          ) : null}
         </p>
       </div>
 
@@ -147,6 +156,13 @@ function ExerciseRecap({
               </span>
               <span className={cn("font-semibold", isWarmup && "text-muted-foreground")}>
                 {setLabel(setItem, isTime, isDistance, unit)}
+                {/* When it was logged, and the gap since the set before: set + rest. */}
+                {setTimes.get(setItem.id) ? (
+                  <span className="block text-[11px] font-normal text-muted-foreground">
+                    {formatTimeOfDay(setTimes.get(setItem.id)!.at)} · +{formatClock(setTimes.get(setItem.id)!.gap)}{" "}
+                    {setTimes.get(setItem.id)!.fromStart ? "since Start" : "since the last set"}
+                  </span>
+                ) : null}
               </span>
               {isTop ? (
                 <span className="text-[11px] font-bold text-brand">Top set</span>
@@ -221,15 +237,22 @@ function SkillLevelUps({ written }: { written: WorkoutLog[] }) {
  */
 export function SessionRecap({
   summary,
-  exercises,
+  session,
   logs
 }: {
   summary?: SessionSummary;
-  exercises: PlannedExercise[];
+  /** The finished session: its exercises, and when it started and ended. */
+  session: ScheduledSession;
   /** The logs this session just wrote — one per exercise with work in it. */
   logs: WorkoutLog[];
 }) {
   const unit = useDistanceUnit();
+  const detailed = useDetailedTiming();
+  const exercises = session.exercises;
+  const breakdown = useMemo(
+    () => (detailed ? new Map(sessionBreakdown(session).map((item) => [item.exerciseId, item])) : undefined),
+    [detailed, session]
+  );
   if (!summary) {
     return (
       <div className="mt-4 flex items-center gap-3 rounded-lg bg-muted px-4 py-3 text-sm">
@@ -273,6 +296,12 @@ export function SessionRecap({
           <p className="text-xs text-muted-foreground tabular-nums">
             {doneCount} {doneCount === 1 ? "exercise" : "exercises"} · saved to your progress
           </p>
+          {session.startedAt && session.finishedAt ? (
+            <p className="text-xs font-semibold text-brand tabular-nums">
+              {formatTimeOfDay(session.startedAt)} – {formatTimeOfDay(session.finishedAt)} ·{" "}
+              {formatDuration(secondsBetween(session.startedAt, session.finishedAt))}
+            </p>
+          ) : null}
         </div>
       </div>
 
@@ -311,6 +340,7 @@ export function SessionRecap({
             exercise={exercise}
             volume={volumeByWorkout.get(exercise.workoutId)}
             isRecord={records.has(exercise.workoutId)}
+            timing={breakdown?.get(exercise.id)}
           />
         ))}
       </div>

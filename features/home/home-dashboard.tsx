@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarPlus, Info, PlayCircle, Plus } from "lucide-react";
+import { CalendarPlus, Info, PlayCircle, Plus, Timer } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
@@ -29,6 +29,8 @@ import { logSetFeedback } from "@/lib/feedback";
 import { isLevelUp, previousBest } from "@/lib/hunter";
 import { summarizeSession } from "@/lib/progress-metrics";
 import { resolveDayState } from "@/lib/schedule";
+import { formatTimeOfDay } from "@/lib/session-time";
+import { elapsedSeconds, formatClock } from "@/lib/timer";
 import type { PlannedSet, ScheduledSession } from "@/lib/types";
 import { cn, formatVolume } from "@/lib/utils";
 import {
@@ -105,18 +107,40 @@ function DayHeader({
  * Mid-session the plaque collapses to a strip and sticks to the top: the ring,
  * the name, and the rest dial. Everything else on the screen is the work.
  */
+/** The session clock: "Started 6:10 PM · 0:42:10", ticking. Hidden until there is a start. */
+function SessionClock({ startedAt }: { startedAt?: string }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!startedAt) {
+      return;
+    }
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [startedAt]);
+  if (!startedAt) {
+    return null;
+  }
+  return (
+    <p className="mt-0.5 truncate text-xs text-brand tabular-nums" role="timer" aria-label="Session time">
+      Started {formatTimeOfDay(startedAt)} · {formatClock(elapsedSeconds(Date.parse(startedAt), now))}
+    </p>
+  );
+}
+
 function SessionStrip({
   title,
   detail,
   done,
   total,
-  rest
+  rest,
+  startedAt
 }: {
   title: string;
   detail: string;
   done: number;
   total: number;
   rest: ReturnType<typeof useRestTimer>;
+  startedAt?: string;
 }) {
   return (
     <Card className="sticky top-[calc(env(safe-area-inset-top)+0.5rem)] z-30 grid grid-cols-[auto_1fr_auto] items-center gap-3 p-3">
@@ -126,6 +150,7 @@ function SessionStrip({
       <div className="min-w-0">
         <p className="truncate font-display text-[22px] font-extrabold leading-none tracking-tight">{title}</p>
         <p className="mt-1 truncate text-xs text-muted-foreground tabular-nums">{detail}</p>
+        <SessionClock startedAt={startedAt} />
       </div>
       {rest.active ? (
         <RestDial remaining={rest.remaining} total={rest.total} onExtend={rest.extend} onSkip={rest.skip} />
@@ -483,7 +508,17 @@ export function HomeDashboard() {
             done={totals.done}
             total={totals.total}
             rest={rest}
+            startedAt={day.session.startedAt}
           />
+          {/* Said once, plainly, while nothing is logged yet: the clock is on. */}
+          {day.session.startedAt && totals.done === 0 ? (
+            <p className="flex items-center gap-2 rounded-xl bg-brand/10 px-4 py-2.5 text-xs ring-1 ring-brand/25">
+              <Timer className="h-4 w-4 shrink-0 text-brand" aria-hidden />
+              <span>
+                Session clock started at {formatTimeOfDay(day.session.startedAt)}. It stops when you tap Finish.
+              </span>
+            </p>
+          ) : null}
           {sessionPicker}
         </>
       ) : (
@@ -514,7 +549,7 @@ export function HomeDashboard() {
 
           {isDone ? (
             <>
-              <SessionRecap summary={sessionSummary} exercises={day.session.exercises} logs={writtenLogs} />
+              <SessionRecap summary={sessionSummary} session={day.session} logs={writtenLogs} />
               {/* Below the payoff, never above it. The reward comes first. */}
               <MeasurementPrompt />
             </>

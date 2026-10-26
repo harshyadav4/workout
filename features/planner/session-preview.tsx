@@ -3,9 +3,11 @@
 import { useMemo } from "react";
 
 import { ExerciseDemoButton } from "@/features/workout/exercise-media-dialog";
+import { useDetailedTiming } from "@/features/workout/use-detailed-timing";
 import { useDistanceUnit } from "@/features/workout/use-distance-unit";
 import { useWorkoutStore } from "@/features/workout/workout-store";
 import { type DistanceUnit, formatDistance, formatPace } from "@/lib/cardio";
+import { formatDuration, formatTimeOfDay, secondsBetween, sessionBreakdown } from "@/lib/session-time";
 import { formatClock } from "@/lib/timer";
 import type { PlannedExercise, PlannedSet, ScheduledSession } from "@/lib/types";
 import { lastPerformance } from "@/lib/workout-helpers";
@@ -43,6 +45,11 @@ export function SessionPreview({ session }: { session: ScheduledSession }) {
   const logs = useWorkoutStore((state) => state.logs);
   const setLogs = useWorkoutStore((state) => state.setLogs);
   const unit = useDistanceUnit();
+  const detailed = useDetailedTiming();
+  const breakdown = useMemo(
+    () => (detailed ? new Map(sessionBreakdown(session).map((item) => [item.exerciseId, item])) : undefined),
+    [detailed, session]
+  );
 
   const rows = useMemo(() => {
     const before = {
@@ -69,6 +76,12 @@ export function SessionPreview({ session }: { session: ScheduledSession }) {
       <p className="text-xs text-muted-foreground tabular-nums">
         {rows.length} {rows.length === 1 ? "workout" : "workouts"} · {setCount} sets
       </p>
+      {session.startedAt && session.finishedAt ? (
+        <p className="mt-0.5 text-xs font-semibold text-brand tabular-nums">
+          Started {formatTimeOfDay(session.startedAt)} · Finished {formatTimeOfDay(session.finishedAt)} ·{" "}
+          {formatDuration(secondsBetween(session.startedAt, session.finishedAt))}
+        </p>
+      ) : null}
       <ul className="mt-2 divide-y divide-border/60">
         {rows.map(({ exercise, lastDate }) => {
           const working = exercise.sets.filter((setItem) => setItem.type !== "warmup");
@@ -79,8 +92,11 @@ export function SessionPreview({ session }: { session: ScheduledSession }) {
                   <p className="min-w-0 truncate text-sm font-semibold">{exercise.templateName}</p>
                   <ExerciseDemoButton workoutId={exercise.workoutId} name={exercise.templateName} />
                 </div>
-                <p className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
+                <p className="shrink-0 text-right text-[11px] text-muted-foreground tabular-nums">
                   {lastDate ? `Last done ${shortDate(lastDate)}` : "First time"}
+                  {breakdown?.get(exercise.id)?.seconds ? (
+                    <span className="block text-brand">{formatDuration(breakdown.get(exercise.id)!.seconds)}</span>
+                  ) : null}
                 </p>
               </div>
               <ol className="mt-1.5 space-y-1">
@@ -90,7 +106,15 @@ export function SessionPreview({ session }: { session: ScheduledSession }) {
                     className="well grid grid-cols-[1.5rem_1fr] items-center rounded-md px-2 py-1 text-xs tabular-nums"
                   >
                     <span className="font-bold text-muted-foreground">{index + 1}</span>
-                    <span className="font-semibold">{setLabel(setItem, exercise, unit)}</span>
+                    <span className="font-semibold">
+                      {setLabel(setItem, exercise, unit)}
+                      {breakdown && setItem.completedAt ? (
+                        <span className="ml-2 font-normal text-muted-foreground">
+                          {formatTimeOfDay(setItem.completedAt)} · +
+                          {formatClock(breakdown.get(exercise.id)?.sets.find((item) => item.setId === setItem.id)?.gap ?? 0)}
+                        </span>
+                      ) : null}
+                    </span>
                   </li>
                 ))}
               </ol>
