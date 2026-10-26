@@ -74,16 +74,14 @@ export function HeadStimulusCard({
 
   return (
     <Panel
-      title="Weekly sets per head"
-      caption={`Against the same ${WEEKLY_SET_TARGET.low}–${WEEKLY_SET_TARGET.high} band`}
+      title="Weekly sets per muscle part"
+      caption={`Goal: ${WEEKLY_SET_TARGET.low}–${WEEKLY_SET_TARGET.high} sets a week for each part`}
       note={
         <>
-          Which heads your exercise <em>selection</em> leans on, not a measurement of stimulus.
-          Engagement per head is derived from the exercise&apos;s name and the muscles its template
-          declares — a regex, not a sensor — so read this as &ldquo;my choices are biased toward the
-          front delt&rdquo; rather than as a share of anything received. Only heads you actually
-          train appear: a muscle you have never worked is not under-stimulated, it is simply not
-          part of your programme.
+          Some muscles have parts, called heads. For example, the shoulder has a front, side and
+          rear part. This card shows which parts your exercise <em>choice</em> trains most. The app
+          guesses this from the exercise name, so it is an estimate, not a measurement. Read it as
+          &ldquo;my exercises lean toward the front shoulder&rdquo;. Only parts you train are listed.
         </>
       }
     >
@@ -105,12 +103,12 @@ export function HeadStimulusCard({
             {report.lowest.name}: {report.lowest.setsPerWeek.toFixed(1)} sets a week
           </span>{" "}
           <span className="text-muted-foreground">
-            — the least of anything you train, and under the {WEEKLY_SET_TARGET.low}-set floor. Your
-            selection is biased away from it.
+            — the lowest of all the parts you train, and under the goal of {WEEKLY_SET_TARGET.low}.
+            Your exercises mostly skip it.
           </span>
           {suggestions.length > 0 ? (
             <span className="mt-1.5 block text-muted-foreground">
-              These lifts in your library bias toward it:{" "}
+              These lifts in your library train it more:{" "}
               <span className="text-foreground">
                 {suggestions.map((item) => item.name).join(", ")}
               </span>
@@ -132,16 +130,14 @@ export function WeeklySetsCard({ sets }: { sets: GroupSets[] }) {
 
   return (
     <Panel
-      title="Weekly sets per group"
-      caption={`Against the ${WEEKLY_SET_TARGET.low}–${WEEKLY_SET_TARGET.high} band`}
+      title="Weekly sets per muscle group"
+      caption={`Goal: ${WEEKLY_SET_TARGET.low}–${WEEKLY_SET_TARGET.high} sets a week for each group`}
       note={
         <>
-          A set counts for a muscle group when the lift works it at 50+ engagement, and half when it
-          works it at 25+ — the usual direct/indirect convention, so a lateral raise is not counted
-          as triceps work just because the triceps came along. Credit is the highest of a
-          group&apos;s muscles rather than their sum, otherwise a four-set bench press would report
-          as eight sets of chest. The band is the 10–20 hard sets a week most hypertrophy reviews
-          converge on.
+          A set counts fully for a muscle group when the lift works that group a lot, and as half a
+          set when it helps a little. For example, a bench press counts fully for chest and half for
+          triceps. The goal of 10–20 hard sets a week comes from muscle-growth research. A hard set
+          is a set that ends close to the point where you cannot do one more rep.
         </>
       }
     >
@@ -195,13 +191,13 @@ export function MuscleSplitCard({ groups }: { groups: MuscleGroupVolume[] }) {
 
   return (
     <Panel
-      title="The split"
-      caption={`${lead.label} takes the most at ${Math.round((lead.volume / total) * 100)}%`}
+      title="Where your training goes"
+      caption={`${lead.label} gets the most: ${Math.round((lead.volume / total) * 100)}% of all the weight you lifted`}
       note={
         <>
-          Share of the range&apos;s volume by muscle group, weighted by how hard each lift works the
-          group. This is the shape of your training right now; the drift chart above is how it got
-          here. Legacy coarse muscle ids resolve into the current taxonomy, so old logs still count.
+          How the total weight you lifted in this range is shared between muscle groups. A lift
+          gives more to the muscles it works hardest. This is how your training looks now. The
+          &ldquo;How your focus changed&rdquo; chart below shows how it got here.
         </>
       }
     >
@@ -219,7 +215,7 @@ export function MuscleSplitCard({ groups }: { groups: MuscleGroupVolume[] }) {
           <RadialBar
             {...animationProps}
             dataKey="volume"
-            name="Volume"
+            name="Weight lifted"
             background={{ fill: "rgba(255,255,255,0.04)" }}
             cornerRadius={6}
           >
@@ -247,7 +243,7 @@ export function MuscleSplitCard({ groups }: { groups: MuscleGroupVolume[] }) {
               style={{ backgroundColor: group.fill }}
               aria-hidden
             />
-            <span className="truncate text-[11px] text-muted-foreground">{group.label}</span>
+            <span className="truncate text-xs text-muted-foreground">{group.label}</span>
             <span className="ml-auto shrink-0 text-[10px] tabular-nums">
               {Math.round((group.volume / total) * 100)}%
             </span>

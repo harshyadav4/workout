@@ -271,9 +271,9 @@ export function buildCalendar(logs: WorkoutLog[], window: DateWindow): CalendarW
   return weeks;
 }
 
-const GROUP_ORDER: MuscleGroup[] = ["chest", "back", "shoulders", "arms", "core", "legs"];
+export const GROUP_ORDER: MuscleGroup[] = ["chest", "back", "shoulders", "arms", "core", "legs"];
 
-const GROUP_LABELS: Record<MuscleGroup, string> = {
+export const GROUP_LABELS: Record<MuscleGroup, string> = {
   chest: "Chest",
   back: "Back",
   shoulders: "Shoulders",
@@ -300,6 +300,29 @@ export function resolvedTargets(log: WorkoutLog) {
       engagement: target.engagement
     }))
   );
+}
+
+/** The group a lift works hardest — what a lift is coloured by on Progress. */
+export function primaryGroup(log: WorkoutLog): MuscleGroup | undefined {
+  const top = resolvedTargets(log).reduce<{ muscleId: MuscleId; engagement: number } | undefined>(
+    (best, target) => (!best || target.engagement > best.engagement ? target : best),
+    undefined
+  );
+  return top ? GROUP_BY_MUSCLE.get(top.muscleId) : undefined;
+}
+
+/** Every lift in the logs, mapped to its primary group. */
+export function buildLiftGroups(logs: WorkoutLog[]): Map<string, MuscleGroup> {
+  const groups = new Map<string, MuscleGroup>();
+  logs.forEach((log) => {
+    if (!groups.has(log.workoutId)) {
+      const group = primaryGroup(log);
+      if (group) {
+        groups.set(log.workoutId, group);
+      }
+    }
+  });
+  return groups;
 }
 
 export interface MuscleVolume {

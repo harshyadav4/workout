@@ -48,14 +48,12 @@ export function MuscleLiftsCard({
   return (
     <Panel
       title={`The lifts that build ${name}`}
-      caption="Heaviest first — tap one for its top set over time"
+      caption="Heaviest first — tap a lift to see its heaviest set over time"
       note={
         <>
-          A single &ldquo;{name} strength&rdquo; line would plot the heaviest set of whatever lift
-          you happened to do that day: 200 kg on deadlift days, 60 kg on pulldown days, a sawtooth
-          that says nothing about the muscle. Top sets only compare inside one lift, so the row is
-          the unit and the line opens per row. Lifts are tagged direct at 50+ engagement, indirect
-          below it.
+          The lifts in this range that train {name}. Each lift gets its own line, because 200 kg on
+          a deadlift and 60 kg on a pulldown cannot be compared. &ldquo;Direct&rdquo; means the lift
+          works {name} a lot. &ldquo;Indirect&rdquo; means it helps a little.
         </>
       }
     >
@@ -90,7 +88,7 @@ export function MuscleLiftsCard({
                       {direct ? "direct" : "indirect"}
                     </span>
                   </span>
-                  <span className="mt-0.5 block text-[11px] tabular-nums text-muted-foreground">
+                  <span className="mt-0.5 block text-xs tabular-nums text-muted-foreground">
                     {trend
                       ? `${trend.first} → ${trend.last} kg · ${row.sessions} sessions`
                       : `${row.topSet} kg top set · ${row.sessions} session${row.sessions === 1 ? "" : "s"}`}

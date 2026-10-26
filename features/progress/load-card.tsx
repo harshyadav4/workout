@@ -49,27 +49,26 @@ export function LoadCard({ points }: { points: LoadPoint[] }) {
 
   return (
     <Panel
-      title="Load spike"
+      title="This week vs normal"
       caption={
         latest
-          ? `This week is ${latest.ratio!.toFixed(2)}× your ${CHRONIC_WEEKS}-week average`
-          : "Needs a month of history"
+          ? loadCopy(latest.ratio!)
+          : "Needs a month of training"
       }
       note={
         <>
-          Each point is one week&apos;s tonnage divided by the average of the {CHRONIC_WEEKS} weeks
-          ending with it. Above the band the week was much heavier than you have been training;
-          below it you are drifting down. The shaded region is the range you picked above — this
-          chart always draws your whole history, because a ratio needs the weeks before the window
-          to mean anything. <strong>Not an injury-risk score:</strong> the 0.8–1.3 figure comes from
-          team-sport monitoring and the research on it is contested. It is a spike detector against
-          your own baseline, nothing more.
+          Each point compares one week with your normal week (the average of the last{" "}
+          {CHRONIC_WEEKS} weeks). 1.0 means a normal week. Above the grey band, the week was much
+          harder than normal. Below it, you are doing less than usual. The light area is the time
+          range you picked. The chart always shows all your history, because it needs the weeks
+          before to know what &ldquo;normal&rdquo; is. <strong>This is not an injury score.</strong>{" "}
+          It only shows sudden jumps against your own normal.
         </>
       }
     >
       {warm.length < 2 ? (
         <EmptyChart>
-          A month of logs is needed before a week can be compared to a baseline.
+          Train for a month first. Then each week can be compared with your normal week.
         </EmptyChart>
       ) : (
         <ResponsiveContainer width="100%" height={180}>
@@ -112,7 +111,7 @@ export function LoadCard({ points }: { points: LoadPoint[] }) {
               yAxisId="load"
               type="monotone"
               dataKey="chronic"
-              name="4-week average"
+              name="Normal week"
               stroke="none"
               fill={CHART.series[1]}
               fillOpacity={0.1}
@@ -122,7 +121,7 @@ export function LoadCard({ points }: { points: LoadPoint[] }) {
               yAxisId="ratio"
               type="monotone"
               dataKey="ratio"
-              name="vs baseline"
+              name="vs normal"
               stroke={CHART.accent}
               strokeWidth={2}
               dot={false}
@@ -144,4 +143,19 @@ export function LoadCard({ points }: { points: LoadPoint[] }) {
       )}
     </Panel>
   );
+}
+
+/** The ratio in words: a number like 0.84× means nothing on its own. */
+function loadCopy(ratio: number) {
+  const percent = Math.round(Math.abs(ratio - 1) * 100);
+
+  if (ratio > LOAD_BAND.high) {
+    return `This week is ${percent}% harder than your normal week — a big jump`;
+  }
+
+  if (ratio < LOAD_BAND.low) {
+    return `This week is ${percent}% lighter than your normal week`;
+  }
+
+  return "This week is close to your normal week";
 }

@@ -53,14 +53,13 @@ export function CumulativeCard({
 
   return (
     <Panel
-      title="Everything you have lifted"
-      caption={last ? `Past ${last.label} kg since you started` : "Since your first logged set"}
+      title="All the weight you have ever lifted"
+      caption={last ? `Past ${last.label} kg since you started` : "Since your first set"}
       note={
         <>
-          The running total of every kilo in every set, from your first log to today. It ignores the
-          range picker — a lifetime total that restarts when you drag a date is not a lifetime
-          total. The shaded region is the range you picked. No previous-year line: there is one year
-          of history here, so a comparison would be invented rather than measured.
+          Every kilo of every set, added up from your first session to today. This card always
+          shows all your history, whatever time range you pick. The light area is the range you
+          picked. The dots mark big milestones.
         </>
       }
     >
@@ -109,7 +108,7 @@ export function CumulativeCard({
               {...animationProps}
               type="monotone"
               dataKey="total"
-              name="Lifetime"
+              name="All-time total"
               stroke={CHART.accent}
               strokeWidth={2}
               fill="url(#cumulative-wash)"

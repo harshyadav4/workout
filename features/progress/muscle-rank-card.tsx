@@ -2,13 +2,21 @@
 
 import { useState } from "react";
 
-import { CHART, EmptyChart } from "@/features/progress/chart-theme";
+import {
+  CHART,
+  EmptyChart,
+  GROUP_COLORS
+} from "@/features/progress/chart-theme";
+import { GroupLegend } from "@/features/progress/extras-cards";
+import { muscles } from "@/lib/seed-data";
 import type { MuscleVolume } from "@/lib/progress-metrics";
 import type { MuscleId } from "@/lib/types";
 import { cn, formatVolume } from "@/lib/utils";
 import { Panel } from "@/features/progress/panel";
 
 const PAGE = 10;
+
+const GROUP_OF = new Map(muscles.map((muscle) => [muscle.id, muscle.group]));
 
 /**
  * Every muscle you own, ordered by how much of the volume reached it.
@@ -39,14 +47,12 @@ export function MuscleRankCard({
 
   return (
     <Panel
-      title="The focus order"
-      caption={`${worked.length} of ${muscleVolume.length} muscles saw work in this range`}
+      title="Most to least trained"
+      caption={`${worked.length} of ${muscleVolume.length} muscles got training in this range`}
       note={
         <>
-          Share of the range&apos;s volume that reached each muscle, every lift weighted by how hard
-          it works it. This replaced a radar and a most/least pair — all three answered &ldquo;where
-          does the focus go&rdquo;, and only this one does it at the resolution the taxonomy actually
-          has. Rows select, so the ranking is also a way in.
+          Each muscle&apos;s share of all the weight you lifted in this range. A lift gives more to
+          the muscles it works hardest. Tap a row to open that muscle.
         </>
       }
     >
@@ -86,14 +92,16 @@ export function MuscleRankCard({
                           className="block h-full rounded-full"
                           style={{
                             width: `${peak > 0 ? Math.max((muscle.share / peak) * 100, muscle.share > 0 ? 3 : 0) : 0}%`,
-                            backgroundColor: selected ? CHART.accent : CHART.quiet
+                            // Group colour, the same key as every other muscle chart;
+                            // the selected row is marked by its weight and fill.
+                            backgroundColor: GROUP_COLORS[GROUP_OF.get(muscle.muscleId) ?? ""] ?? CHART.quiet
                           }}
                         />
                       </span>
-                      <span className="w-11 shrink-0 text-right text-[11px] tabular-nums text-muted-foreground">
+                      <span className="w-11 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
                         {muscle.share.toFixed(1)}%
                       </span>
-                      <span className="hidden w-14 shrink-0 text-right text-[11px] tabular-nums text-muted-foreground xs:block">
+                      <span className="hidden w-14 shrink-0 text-right text-xs tabular-nums text-muted-foreground xs:block">
                         {formatVolume(muscle.volume)}
                       </span>
                     </button>
@@ -109,6 +117,12 @@ export function MuscleRankCard({
             >
               {expanded ? "Show the top 10" : `Show all ${muscleVolume.length} muscles`}
             </button>
+            <GroupLegend
+              groups={muscleVolume.flatMap((muscle) => {
+                const group = GROUP_OF.get(muscle.muscleId);
+                return group ? [group] : [];
+              })}
+            />
           </>
         )}
     </Panel>

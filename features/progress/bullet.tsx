@@ -1,6 +1,9 @@
 "use client";
 
-import { CHART } from "@/features/progress/chart-theme";
+import {
+  CHART,
+  useSection
+} from "@/features/progress/chart-theme";
 
 /**
  * One measure, one target range, one line.
@@ -31,16 +34,17 @@ export function Bullet({
   ceiling: number;
   unit?: string;
 }) {
+  const { accent } = useSection();
   const max = Math.max(ceiling, band.high, value) || 1;
   const pct = (input: number) => `${Math.min((input / max) * 100, 100)}%`;
   const inBand = value >= band.low && value <= band.high;
-  const state = value < band.low ? "under" : value > band.high ? "over" : "in band";
+  const state = value < band.low ? "below goal" : value > band.high ? "above goal" : "on goal";
 
   return (
     <div className="py-1">
       <div className="flex items-baseline justify-between gap-2">
         <span className="truncate text-xs">{label}</span>
-        <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
+        <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
           {value.toFixed(1)}
           {unit} · {state}
         </span>
@@ -49,7 +53,7 @@ export function Bullet({
       <div
         className="relative mt-1.5 h-2.5 rounded-full bg-muted"
         role="img"
-        aria-label={`${label}: ${value.toFixed(1)}${unit}, ${state} of the ${band.low} to ${band.high} range`}
+        aria-label={`${label}: ${value.toFixed(1)}${unit}, ${state} (goal ${band.low} to ${band.high})`}
       >
         {/* The target range sits behind the measure, the way a bullet chart's
             qualitative band does — context first, value on top of it. */}
@@ -62,7 +66,7 @@ export function Bullet({
           className="absolute inset-y-0.5 left-0 rounded-full"
           style={{
             width: pct(value),
-            backgroundColor: inBand ? CHART.accent : CHART.quiet
+            backgroundColor: inBand ? accent : CHART.quiet
           }}
           aria-hidden
         />

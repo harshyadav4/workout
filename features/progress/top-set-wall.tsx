@@ -1,9 +1,10 @@
 "use client";
 
-import { CHART, EmptyChart } from "@/features/progress/chart-theme";
+import { CHART, EmptyChart, GROUP_COLORS } from "@/features/progress/chart-theme";
+import { GroupLegend } from "@/features/progress/extras-cards";
 import { Panel } from "@/features/progress/panel";
 import { buildTopSetSeries, type ExerciseTotal, type TopSetPoint } from "@/lib/progress-metrics";
-import type { WorkoutLog } from "@/lib/types";
+import type { MuscleGroup, WorkoutLog } from "@/lib/types";
 
 const TILE = { width: 96, height: 34 };
 const LIMIT = 15;
@@ -28,10 +29,13 @@ const LIMIT = 15;
  */
 export function TopSetWall({
   logs,
-  exercises
+  exercises,
+  groupOf
 }: {
   logs: WorkoutLog[];
   exercises: ExerciseTotal[];
+  /** Colours each lift by the muscle group it works most. */
+  groupOf?: Map<string, MuscleGroup>;
 }) {
   const tiles = exercises
     .slice(0, LIMIT)
@@ -49,32 +53,36 @@ export function TopSetWall({
 
   return (
     <Panel
-      title="Every lift at once"
-      caption="Top set over the range, one tile per lift"
+      title="Each lift over time"
+      caption="Your heaviest set in each session, one box per lift. Biggest gain first"
       note={
         <>
-          The heaviest set of each session, per lift, steepest gain first. Each tile is scaled to its
-          own lift rather than to a shared axis — a 4 kg gain on a curl and a 40 kg gain on a
-          deadlift are both real, and one scale would flatten every accessory to a flat line. Read
-          the tile for the shape and the number for the size. Top set lifted, not an estimated 1RM: this card reads
-          the session rollup, which stores reps for the whole exercise rather than per set, so Epley
-          here would be a guess wearing a formula. The estimate has its own card, fed by the per-set
-          log.
+          Each box shows the heaviest set of each session for one lift. A line that goes up means
+          you got stronger. Each box has its own scale, so a 4 kg gain on a curl is as easy to see
+          as a 40 kg gain on a deadlift. Look at the line for the direction, and at the number for
+          the size. This is the weight you really lifted, not an estimate.
         </>
       }
     >
       {tiles.length === 0 ? (
         <EmptyChart>
-          Two sessions of the same lift are needed before there is a shape to draw.
+          Do the same lift in two sessions, and its line appears here.
         </EmptyChart>
       ) : (
         <ul className="grid grid-cols-2 gap-x-3 gap-y-2">
           {tiles.map((tile) => (
             <li key={tile.exercise.workoutId}>
-              <p className="truncate text-[11px] font-medium" title={tile.exercise.name}>
+              <p className="truncate text-xs font-medium" title={tile.exercise.name}>
                 {tile.exercise.name}
               </p>
-              <Sparkline points={tile.points} gained={tile.change >= 0} />
+              <Sparkline
+                points={tile.points}
+                color={
+                  tile.change < 0
+                    ? CHART.quiet
+                    : GROUP_COLORS[groupOf?.get(tile.exercise.workoutId) ?? ""] ?? CHART.accent
+                }
+              />
               <p className="text-[10px] tabular-nums text-muted-foreground">
                 {tile.first}→{tile.last} kg{" "}
                 <span style={{ color: tile.change >= 0 ? "hsl(var(--success))" : "hsl(var(--danger))" }}>
@@ -86,6 +94,14 @@ export function TopSetWall({
           ))}
         </ul>
       )}
+      {groupOf ? (
+        <GroupLegend
+          groups={tiles.flatMap((tile) => {
+            const group = groupOf.get(tile.exercise.workoutId);
+            return group ? [group] : [];
+          })}
+        />
+      ) : null}
     </Panel>
   );
 }
@@ -94,7 +110,7 @@ export function TopSetWall({
  * The line, and the two points that bound it. No axis: a tile this size cannot
  * carry tick labels, and the kilos are printed underneath where they are legible.
  */
-function Sparkline({ points, gained }: { points: TopSetPoint[]; gained: boolean }) {
+function Sparkline({ points, color }: { points: TopSetPoint[]; color: string }) {
   const weights = points.map((point) => point.weight);
   const low = Math.min(...weights);
   const high = Math.max(...weights);
@@ -107,7 +123,7 @@ function Sparkline({ points, gained }: { points: TopSetPoint[]; gained: boolean 
     return [x, y] as const;
   });
 
-  const stroke = gained ? CHART.accent : CHART.quiet;
+  const stroke = color;
 
   return (
     <svg

@@ -11,12 +11,13 @@ import {
   type DateWindow,
   type GroupSets,
   type ProgressRange,
-  type ProgressSummary
+  type ProgressSummary,
+  type StrengthGrowth
 } from "@/lib/progress-metrics";
 import type { Streaks } from "@/lib/progress-trends";
 import { formatVolume } from "@/lib/utils";
 
-const RANGE_LABELS: Record<ProgressRange, string> = {
+export const RANGE_LABELS: Record<ProgressRange, string> = {
   "4w": "last 4 weeks",
   "12w": "last 12 weeks",
   "1y": "last year",
@@ -25,11 +26,14 @@ const RANGE_LABELS: Record<ProgressRange, string> = {
 };
 
 /**
- * The hero, and the only `Card` left on the page.
+ * The summary: one total made relatable, then one thing going well and one
+ * thing to try next.
  *
- * Everything else is a `Panel` now. Thirteen boxes of identical weight was the
- * reason the screen read as a list of widgets, and a hierarchy only exists if
- * something is at the top of it.
+ * The total used to be the hero, at 52px. Nobody can tell whether 1.9 million
+ * kg is good, so it is a supporting line now and the rings above carry the
+ * verdict. What stays here is the reading: a win first, because the page is
+ * opened to see progress, and then one fix, because a page that only praises
+ * gets ignored.
  */
 export function ProgressHeadline({
   range,
@@ -38,7 +42,8 @@ export function ProgressHeadline({
   window,
   streaks,
   weeklySets,
-  daysSincePR
+  daysSincePR,
+  topGain
 }: {
   range: ProgressRange;
   summary: ProgressSummary;
@@ -47,37 +52,58 @@ export function ProgressHeadline({
   streaks: Streaks;
   weeklySets: GroupSets[];
   daysSincePR?: number;
+  /** The lift that went up most in the range, if any did. */
+  topGain?: StrengthGrowth;
 }) {
   const change = previous ? percentChange(summary.volume, previous.volume) : undefined;
+  const reading = verdict({ summary, change, streaks, weeklySets, daysSincePR, topGain });
+  const cars = Math.round(summary.volume / CAR_KG);
 
   return (
     <Card>
-      <p className="text-[11px] font-semibold text-muted-foreground">
-        Volume · {RANGE_LABELS[range]}
+      <p className="text-xs font-semibold text-muted-foreground">
+        Total weight lifted · {RANGE_LABELS[range]}
       </p>
-      <p className="mt-2 font-display text-[3.25rem] font-extrabold leading-none tracking-[-0.03em] tabular-nums">
-        {formatVolume(summary.volume)}
-        <span className="ml-1.5 align-baseline text-lg font-medium text-muted-foreground">kg</span>
+      <p className="mt-1.5 font-display text-3xl font-extrabold leading-none tracking-tight tabular-nums">
+        {formatBig(summary.volume)}
+        <span className="ml-1.5 align-baseline text-base font-medium text-muted-foreground">kg</span>
       </p>
+      {cars >= MIN_CARS ? (
+        <p className="mt-1.5 text-sm text-muted-foreground">
+          About the weight of {formatVolume(cars)} cars.
+        </p>
+      ) : null}
       <Delta change={change} days={windowDays(window)} />
 
-      {/* The page measured thirteen things and concluded nothing. One sentence,
-          chosen by whichever finding is most worth acting on. */}
-      <p className="mt-3 border-l-2 border-brand pl-3 text-sm leading-relaxed">
-        {verdict({ summary, change, streaks, weeklySets, daysSincePR })}
-      </p>
-
-      <div className="mt-4 grid grid-cols-3 gap-2">
-        <Tile label="Sessions" value={String(summary.sessions)} />
-        <Tile label="Sets" value={formatVolume(summary.sets)} />
-        <Tile
-          label="Heaviest"
-          value={summary.best ? `${summary.best.weight}` : "—"}
-          unit={summary.best ? "kg" : undefined}
-          detail={summary.best?.name}
-        />
+      <div className="mt-4 space-y-2">
+        {reading.good ? <Reading label="Going well" tone="good" text={reading.good} /> : null}
+        <Reading label="Try next" tone="next" text={reading.next} />
       </div>
     </Card>
+  );
+}
+
+/** A small family car, near enough — the comparison only needs to be roughly right. */
+const CAR_KG = 1500;
+
+/** Under ten cars the comparison is more odd than impressive. */
+const MIN_CARS = 10;
+
+/** "1.9 million" reads at a glance; "1,919,048" has to be counted. */
+function formatBig(value: number) {
+  return value >= 1_000_000 ? `${(value / 1_000_000).toFixed(1)} million` : formatVolume(value);
+}
+
+function Reading({ label, tone, text }: { label: string; tone: "good" | "next"; text: string }) {
+  return (
+    <div
+      className={`rounded-lg border-l-2 py-1 pl-3 ${tone === "good" ? "border-success" : "border-brand"}`}
+    >
+      <p className={`text-xs font-semibold ${tone === "good" ? "text-success" : "text-brand"}`}>
+        {label}
+      </p>
+      <p className="mt-0.5 text-sm leading-snug">{text}</p>
+    </div>
   );
 }
 
@@ -88,11 +114,11 @@ const PLATEAU_DAYS = 42;
 const NOTABLE_CHANGE = 15;
 
 /**
- * One sentence, and only one.
+ * Two lines: one thing going well, one thing to try next.
  *
- * Ordered by what is worth doing something about rather than by what is easiest
- * to compute: a stalled bar outranks a healthy tonnage number, and an
- * undertrained group outranks a streak. Same shape as `readOf()` in
+ * "Try next" is ordered by what is worth doing something about rather than by
+ * what is easiest to compute: a stalled bar outranks a muscle under its goal,
+ * and that outranks a drop in total. Same shape as `readOf()` in
  * `volume-detail-card.tsx` — one place decides what the numbers mean, so the
  * page never says two different things about the same range.
  */
@@ -101,56 +127,76 @@ function verdict({
   change,
   streaks,
   weeklySets,
-  daysSincePR
+  daysSincePR,
+  topGain
 }: {
   summary: ProgressSummary;
   change?: number;
   streaks: Streaks;
   weeklySets: GroupSets[];
   daysSincePR?: number;
-}) {
+  topGain?: StrengthGrowth;
+}): { good?: string; next: string } {
   if (summary.sessions === 0) {
-    return "Nothing logged in this range — widen it, or go and train.";
+    return { next: "No sessions in this time range. Pick a longer range, or go train." };
   }
 
+  return { good: goingWell(summary, change, streaks, topGain), next: tryNext(change, weeklySets, daysSincePR) };
+}
+
+function goingWell(
+  summary: ProgressSummary,
+  change: number | undefined,
+  streaks: Streaks,
+  topGain?: StrengthGrowth
+) {
+  if (topGain && topGain.changePercent >= 2) {
+    return `${topGain.name} went up from ${topGain.first} kg to ${topGain.last} kg (+${Math.round(topGain.changePercent)}%).`;
+  }
+
+  if (change !== undefined && change >= NOTABLE_CHANGE) {
+    return `You lifted ${Math.round(change)}% more than in the period before.`;
+  }
+
+  if (streaks.currentWeeks >= 2) {
+    return `${streaks.currentWeeks} weeks in a row with at least one session.`;
+  }
+
+  return `${summary.sessions} ${summary.sessions === 1 ? "session" : "sessions"} done in this range. Every one counts.`;
+}
+
+function tryNext(change: number | undefined, weeklySets: GroupSets[], daysSincePR?: number) {
   if (daysSincePR !== undefined && daysSincePR >= PLATEAU_DAYS) {
-    return `No lift has beaten itself in ${Math.floor(daysSincePR / 7)} weeks. The work is going in; the bar is not moving.`;
+    return `No new personal record in ${Math.floor(daysSincePR / 7)} weeks. Try to add a little weight, or one more rep, to one main lift.`;
   }
 
   // Only groups you actually train: a group at zero is a programme choice, and
-  // telling someone their untrained calves are under the band is noise.
+  // telling someone their untrained calves are under the goal is noise.
   const lagging = weeklySets.filter(
     (group) => group.setsPerWeek > 0 && group.setsPerWeek < WEEKLY_SET_TARGET.low
   );
 
   if (lagging.length > 0) {
     const worst = lagging[lagging.length - 1];
-    return `${worst.label} is getting ${worst.setsPerWeek.toFixed(1)} hard sets a week, under the 10–20 band — the cheapest thing to fix next week.`;
+    return `${worst.label} gets only ${worst.setsPerWeek.toFixed(1)} sets a week (goal ${WEEKLY_SET_TARGET.low}–${WEEKLY_SET_TARGET.high}). Add a few ${worst.label.toLowerCase()} sets next week.`;
   }
 
   if (change !== undefined && change <= -NOTABLE_CHANGE) {
-    return `Tonnage is down ${Math.abs(Math.round(change))}% on the window before. A deload if you meant it, a drift if you did not.`;
+    return `You lifted ${Math.abs(Math.round(change))}% less than in the period before. Fine if you planned an easy phase; if not, get back to your usual week.`;
   }
 
   if (change !== undefined && change >= NOTABLE_CHANGE) {
-    return `Tonnage is up ${Math.round(change)}% on the window before, across ${summary.sessions} sessions. Watch recovery before adding more.`;
+    return "You are doing a lot more than before. Sleep and eat well so your body can recover.";
   }
 
-  if (streaks.currentWeeks >= 4) {
-    return `${streaks.currentWeeks} weeks in a row without missing one, at ${summary.setsPerSession.toFixed(0)} sets a session. The habit is the win here.`;
-  }
-
-  return `${summary.sessions} sessions at ${formatVolume(summary.sessionVolume)} kg each, holding steady against the window before.`;
+  return "Keep going. Try to add a little weight, or one more rep, to your main lifts.";
 }
 
 /** Direction is an arrow first and a colour second — never colour alone. */
 function Delta({ change, days }: { change?: number; days: number }) {
+  // "No earlier period" on the default range told the user nothing; say nothing.
   if (change === undefined) {
-    return (
-      <p className="mt-2 text-sm text-muted-foreground">
-        No earlier window to compare against yet.
-      </p>
-    );
+    return null;
   }
 
   const flat = Math.abs(change) < 1;
@@ -163,34 +209,5 @@ function Delta({ change, days }: { change?: number; days: number }) {
       <span className="tabular-nums">{formatSigned(change)}%</span>
       <span className="text-muted-foreground">vs the previous {days} days</span>
     </p>
-  );
-}
-
-function Tile({
-  label,
-  value,
-  unit,
-  detail
-}: {
-  label: string;
-  value: string;
-  unit?: string;
-  detail?: string;
-}) {
-  return (
-    <div className="well rounded-lg p-3">
-      <p className="text-[11px] font-semibold text-muted-foreground">
-        {label}
-      </p>
-      <p className="mt-1.5 font-display text-xl font-extrabold leading-none tracking-tight tabular-nums">
-        {value}
-        {unit ? <span className="ml-1 text-xs font-medium text-muted-foreground">{unit}</span> : null}
-      </p>
-      {detail ? (
-        <p className="mt-1 truncate text-[11px] text-muted-foreground" title={detail}>
-          {detail}
-        </p>
-      ) : null}
-    </div>
   );
 }

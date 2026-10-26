@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { HEAT, REST_CELL } from "@/features/progress/chart-theme";
+import { REST_CELL, useSection } from "@/features/progress/chart-theme";
 import {
   formatDayKey,
   formatMonthKey,
@@ -14,8 +14,8 @@ import { formatVolume } from "@/lib/utils";
 
 const CELL = "h-[13px] w-[13px] rounded-[3px]";
 
-function cellColor(level: number) {
-  return level > 0 ? HEAT[Math.min(level, HEAT.length) - 1] : REST_CELL;
+function cellColor(level: number, heat: readonly string[]) {
+  return level > 0 ? heat[Math.min(level, heat.length) - 1] : REST_CELL;
 }
 
 /** The spine draws `view.calendar`, which is scoped — so the heading says so. */
@@ -50,6 +50,7 @@ export function YearSpine({
   streaks: Streaks;
   range: ProgressRange;
 }) {
+  const { heat } = useSection();
   const [picked, setPicked] = useState<{ date: string; volume: number }>();
 
   const percent = Math.round((streaks.trainedDays / Math.max(streaks.totalDays, 1)) * 100);
@@ -63,12 +64,12 @@ export function YearSpine({
         {/* The readout replaces a hover tooltip that a touch device can never
             reach. It holds the last tap rather than clearing on release, so the
             number survives your finger leaving the screen. */}
-        <p className="truncate text-[11px] tabular-nums text-muted-foreground">
+        <p className="truncate text-xs tabular-nums text-muted-foreground">
           {picked
             ? picked.volume > 0
               ? `${formatDayKey(picked.date)} · ${formatVolume(picked.volume)} kg`
               : `${formatDayKey(picked.date)} · rest`
-            : `${streaks.trainedDays} of ${streaks.totalDays} days · ${percent}%`}
+            : `Trained ${streaks.trainedDays} of ${streaks.totalDays} days · tap a day`}
         </p>
       </div>
 
@@ -113,7 +114,7 @@ export function YearSpine({
                       data-date={day.date}
                       data-volume={day.volume}
                       className={`${CELL} cursor-pointer`}
-                      style={{ backgroundColor: cellColor(day.level) }}
+                      style={{ backgroundColor: cellColor(day.level, heat) }}
                       title={
                         day.volume > 0
                           ? `${day.date} · ${formatVolume(day.volume)} kg`
@@ -131,9 +132,9 @@ export function YearSpine({
       </div>
 
       <div className="mt-2 grid grid-cols-3 gap-2 px-4">
-        <Streak label="On a streak" value={`${streaks.currentWeeks}w`} />
-        <Streak label="Best run" value={`${streaks.longestWeeks}w`} />
-        <Streak label="Showed up" value={`${percent}%`} />
+        <Streak label="Current streak" value={`${streaks.currentWeeks} wk`} />
+        <Streak label="Best streak" value={`${streaks.longestWeeks} wk`} />
+        <Streak label="Days trained" value={`${percent}%`} />
       </div>
     </section>
   );
@@ -143,7 +144,7 @@ export function YearSpine({
 function Streak({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl bg-muted px-3 py-2">
-      <p className="text-[11px] font-semibold text-muted-foreground">
+      <p className="text-xs font-semibold text-muted-foreground">
         {label}
       </p>
       <p className="mt-1 font-display text-lg font-extrabold tabular-nums leading-none tracking-tight">{value}</p>

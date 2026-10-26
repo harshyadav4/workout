@@ -37,14 +37,14 @@ export function SplitDriftCard({ drift }: { drift: SplitDrift }) {
 
   return (
     <Panel
-      title="How the split drifted"
-      caption={`Share of volume per ${drift.bucket}`}
+      title="How your focus changed"
+      caption={`Each muscle group's share of the weight you lifted, per ${drift.bucket}`}
       note={
         <>
-          Each band is one muscle group&apos;s share of that {drift.bucket}&apos;s volume, weighted
-          by how hard every lift works the group. Normalised to 100%, so a heavy month and a light
-          month are the same height and the only thing that can change the shape is the mix itself.
-          A {drift.bucket} you did not train sits at zero rather than being skipped — a gap is data.
+          Each color band is one muscle group&apos;s share of the weight you lifted in that{" "}
+          {drift.bucket}. Every {drift.bucket} adds up to 100%, so a heavy {drift.bucket} and a light
+          one are the same height. Only the mix changes the shape. A {drift.bucket} with no training
+          shows as zero.
         </>
       }
     >
@@ -96,7 +96,7 @@ export function SplitDriftCard({ drift }: { drift: SplitDrift }) {
                   style={{ backgroundColor: GROUP_COLORS[group.group] }}
                   aria-hidden
                 />
-                <span className="truncate text-[11px] text-muted-foreground">{group.label}</span>
+                <span className="truncate text-xs text-muted-foreground">{group.label}</span>
                 <span className="ml-auto shrink-0 text-[10px] tabular-nums">
                   {Math.round(last?.[group.group] ?? 0)}%
                 </span>

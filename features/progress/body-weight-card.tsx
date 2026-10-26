@@ -17,8 +17,10 @@ import {
   EmptyChart,
   animationProps,
   axisProps,
-  gridProps
+  gridProps,
+  useSection
 } from "@/features/progress/chart-theme";
+import type { GoalEta } from "@/lib/progress-extras";
 import { Panel } from "@/features/progress/panel";
 import { goalDomain, hasGoal, seriesFor, withMovingAverage } from "@/lib/body-metrics";
 import { formatDayKey } from "@/lib/progress-metrics";
@@ -26,11 +28,15 @@ import type { BodyMeasurement } from "@/lib/types";
 
 export function BodyWeightCard({
   measurements,
-  goalWeightKg
+  goalWeightKg,
+  eta
 }: {
   measurements: BodyMeasurement[];
   goalWeightKg?: number;
+  /** When the goal arrives at the recent pace, if it does. */
+  eta?: GoalEta;
 }) {
+  const { accent } = useSection();
   const points = withMovingAverage(seriesFor(measurements, "weight"));
 
   return (
@@ -39,12 +45,10 @@ export function BodyWeightCard({
       caption="Every weigh-in, with a 7-day average"
       note={
         <>
-          The line is a trailing 7-day mean; the dots are what the scale actually said. Day-to-day
-          bodyweight is mostly water, so the raw readings are noise you should not react to — the
-          average is the part that trends. The axis deliberately does not start at zero: bodyweight
-          moves 2–3%, and a zero-based axis renders a year of real change as a flat line. Set a
-          goal on Profile and it is drawn as a dashed line the axis always makes room for — a
-          target you are heading towards, not a prediction that you will.
+          The dots show what the scale said. The line shows your average of the last 7 days. Your
+          weight changes from day to day, mostly because of water, so watch the line, not the dots.
+          The chart does not start at zero, so small real changes are easy to see. Set a goal weight
+          on Profile, and it shows as a dashed line.
         </>
       }
     >
@@ -73,7 +77,7 @@ export function BodyWeightCard({
               {...animationProps}
               type="monotone"
               dataKey="value"
-              name="Reading"
+              name="Weigh-in"
               stroke={CHART.quiet}
               strokeWidth={0}
               dot={{ r: 2, fill: CHART.quiet }}
@@ -83,7 +87,7 @@ export function BodyWeightCard({
               type="monotone"
               dataKey="average"
               name="7-day average"
-              stroke={CHART.accent}
+              stroke={accent}
               strokeWidth={2}
               dot={false}
             />
@@ -114,6 +118,33 @@ export function BodyWeightCard({
       ) : (
         <EmptyChart>No weigh-ins yet. Record one on Profile.</EmptyChart>
       )}
+
+      {/* An estimate, and it says so: a straight line through eight weeks
+          knows nothing about holidays. */}
+      {eta && goalWeightKg ? (
+        <p
+          className="mt-3 rounded-xl px-3 py-2 text-xs leading-relaxed ring-1"
+          style={{ backgroundColor: `${accent}1a`, ["--tw-ring-color" as string]: `${accent}40` }}
+        >
+          <span className="font-semibold" style={{ color: accent }}>
+            Goal date estimate: {formatLongDate(eta.date)}
+          </span>{" "}
+          <span className="text-muted-foreground">
+            — at your pace of the last 8 weeks ({eta.perWeek > 0 ? "+" : ""}
+            {eta.perWeek.toFixed(1)} kg a week), you reach {goalWeightKg.toFixed(1)} kg around then.
+            It is an estimate, not a promise.
+          </span>
+        </p>
+      ) : null}
     </Panel>
   );
+}
+
+function formatLongDate(key: string) {
+  return new Date(`${key}T00:00:00Z`).toLocaleDateString("en-US", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC"
+  });
 }

@@ -40,23 +40,23 @@ export function OneRepMaxCard({
 
   return (
     <Panel
-      title="Estimated 1RM"
-      caption="Your best eligible set in this range, run through Epley — tap for the curve"
+      title="Your one-lift max (estimated)"
+      caption="The most you could likely lift once, from your best set — tap a lift for its chart"
       note={
         <>
-          Epley, from the per-set log rather than the session rollup — which is why this card can
-          exist and the top-set cards above still cannot. It is the best <em>estimate</em>, not the
-          heaviest set: 100 kg × 3 beats 105 kg × 1, and picking the heavier set would hide a real
-          improvement. Nothing above {MAX_ELIGIBLE_REPS} reps is used — past that the formula is
-          extrapolating, and a set of twenty says a great deal about work capacity and almost
-          nothing about a single max. Every row names the set it came from so you can argue with it.
+          Gym-goers call this a &ldquo;1RM&rdquo; (one-rep max): the heaviest weight you can lift
+          one time. You do not need to test it. The app estimates it from your sets with a standard
+          formula (Epley). 100 kg × 3 reps can beat 105 kg × 1, so the app uses the set with the
+          best estimate, not only the heaviest one. Sets with more than {MAX_ELIGIBLE_REPS} reps are
+          not used, because the estimate gets unreliable. Each row shows the set it came from. Tap a
+          lift to see what weight to use for 3, 5, 8 or 10 reps.
         </>
       }
     >
       {rows.length === 0 ? (
         <EmptyChart>
-          No set at {MAX_ELIGIBLE_REPS} reps or fewer in this range — there is nothing to estimate
-          from.
+          No set of {MAX_ELIGIBLE_REPS} reps or fewer in this time range, so there is nothing to
+          estimate from.
         </EmptyChart>
       ) : (
         <ul className="space-y-1">
@@ -74,7 +74,7 @@ export function OneRepMaxCard({
                 >
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm">{exercise.name}</span>
-                    <span className="block text-[11px] text-muted-foreground">
+                    <span className="block text-xs text-muted-foreground">
                       from {estimate?.fromWeight}kg × {estimate?.fromReps} on{" "}
                       {formatDayKey(estimate?.date ?? "")}
                     </span>
@@ -98,7 +98,7 @@ export function OneRepMaxCard({
                       {CALCULATOR_REPS.map((reps) => (
                         <li
                           key={reps}
-                          className="rounded-full bg-muted px-2.5 py-1 text-[11px] tabular-nums"
+                          className="rounded-full bg-muted px-2.5 py-1 text-xs tabular-nums"
                         >
                           {weightForReps(estimate?.value ?? 0, reps)}kg × {reps}
                         </li>

@@ -6,7 +6,7 @@ import { Panel } from "@/features/progress/panel";
 import {
   CHART,
   ChartTooltip,
-  HEAT,
+  useSection,
   REST_CELL,
   animationProps,
   axisProps
@@ -21,8 +21,8 @@ import { formatVolume } from "@/lib/utils";
 
 const CELL = "h-[11px] w-[11px] rounded-[3px]";
 
-function cellColor(level: number) {
-  return level > 0 ? HEAT[Math.min(level, HEAT.length) - 1] : REST_CELL;
+function cellColor(level: number, heat: readonly string[]) {
+  return level > 0 ? heat[Math.min(level, heat.length) - 1] : REST_CELL;
 }
 
 /**
@@ -43,6 +43,7 @@ export function ConsistencyCard({
   /** What a filled cell counts, so the drill-down can say "lat sessions". */
   subject?: string;
 }) {
+  const { heat } = useSection();
   const trained = weeks.flatMap((week) => week.days).filter((day) => day && day.volume > 0).length;
   const days = weeks.flatMap((week) => week.days).filter(Boolean).length;
 
@@ -52,11 +53,9 @@ export function ConsistencyCard({
       caption={`${trained} ${subject} across ${days} days · ${Math.round((trained / Math.max(days, 1)) * 100)}%`}
       note={
         <>
-          One cell per day, a column per week, darker for a heavier day. Shading comes off the
-          quartiles of the days you actually trained rather than off your single heaviest day —
-          against the maximum, one outlier session would flatten everything else to the palest step
-          and a good year would read as a year off. Tap a cell to name it; every value is also in the
-          table at the foot of this page.
+          One square per day, one column per week. A brighter square means you lifted more that day.
+          The colors compare your training days with each other, so one very big day does not make
+          every other day look empty. Tap a square to see its date and total.
         </>
       }
     >
@@ -86,7 +85,7 @@ export function ConsistencyCard({
                       <div
                         key={day.date}
                         className={CELL}
-                        style={{ backgroundColor: cellColor(day.level) }}
+                        style={{ backgroundColor: cellColor(day.level, heat) }}
                         title={
                           day.volume > 0
                             ? `${day.date} · ${formatVolume(day.volume)} kg`
@@ -104,14 +103,14 @@ export function ConsistencyCard({
         </div>
 
         <div className="mt-3 flex items-center justify-end gap-1.5">
-          <span className="text-[11px] font-semibold text-muted-foreground">
+          <span className="text-xs font-semibold text-muted-foreground">
             Rest
           </span>
           <span className={CELL} style={{ backgroundColor: REST_CELL }} aria-hidden />
-          {HEAT.map((color) => (
+          {heat.map((color) => (
             <span key={color} className={CELL} style={{ backgroundColor: color }} aria-hidden />
           ))}
-          <span className="text-[11px] font-semibold text-muted-foreground">
+          <span className="text-xs font-semibold text-muted-foreground">
             Heavy
           </span>
         </div>
@@ -128,6 +127,7 @@ export function ConsistencyCard({
  * identical bars would bury it.
  */
 export function RhythmCard({ rhythm, rest }: { rhythm: WeekdayStat[]; rest: RestStats }) {
+  const { accent } = useSection();
   const total = rhythm.reduce((sum, day) => sum + day.sessions, 0);
 
   if (total === 0) {
@@ -139,14 +139,13 @@ export function RhythmCard({ rhythm, rest }: { rhythm: WeekdayStat[]; rest: Rest
 
   return (
     <Panel
-      title="Rhythm"
+      title="Your training week"
       caption={leaveCopy(quietDays)}
       note={
         <>
-          Sessions logged on each weekday across the range. The two thinnest columns are drawn in
-          the de-emphasis grey and named in the line above — the story here is the gap, not the
-          total, and seven similar bars would bury it. The four figures below are the gaps between
-          sessions: a gap counts the days <em>off</em>, so back-to-back days read as zero.
+          How many sessions you did on each day of the week in this range. The two days you train
+          least are grey. The four numbers below show how many days you rest between sessions.
+          Training two days in a row counts as zero rest days.
         </>
       }
     >
@@ -167,7 +166,7 @@ export function RhythmCard({ rhythm, rest }: { rhythm: WeekdayStat[]; rest: Rest
               {rhythm.map((day) => (
                 <Cell
                   key={day.label}
-                  fill={isQuiet(day.label) ? CHART.quiet : CHART.accent}
+                  fill={isQuiet(day.label) ? CHART.quiet : accent}
                 />
               ))}
             </Bar>
@@ -176,11 +175,17 @@ export function RhythmCard({ rhythm, rest }: { rhythm: WeekdayStat[]; rest: Rest
 
         <div className="mt-3 grid grid-cols-2 gap-2">
           <Stat label="Sessions / week" value={rest.sessionsPerWeek.toFixed(1)} />
-          <Stat label="Rest between" value={`${rest.averageGap.toFixed(1)} days`} />
-          <Stat label="Longest layoff" value={`${rest.longestGap} days`} />
+          <Stat label="Usual rest" value={restCopy(rest.averageGap)} />
+          <Stat label="Longest break" value={dayCount(rest.longestGap)} />
           <Stat
-            label="Since last"
-            value={rest.daysSinceLast === undefined ? "—" : `${rest.daysSinceLast} days`}
+            label="Last session"
+            value={
+              rest.daysSinceLast === undefined
+                ? "—"
+                : rest.daysSinceLast === 0
+                  ? "Today"
+                  : `${dayCount(rest.daysSinceLast)} ago`
+            }
           />
         </div>
     </Panel>
@@ -195,16 +200,29 @@ function leaveCopy(quietDays: WeekdayStat[]) {
   }
 
   if (off.length === 1) {
-    return `${off[0]} is the day you always take off.`;
+    return `${off[0]} is the day you always rest.`;
   }
 
-  return `You train every day of the week at some point; ${quietDays[0].label} is the one you skip most.`;
+  return `You train on every day of the week sometimes. ${quietDays[0].label} is the day you skip most.`;
+}
+
+function dayCount(days: number) {
+  return `${days} ${days === 1 ? "day" : "days"}`;
+}
+
+/** "0.5 days" is arithmetic, not an answer — say what the average means. */
+function restCopy(averageGap: number) {
+  if (averageGap < 0.75) {
+    return "Under 1 day";
+  }
+
+  return dayCount(Math.round(averageGap));
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="well rounded-lg p-3">
-      <p className="text-[11px] font-semibold text-muted-foreground">
+      <p className="text-xs font-semibold text-muted-foreground">
         {label}
       </p>
       <p className="mt-1.5 text-lg font-semibold leading-none">{value}</p>

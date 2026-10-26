@@ -30,14 +30,12 @@ export function ProgressTableCard({ logs }: { logs: WorkoutLog[] }) {
 
   return (
     <Panel
-      title="The numbers"
+      title="Session history"
       caption="Newest first — tap a row to open that session"
       note={
         <>
-          Every figure the charts above draw, as rows. This is the table-view twin: nothing on this
-          page is reachable only by hovering a chart, which is also the only way the charts work for
-          a keyboard or a screen reader. Once the shapes have said where to look, this is the view
-          you actually read.
+          All the numbers from the charts above, as a list. Use it to check the exact values for a
+          session.
         </>
       }
       action={
@@ -53,7 +51,7 @@ export function ProgressTableCard({ logs }: { logs: WorkoutLog[] }) {
               aria-pressed={grain === option}
               onClick={() => setGrain(option)}
               className={cn(
-                "min-h-[36px] rounded-md px-3 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                "min-h-[36px] rounded-md px-3 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 grain === option ? "key" : "text-muted-foreground"
               )}
             >
@@ -70,7 +68,7 @@ export function ProgressTableCard({ logs }: { logs: WorkoutLog[] }) {
             <div className="-mx-1 overflow-x-auto px-1 [mask-image:linear-gradient(to_right,black_calc(100%-14px),transparent)]">
               <table className="w-full min-w-[26rem] border-collapse text-sm">
                 <thead>
-                  <tr className="border-b border-border text-left text-[11px] font-semibold text-muted-foreground">
+                  <tr className="border-b border-border text-left text-xs font-semibold text-muted-foreground">
                     <th scope="col" className="pb-2 pr-3 font-normal">
                       {grain === "week" ? "Week" : "Day"}
                     </th>
@@ -184,7 +182,7 @@ function SessionDetail({
           <li key={log.id ?? `${log.date}-${log.workoutId}-${index}`} className="flex items-baseline gap-3">
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm">{log.name}</span>
-              <span className="block text-[11px] tabular-nums text-muted-foreground">
+              <span className="block text-xs tabular-nums text-muted-foreground">
                 {grain === "week" ? `${formatDayKey(log.date)} · ` : ""}
                 {log.totalSets ?? 0} × {log.totalReps ?? 0} reps
                 {log.peakWeight ? ` · top ${log.peakWeight} kg` : ""}

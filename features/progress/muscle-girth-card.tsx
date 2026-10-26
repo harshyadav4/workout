@@ -61,15 +61,12 @@ export function MuscleGirthCard({
   return (
     <Panel
       title={`${name} — measured`}
-      caption={sites.length > 1 ? "Left and right, in cm" : "Circumference in cm"}
+      caption={sites.length > 1 ? "Tape size, left and right, in cm" : "Tape size in cm"}
       note={
         <>
-          What the tape says, against the training above it. Left and right are plotted separately
-          because averaging them hides the asymmetry that is the main thing a tape catches and a
-          mirror doesn&apos;t. The axis does not start at zero — a limb gains a centimetre over
-          months, which a zero-based axis would flatten into a straight line. A date where you
-          measured one side and not the other is bridged rather than broken: tape readings are
-          sparse enough that breaking the line would leave you reading loose dots.
+          Your tape measurements next to your training. Left and right have separate lines, so you
+          can see if one side is bigger. The chart does not start at zero, because a muscle grows
+          only about a centimetre in months, and that small change must be easy to see.
         </>
       }
     >
@@ -112,13 +109,13 @@ export function MuscleGirthCard({
       {callout ? (
         <p className="mt-3 rounded-xl bg-accent/10 px-3 py-2 text-xs leading-relaxed ring-1 ring-accent/25">
           <span className="font-semibold text-accent">
-            Over {callout.weeks} weeks: volume {callout.volumeChangePct >= 0 ? "up" : "down"}{" "}
+            Over {callout.weeks} weeks: weight lifted {callout.volumeChangePct >= 0 ? "up" : "down"}{" "}
             {Math.abs(Math.round(callout.volumeChangePct))}%, {name.toLowerCase()}{" "}
             {callout.girthChangeCm >= 0 ? "up" : "down"}{" "}
             {Math.abs(callout.girthChangeCm).toFixed(1)}cm
           </span>{" "}
           <span className="text-muted-foreground">
-            — what happened, not why. Sleep, food and genetics moved this tape too.
+            — this shows what changed, not why. Sleep, food and genes also change your size.
           </span>
         </p>
       ) : null}

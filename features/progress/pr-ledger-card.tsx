@@ -29,7 +29,7 @@ export function PRLedgerCard({ entries, days }: { entries: PREntry[]; days?: num
 
   return (
     <Panel
-      title="The record book"
+      title="Personal records"
       caption={
         days === undefined
           ? "No records yet"
@@ -39,16 +39,15 @@ export function PRLedgerCard({ entries, days }: { entries: PREntry[]; days?: num
       }
       note={
         <>
-          A record is a session where one lift beat its own heaviest set. The first time you log a
-          lift is a starting point, not a record — otherwise every new exercise would announce
-          itself as one. This list is all-time and ignores the range picker above: a personal best
-          that only counts inside the last twelve weeks is not a personal best.
+          A personal record (PR) is a session where you lifted more than ever before on a lift. The
+          first time you do a lift is your starting point, not a record. This list shows all your
+          history, whatever time range you pick.
         </>
       }
     >
       {entries.length === 0 ? (
         <EmptyChart>
-          No lift has beaten itself yet. Two sessions of the same lift is where records start.
+          No records yet. Do the same lift in two sessions, and lift more the second time.
         </EmptyChart>
       ) : (
         <>
@@ -58,11 +57,11 @@ export function PRLedgerCard({ entries, days }: { entries: PREntry[]; days?: num
                 key={`${entry.date}-${entry.workoutId}`}
                 className="flex items-baseline gap-3 py-2"
               >
-                <span className="w-14 shrink-0 text-[11px] tabular-nums text-muted-foreground">
+                <span className="w-14 shrink-0 text-xs tabular-nums text-muted-foreground">
                   {formatDayKey(entry.date)}
                 </span>
                 <span className="min-w-0 flex-1 truncate text-sm">{entry.name}</span>
-                <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
+                <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
                   {entry.from} →{" "}
                   <span className="font-semibold" style={{ color: CHART.accent }}>
                     {entry.to} kg

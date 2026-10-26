@@ -1,5 +1,6 @@
 "use client";
 
+import { createContext, useContext } from "react";
 import type { TooltipContentProps } from "recharts";
 
 /**
@@ -136,7 +137,7 @@ export function ChartTooltip({
 
   return (
     <div className="plaque rounded-lg px-3 py-2">
-      <p className="text-[11px] font-semibold text-muted-foreground">
+      <p className="text-xs font-semibold text-muted-foreground">
         {heading}
       </p>
       {payload.map((entry) => (
@@ -166,4 +167,40 @@ export function EmptyChart({ children }: { children: React.ReactNode }) {
       {children}
     </div>
   );
+}
+
+/**
+ * Each ring's own colour, so you always know which section a chart belongs to.
+ *
+ * Validated as a categorical trio (dark #171b23 and light #fff surfaces: every
+ * mark inside the lightness band, ≥ 3:1 against the card, worst adjacent CVD
+ * ΔE 27.9) and each `heat` as an ordinal ramp (one hue, monotone lightness,
+ * light end ≥ 2:1). Run the dataviz validator again before changing a value.
+ *
+ * Green, amber and red stay out: those are status, and the rings already use
+ * them for "going well" and "needs work".
+ */
+export type SectionId = "strength" | "consistency" | "body";
+
+export interface SectionTheme {
+  accent: string;
+  heat: readonly string[];
+}
+
+export const SECTION_THEMES: Record<SectionId, SectionTheme> = {
+  strength: { accent: CHART.accent, heat: HEAT },
+  consistency: { accent: "#cf6f17", heat: ["#8a4a12", "#b35e15", "#d9771a", "#f29a4a"] },
+  body: { accent: "#8a5fe0", heat: ["#5d45ab", "#7556cf", "#8f6be6", "#b195f5"] }
+};
+
+const SectionContext = createContext<SectionTheme>(SECTION_THEMES.strength);
+
+/** Wraps one section; every chart inside draws in its colour. */
+export function SectionColors({ section, children }: { section: SectionId; children: React.ReactNode }) {
+  return <SectionContext.Provider value={SECTION_THEMES[section]}>{children}</SectionContext.Provider>;
+}
+
+/** The current section's colours — blue outside any section, as before. */
+export function useSection() {
+  return useContext(SectionContext);
 }

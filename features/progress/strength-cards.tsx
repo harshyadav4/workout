@@ -17,9 +17,12 @@ import {
   EmptyChart,
   animationProps,
   axisProps,
+  GROUP_COLORS,
   formatKg,
   gridProps
 } from "@/features/progress/chart-theme";
+import { GroupLegend } from "@/features/progress/extras-cards";
+import type { MuscleGroup } from "@/lib/types";
 import {
   formatDayKey,
   type StrengthGrowth,
@@ -37,22 +40,27 @@ const GROWTH_LIMIT = 8;
  * heavy the lift is and its span says how much it moved. A per-row scale would
  * make a 4 kg curl gain look like a 40 kg deadlift gain.
  */
-export function StrengthGrowthCard({ growth }: { growth: StrengthGrowth[] }) {
+export function StrengthGrowthCard({
+  growth,
+  groupOf
+}: {
+  growth: StrengthGrowth[];
+  /** Colours each lift by the muscle group it works most. */
+  groupOf?: Map<string, MuscleGroup>;
+}) {
   const rows = growth.slice(0, GROWTH_LIMIT);
   const ceiling = rows.reduce((peak, row) => Math.max(peak, row.first, row.last), 0);
 
   return (
     <Panel
       title="Strength growth"
-      caption="First session to latest, per lift, steepest gain first"
+      caption="Your first session vs your latest, per lift. Biggest gain first"
       note={
         <>
-          One shared 0-to-heaviest scale across every row, so a row&apos;s position says how heavy
-          the lift is and its span says how far it moved — a per-row scale would make a 4 kg curl
-          gain look like a 40 kg deadlift gain. Top set lifted, not an estimated 1RM: this card reads
-          the session rollup, which stores reps for the whole exercise rather than per set, so Epley
-          here would be fiction dressed as precision. The estimate lives on its own card, fed by the
-          per-set log.
+          The grey dot is your heaviest set the first time you did the lift. The colored dot is your
+          heaviest set now. A longer bar between them means a bigger gain. All rows use the same
+          scale, so you can compare lifts with each other. This is the weight you really lifted,
+          not an estimate.
         </>
       }
     >
@@ -65,6 +73,8 @@ export function StrengthGrowthCard({ growth }: { growth: StrengthGrowth[] }) {
 
         {rows.map((row) => {
           const gained = row.last >= row.first;
+          const group = groupOf?.get(row.workoutId);
+          const color = gained ? (group ? GROUP_COLORS[group] : CHART.accent) : CHART.quiet;
           const from = (Math.min(row.first, row.last) / ceiling) * 100;
           const to = (Math.max(row.first, row.last) / ceiling) * 100;
 
@@ -89,24 +99,32 @@ export function StrengthGrowthCard({ growth }: { growth: StrengthGrowth[] }) {
                   style={{
                     left: `${from}%`,
                     width: `${Math.max(to - from, 0.5)}%`,
-                    backgroundColor: gained ? CHART.accent : CHART.quiet
+                    backgroundColor: color
                   }}
                 />
                 <Knob position={(row.first / ceiling) * 100} color={CHART.quiet} label="first" />
                 <Knob
                   position={(row.last / ceiling) * 100}
-                  color={gained ? CHART.accent : CHART.quiet}
+                  color={color}
                   label="latest"
                 />
               </div>
 
-              <p className="mt-1.5 text-[11px] tabular-nums text-muted-foreground">
+              <p className="mt-1.5 text-xs tabular-nums text-muted-foreground">
                 {row.first} → {row.last} kg · {row.sessions} sessions
               </p>
             </div>
           );
         })}
       </div>
+      {groupOf ? (
+        <GroupLegend
+          groups={rows.flatMap((row) => {
+            const group = groupOf.get(row.workoutId);
+            return group ? [group] : [];
+          })}
+        />
+      ) : null}
     </Panel>
   );
 }
@@ -134,7 +152,7 @@ export function TopSetCard({
   name?: string;
 }) {
   return (
-    <Panel title={`Top set · ${name ?? "—"}`} caption="The heaviest set of every session">
+    <Panel title={`Top set · ${name ?? "—"}`} caption="Your heaviest set in each session">
       <TopSetChart points={points} />
     </Panel>
   );
@@ -165,7 +183,7 @@ export function TopSetChart({ points }: { points: TopSetPoint[] }) {
                 {...animationProps}
                 type="monotone"
                 dataKey="weight"
-                name="Top set"
+                name="Heaviest set"
                 stroke={CHART.accent}
                 strokeWidth={2}
                 dot={false}

@@ -2,7 +2,15 @@
 
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
-import { CHART, ChartTooltip, EmptyChart, animationProps, axisProps, gridProps } from "@/features/progress/chart-theme";
+import {
+  CHART,
+  ChartTooltip,
+  EmptyChart,
+  animationProps,
+  axisProps,
+  gridProps,
+  useSection
+} from "@/features/progress/chart-theme";
 import { Panel } from "@/features/progress/panel";
 import { formatDayKey } from "@/lib/progress-metrics";
 import {
@@ -29,6 +37,7 @@ function clockLabel(minutes: number) {
 }
 
 function DurationTrendCard({ sessions }: { sessions: TimedSession[] }) {
+  const { accent } = useSection();
   const points = sessions.map((session) => ({ date: session.date, minutes: Math.round(session.seconds / 60) }));
   const average = points.length ? Math.round(points.reduce((sum, point) => sum + point.minutes, 0) / points.length) : 0;
 
@@ -48,7 +57,7 @@ function DurationTrendCard({ sessions }: { sessions: TimedSession[] }) {
             <YAxis {...axisProps} width={36} allowDecimals={false} />
             <ReferenceLine y={average} stroke={CHART.series[1]} strokeDasharray="4 4" />
             <Tooltip content={<ChartTooltip unit="min" labelFormat={formatDayKey} />} />
-            <Line dataKey="minutes" name="Length" stroke={CHART.accent} strokeWidth={2} dot={{ r: 3, fill: CHART.accent }} {...animationProps} />
+            <Line dataKey="minutes" name="Length" stroke={accent} strokeWidth={2} dot={{ r: 3, fill: accent }} {...animationProps} />
           </LineChart>
         </ResponsiveContainer>
       )}
@@ -57,6 +66,7 @@ function DurationTrendCard({ sessions }: { sessions: TimedSession[] }) {
 }
 
 function WeeklyHoursCard({ sessions, today }: { sessions: TimedSession[]; today: string }) {
+  const { accent } = useSection();
   const weeks = weeklyHours(sessions, today, 12);
   const thisWeek = weeks[weeks.length - 1];
   const lastWeek = weeks[weeks.length - 2];
@@ -73,7 +83,7 @@ function WeeklyHoursCard({ sessions, today }: { sessions: TimedSession[]; today:
           <XAxis {...axisProps} dataKey="week" tickFormatter={formatDayKey} />
           <YAxis {...axisProps} width={34} />
           <Tooltip cursor={{ fill: "rgba(255,255,255,0.04)" }} content={<ChartTooltip unit="h" labelFormat={(key) => `Week of ${formatDayKey(key)}`} />} />
-          <Bar dataKey="hours" name="Trained" fill={CHART.accent} radius={[4, 4, 0, 0]} {...animationProps} />
+          <Bar dataKey="hours" name="Trained" fill={accent} radius={[4, 4, 0, 0]} {...animationProps} />
         </BarChart>
       </ResponsiveContainer>
     </Panel>
@@ -95,7 +105,7 @@ function WhenYouTrainCard({ sessions }: { sessions: TimedSession[] }) {
           <li key={part.id} className="grid grid-cols-[6rem_1fr_2rem] items-center gap-3 text-sm">
             <span>
               <span className="block font-semibold">{part.label}</span>
-              <span className="block text-[11px] text-muted-foreground">{part.hours}</span>
+              <span className="block text-xs text-muted-foreground">{part.hours}</span>
             </span>
             <span className="well h-3 overflow-hidden rounded-full">
               <span className="mana-fill block h-full rounded-full" style={{ width: `${(counts[part.id] / most) * 100}%` }} />
@@ -123,15 +133,15 @@ function DurationRecordsCard({ sessions }: { sessions: TimedSession[] }) {
             </div>
             <div className="mt-1.5 grid grid-cols-3 gap-2 text-xs tabular-nums">
               <span>
-                <span className="block text-[11px] text-muted-foreground">Average</span>
+                <span className="block text-xs text-muted-foreground">Average</span>
                 <span className="font-semibold">{formatDuration(record.average)}</span>
               </span>
               <span>
-                <span className="block text-[11px] text-muted-foreground">Longest</span>
+                <span className="block text-xs text-muted-foreground">Longest</span>
                 <span className="font-semibold">{formatDuration(record.longest.seconds)}</span>
               </span>
               <span>
-                <span className="block text-[11px] text-muted-foreground">Shortest</span>
+                <span className="block text-xs text-muted-foreground">Shortest</span>
                 <span className="font-semibold">{formatDuration(record.shortest.seconds)}</span>
               </span>
             </div>

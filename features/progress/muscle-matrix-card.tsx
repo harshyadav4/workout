@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { HEAT, REST_CELL } from "@/features/progress/chart-theme";
+import { REST_CELL, useSection } from "@/features/progress/chart-theme";
 import { Panel } from "@/features/progress/panel";
 import { formatColumnKey, type MuscleMatrix } from "@/lib/progress-trends";
 import type { MuscleId } from "@/lib/types";
@@ -39,6 +39,7 @@ export function MuscleMatrixCard({
   selectedMuscleId?: MuscleId;
   onSelectMuscle: (muscleId: MuscleId) => void;
 }) {
+  const { heat } = useSection();
   const [expanded, setExpanded] = useState(false);
 
   const worked = matrix.rows.filter((row) => row.total > 0);
@@ -47,19 +48,18 @@ export function MuscleMatrixCard({
 
   return (
     <Panel
-      title={matrix.bucket === "month" ? "Muscle × month" : "Muscle × week"}
+      title={matrix.bucket === "month" ? "Each muscle, month by month" : "Each muscle, week by week"}
       caption={
         neglected.length > 0
-          ? `${neglected.length} muscles saw no work at all in this range`
-          : "Every muscle saw work in this range"
+          ? `${neglected.length} muscles got no training in this range`
+          : "Every muscle got some training in this range"
       }
       note={
         <>
-          One row per muscle, one column per {matrix.bucket}. A cell is shaded by how much of that{" "}
-          {matrix.bucket}&apos;s volume reached the muscle — so a light month and a heavy month are
-          read on the same scale, and the colour always means share rather than tonnage. Rows you
-          never trained stay in the list on purpose: a blank row is the thing worth seeing. Tap any
-          row to open that muscle above.
+          One row per muscle, one column per {matrix.bucket}. A brighter square means that muscle
+          got a bigger share of the weight you lifted in that {matrix.bucket}. Muscles you never
+          trained stay in the list on purpose, so you can see the gaps. Tap a row to open that
+          muscle above.
         </>
       }
     >
@@ -98,7 +98,7 @@ export function MuscleMatrixCard({
               >
                 <span
                   className={cn(
-                    "w-[84px] shrink-0 truncate pr-2 text-[11px]",
+                    "w-[84px] shrink-0 truncate pr-2 text-xs",
                     selected ? "font-semibold" : "text-muted-foreground"
                   )}
                 >
@@ -113,7 +113,7 @@ export function MuscleMatrixCard({
                     )}
                     style={{
                       backgroundColor:
-                        cell.level > 0 ? HEAT[Math.min(cell.level, HEAT.length) - 1] : REST_CELL
+                        cell.level > 0 ? heat[Math.min(cell.level, heat.length) - 1] : REST_CELL
                     }}
                     title={`${row.name} · ${formatColumnKey(cell.key, matrix.bucket)} · ${cell.share.toFixed(1)}% of that ${matrix.bucket}`}
                   />

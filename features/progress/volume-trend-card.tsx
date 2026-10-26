@@ -19,13 +19,13 @@ export function VolumeTrendCard({ points, bucket }: { points: TrendPoint[]; buck
 
   return (
     <Panel
-      title="Volume"
-      caption={`Kilos moved per ${bucket === "week" ? "week" : "day"}`}
+      title="Weight lifted"
+      caption={`Total kilos you lifted each ${bucket === "week" ? "week" : "day"} (weight × reps × sets)`}
       note={
         <>
-          Every {bucket} in the range is on the axis, including the ones you did nothing in. A chart
-          that plots only the days you trained spaces a three-week layoff the same as a rest day and
-          turns a lapse into a straight line.
+          Every {bucket} in the range is on the chart, also the ones without training. So a break
+          from training shows as a dip to zero. A line that goes up over time means you are doing
+          more work.
         </>
       }
     >
@@ -49,7 +49,7 @@ export function VolumeTrendCard({ points, bucket }: { points: TrendPoint[]; buck
                 {...animationProps}
                 type="monotone"
                 dataKey="volume"
-                name="Volume"
+                name="Weight lifted"
                 stroke={CHART.accent}
                 strokeWidth={2}
                 fill="url(#volume-wash)"
@@ -58,7 +58,7 @@ export function VolumeTrendCard({ points, bucket }: { points: TrendPoint[]; buck
             </AreaChart>
           </ResponsiveContainer>
         ) : (
-        <EmptyChart>No sessions in this range. Pick a wider one, or go and train.</EmptyChart>
+        <EmptyChart>No sessions in this range. Pick a longer range, or go train.</EmptyChart>
       )}
     </Panel>
   );

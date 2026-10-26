@@ -89,7 +89,7 @@ export function SectionRule({ label, hint }: { label: string; hint?: string }) {
       <span className="shrink-0 text-xs font-semibold text-muted-foreground">
         {label}
       </span>
-      {hint ? <span className="truncate text-[11px] text-muted-foreground/70">{hint}</span> : null}
+      {hint ? <span className="truncate text-xs text-muted-foreground">{hint}</span> : null}
       <span className="h-px flex-1 bg-border" />
     </div>
   );
