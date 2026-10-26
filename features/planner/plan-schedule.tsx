@@ -299,7 +299,7 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
         </div>
       ) : null}
 
-      <Card>
+      <Card data-tour="plan-week">
         <div className="flex items-center justify-between gap-2">
           <h3 className="min-w-0 truncate font-display text-[22px] font-extrabold leading-none tracking-tight">
             {selectedDay.monthLabel}

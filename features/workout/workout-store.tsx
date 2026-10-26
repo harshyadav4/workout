@@ -8,6 +8,7 @@ import type { PlanImport } from "@/lib/ai-plan";
 import { upsertMeasurement } from "@/lib/body-metrics";
 import { releaseUnusedMedia } from "@/lib/media";
 import { reconcile } from "@/lib/reconcile";
+import { isTouring } from "@/features/tour/tour-store";
 import { finishTime } from "@/lib/session-time";
 import { muscles, presetWorkouts } from "@/lib/seed-data";
 import type {
@@ -109,6 +110,18 @@ interface WorkoutState {
   setActiveDate: (date: string) => void;
   setProfile: (patch: Partial<ProfileInfo>) => void;
   claimFor: (userId: string) => void;
+  /**
+   * The local half of "delete all my data": empty this device for a fresh
+   * start, keeping the owner, the name and the pending-deletion stamp. The
+   * data itself is in the archive by now (lib/archive.ts).
+   */
+  archiveLocal: (requestedAt: string) => void;
+  /**
+   * Bring the archive back. `merge` keeps what was logged since and adds the
+   * archive to it; `replace` drops what was logged since and returns to the
+   * archive exactly. Either way the pending deletion ends.
+   */
+  restoreArchive: (archive: RemoteState, mode: "merge" | "replace") => void;
   logMeasurement: (metric: BodyMetric, value: number, date?: string) => void;
   hydrateRemote: (payload: RemoteState) => void;
   /** Re-plan sessions not started yet from the latest logs (see refreshUpcomingSessions). */
@@ -200,6 +213,8 @@ function createInitialState(): Omit<
   | "setActiveDate"
   | "setProfile"
   | "claimFor"
+  | "archiveLocal"
+  | "restoreArchive"
   | "logMeasurement"
   | "hydrateRemote"
   | "refreshUpcoming"
@@ -292,7 +307,8 @@ function getSelectedOrFirstTodaySession(
   );
 }
 
-function createWorkoutStore() {
+/** Exported for the tour's tests; the app makes one, inside the provider. */
+export function createWorkoutStore() {
   const initial = loadState();
 
   return createStore<WorkoutState>()((set, get) => {
@@ -303,7 +319,11 @@ function createWorkoutStore() {
     const setAndPersist = (updater: (state: WorkoutState) => WorkoutState) =>
       set((state) => {
         const next = updater(state);
-        persist(next);
+        // Never while the tour's sample is on screen: the phone's copy is the
+        // real data, and it is what comes back if the page reloads mid-tour.
+        if (!isTouring()) {
+          persist(next);
+        }
         return next;
       });
 
@@ -766,6 +786,38 @@ function createWorkoutStore() {
             ? state
             : { ...state, ...createInitialState(), owner: userId }
         ),
+      // The owner stays so the next sign-in by the same account does not read
+      // an untagged blob. The stamp stays so every screen knows an archive is
+      // waiting, and so the sync layer leaves its GIFs alone.
+      archiveLocal: (requestedAt) =>
+        setAndPersist((state) => {
+          const fresh = createInitialState();
+          return {
+            ...state,
+            ...fresh,
+            owner: state.owner,
+            profile: {
+              ...fresh.profile,
+              name: state.profile.name,
+              email: state.profile.email,
+              deletionRequestedAt: requestedAt
+            }
+          };
+        }),
+      // Through `reconcile`, like a backup restore: union by id, the archive's
+      // copy winning where both have the same entry. `replace` starts from an
+      // empty base, so what was logged since is gone and the sync layer
+      // deletes it from the account.
+      restoreArchive: (archive, mode) =>
+        setAndPersist((state) => {
+          const base = mode === "replace" ? { ...state, ...createInitialState(), owner: state.owner } : state;
+          const merged = reconcile(base, archive);
+          return withFreshUpcoming({
+            ...base,
+            ...merged,
+            profile: { ...merged.profile, deletionRequestedAt: undefined }
+          });
+        }),
       // Was a replace-outright, which destroyed every local write that had not
       // reached Supabase yet — the failure `lib/reconcile.ts` exists to end.
       // Logs from another device can move the plan, so re-plan after merging.

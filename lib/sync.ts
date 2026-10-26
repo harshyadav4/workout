@@ -239,7 +239,7 @@ function rowToSkillGoal(row: Row): SkillGoal {
  * that went out before its migration ran. 42P01 from Postgres, PGRST205 from
  * PostgREST's schema cache.
  */
-function isMissingTable(error: { code?: string } | null | undefined): boolean {
+export function isMissingTable(error: { code?: string } | null | undefined): boolean {
   return error?.code === "42P01" || error?.code === "PGRST205";
 }
 
@@ -325,7 +325,8 @@ export async function loadUserState(): Promise<RemoteState> {
           goalWeightKg: Number(profileRow.goal_weight_kg) || undefined,
           weightCadence: (profileRow.weight_cadence as MeasurementCadence) ?? undefined,
           measurementCadence:
-            (profileRow.measurement_cadence as MeasurementCadence) ?? undefined
+            (profileRow.measurement_cadence as MeasurementCadence) ?? undefined,
+          deletionRequestedAt: (profileRow.deletion_requested_at as string | null) ?? undefined
         }
       : undefined,
     scheduleConfig: (profileRow?.schedule_config as ScheduleConfig) ?? undefined
@@ -401,8 +402,16 @@ async function writeTable<T extends Identified>(
  * GIFs): without it, saving any exercise template used to fail outright.
  * `distance_km` is 0007 (cardio): a run still syncs its time without it.
  * `started_at` / `finished_at` are 0007 too: sessions sync, untimed, without them.
+ * `deletion_requested_at` is 0008: the profile syncs without it, and the
+ * pending deletion stays on the device until it runs.
  */
-const OPTIONAL_COLUMNS = ["media_path", "distance_km", "started_at", "finished_at"];
+const OPTIONAL_COLUMNS = [
+  "media_path",
+  "distance_km",
+  "started_at",
+  "finished_at",
+  "deletion_requested_at"
+];
 
 function isMissingOptionalColumn(error: { code?: string; message?: string }): boolean {
   // 42703 from Postgres, PGRST204 from PostgREST's schema cache.
@@ -524,7 +533,13 @@ export async function pushChanges(
   // After the rows: a file is only removed once nothing in the database points
   // at it. A failed remove is not worth failing the push for — the worst case
   // is an orphaned GIF, which costs a few hundred KB, not a lost set.
-  const orphaned = removedMediaPaths(previous.templates, next.templates);
+  //
+  // Not while a deletion is pending: the archived exercises still point at
+  // their GIFs, and a restore must find them where they were. lib/archive.ts
+  // removes the leftovers when the archive is finally deleted.
+  const orphaned = next.profile.deletionRequestedAt
+    ? []
+    : removedMediaPaths(previous.templates, next.templates);
   if (orphaned.length > 0) {
     const { error } = await supabase.storage.from("exercise-media").remove(orphaned);
     if (error) {
@@ -560,7 +575,7 @@ export async function pushChanges(
     previous.profile !== next.profile || previous.scheduleConfig !== next.scheduleConfig;
 
   if (profileChanged) {
-    const { error } = await supabase.from("profiles").upsert({
+    const row: Row = {
       id: userId,
       name: next.profile.name,
       email: next.profile.email,
@@ -570,9 +585,53 @@ export async function pushChanges(
       weight_cadence: next.profile.weightCadence ?? null,
       measurement_cadence: next.profile.measurementCadence ?? null,
       schedule_config: next.scheduleConfig ?? null,
+      deletion_requested_at: next.profile.deletionRequestedAt ?? null,
       updated_at: new Date().toISOString()
-    });
-    if (error) {
+    };
+    const { error } = await supabase.from("profiles").upsert(row);
+    if (error && isMissingOptionalColumn(error)) {
+      // Before 0008 the weekly goal stays on the device; the rest still saves.
+      const { error: retry } = await supabase.from("profiles").upsert(withoutOptionalColumns(row));
+      if (retry) {
+        throw retry;
+      }
+    } else if (error) {
+      throw error;
+    }
+  }
+}
+
+// -- clear -----------------------------------------------------------------
+
+/**
+ * Every table holding a user's rows. `set_logs` first: it references
+ * `workout_logs`, and the cascade is there but an explicit order does not lean
+ * on it.
+ */
+const USER_TABLES = [
+  "set_logs",
+  "workout_logs",
+  "body_measurements",
+  "scheduled_sessions",
+  "session_templates",
+  "workout_templates",
+  "skill_goals"
+] as const;
+
+/**
+ * Delete every row this user owns, explicitly, rather than through the diff:
+ * the diff only removes what this device last saw, and an archive must leave
+ * nothing behind for another device's reconcile to bring back. Files and the
+ * profile are not touched — see lib/archive.ts. Safe to run twice.
+ */
+export async function clearUserRows(userId: string): Promise<void> {
+  if (!supabase) {
+    throw new Error("Supabase is not configured");
+  }
+  for (const table of USER_TABLES) {
+    const { error } = await supabase.from(table).delete().eq("user_id", userId);
+    // skill_goals arrives with 0007; a project without it has nothing there to delete.
+    if (error && !(table === "skill_goals" && isMissingTable(error))) {
       throw error;
     }
   }

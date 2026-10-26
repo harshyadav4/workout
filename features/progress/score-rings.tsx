@@ -42,7 +42,7 @@ export function ScoreRings({
   onSelect: (id?: RingId) => void;
 }) {
   return (
-    <div className="grid grid-cols-3 gap-2" role="group" aria-label="Progress rings">
+    <div className="grid grid-cols-3 gap-2" role="group" aria-label="Progress rings" data-tour="progress-rings">
       {RING_META.map(({ id, label }) => {
         const ring = rings[id];
         const tone = TONE[ring.tone];
@@ -181,7 +181,7 @@ export function ViewTabs({
   onChange: (view: ProgressView) => void;
 }) {
   return (
-    <div className="-mx-4 overflow-x-auto px-4 scrollbar-hide">
+    <div className="-mx-4 overflow-x-auto px-4 scrollbar-hide" data-tour="progress-tabs">
       <div className="flex w-max gap-1 border-b border-border" role="tablist" aria-label="Progress section">
         {VIEW_TABS.map((tab) => {
           const active = view === tab.id;

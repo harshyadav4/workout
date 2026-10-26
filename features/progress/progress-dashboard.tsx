@@ -84,6 +84,7 @@ import {
   daysBetween,
   filterByMuscle,
   filterByWindow,
+  shiftKey,
   muscleWeeklySets,
   previousWindow,
   rangeWindow,
@@ -266,16 +267,21 @@ export function ProgressDashboard() {
     [activeDate, logs, scheduled]
   );
 
+  /** The Muscles ring's window: the four weeks up to today. */
+  const recentWindow = useMemo(() => ({ start: shiftKey(activeDate, -27), end: activeDate }), [activeDate]);
+
   const rings = useMemo(
     () => ({
       strength: strengthRing(view.scoped),
       // The week and the goal are about today, whatever range is picked.
       consistency: consistencyRing(logs, activeDate, weeklyTarget),
       // Muscles, from training alone: a ring that waited on a goal weight said
-      // "Not yet" to everyone who never weighs in.
-      body: musclesRing(view.weeklySets)
+      // "Not yet" to everyone who never weighs in. Always the last four weeks,
+      // like Consistency is always this week: averaged over a year, six months
+      // of training or one long break pulled every group under its goal.
+      body: musclesRing(buildWeeklySetsByGroup(filterByWindow(logs, recentWindow), recentWindow))
     }),
-    [activeDate, logs, view.scoped, view.weeklySets, weeklyTarget]
+    [activeDate, logs, recentWindow, view.scoped, weeklyTarget]
   );
 
   const liftGroups = useMemo(() => buildLiftGroups(logs), [logs]);
@@ -408,7 +414,9 @@ export function ProgressDashboard() {
             <>
               <RingNotes rings={rings} onSelect={openRing} />
 
-              <WinsCard wins={wins} rangeLabel={range === "all" ? "All time" : `In the ${RANGE_LABELS[range]}`} />
+              <div data-tour="progress-wins">
+                <WinsCard wins={wins} rangeLabel={range === "all" ? "All time" : `In the ${RANGE_LABELS[range]}`} />
+              </div>
 
               <MonthCompareCard rows={extras.monthCompare} />
 

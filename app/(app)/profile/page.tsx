@@ -1,14 +1,27 @@
 import { MobileShell } from "@/components/layout/mobile-shell";
 import { MeasurementsCard } from "@/features/profile/measurements-card";
-import { ProfileDetails } from "@/features/profile/profile-details";
+import {
+  AccountSection,
+  DataSection,
+  GoalsSection,
+  HelpSection,
+  ProfileHeader,
+  SettingsSection
+} from "@/features/profile/profile-details";
 
 // A Server Component with the client leaves below it, like the other three
-// pages — this was the only page that marked itself "use client".
+// pages. One section per job, in the order people come here for them: who
+// you are, your goals, your body, the app, your data, and the account last.
 export default function ProfilePage() {
   return (
     <MobileShell title="You" wallpaper="you">
-      <ProfileDetails />
+      <ProfileHeader />
+      <GoalsSection />
       <MeasurementsCard />
+      <SettingsSection />
+      <DataSection />
+      <HelpSection />
+      <AccountSection />
     </MobileShell>
   );
 }

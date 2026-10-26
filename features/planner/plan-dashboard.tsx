@@ -25,7 +25,7 @@ export function PlanDashboard() {
 
   return (
     <section className="space-y-4">
-      <div className="well grid grid-cols-2 gap-1 rounded-xl p-1" role="tablist" aria-label="Plan mode">
+      <div className="well grid grid-cols-2 gap-1 rounded-xl p-1" role="tablist" aria-label="Plan mode" data-tour="plan-modes">
         {MODES.map((item) => (
           <button
             key={item.id}

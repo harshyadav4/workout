@@ -318,6 +318,11 @@ export interface ProfileInfo {
   goalWeightKg?: number;
   weightCadence?: MeasurementCadence;
   measurementCadence?: MeasurementCadence;
+  /**
+   * When "delete all my data" was asked for (ISO). Nothing is deleted until a
+   * week after it — see lib/deletion.ts — and clearing it is the restore.
+   */
+  deletionRequestedAt?: string;
 }
 
 /**

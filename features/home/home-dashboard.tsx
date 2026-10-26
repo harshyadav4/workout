@@ -522,7 +522,7 @@ export function HomeDashboard() {
           {sessionPicker}
         </>
       ) : (
-        <Card>
+        <Card data-tour="home-today">
           <DayHeader
             tag={isDone ? "Cleared" : "Daily quest"}
             tone={isDone ? "success" : "default"}
@@ -560,7 +560,7 @@ export function HomeDashboard() {
       {/* Once done, the recap above lists every set with its numbers; this
           ledger would only repeat it as pills. */}
       {day.session.exercises.length > 0 && !isDone ? (
-        <Card className="pb-2 pt-2">
+        <Card className="pb-2 pt-2" data-tour="home-work">
           <div className="flex items-baseline justify-between py-2">
             <h3 className="text-[15px] font-bold tracking-tight">
               The work

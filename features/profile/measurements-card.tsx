@@ -1,14 +1,13 @@
 "use client";
 
-import { Check } from "lucide-react";
+import { Check, ChevronDown } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useWorkoutStore } from "@/features/workout/workout-store";
 import {
-  BODY_METRICS,
   CADENCES,
   TAPE_METRICS,
   changeFor,
@@ -33,6 +32,11 @@ function dueLabel(state: DueState): string | null {
     return `Next in ${days} day${days === 1 ? "" : "s"}`;
   }
   return days === 0 ? "Due today" : `${Math.abs(days)} days late`;
+}
+
+/** The cadence in words, for the closed Reminders row. */
+function cadenceLabel(value: MeasurementCadence | undefined) {
+  return CADENCES.find((item) => item.id === (value ?? "off"))?.label ?? "Off";
 }
 
 function CadencePicker({
@@ -83,7 +87,9 @@ export function MeasurementsCard() {
   // One draft for the whole card, committed together: people measure everything
   // in one go, so eleven separate save buttons would be eleven taps for one act.
   const [draft, setDraft] = useState<Partial<Record<BodyMetric, string>>>({});
-  const [heightDraft, setHeightDraft] = useState("");
+  // Null is "untouched", so the field shows the saved height as a value, not
+  // as a faint placeholder that reads like an empty field.
+  const [heightDraft, setHeightDraft] = useState<string | null>(null);
   const [savedCount, setSavedCount] = useState(0);
 
   const weightState = dueState(measurements, ["weight"], profile.weightCadence);
@@ -117,110 +123,142 @@ export function MeasurementsCard() {
       }
     }
 
-    const height = parse(heightDraft);
+    const height = parse(heightDraft ?? undefined);
     if (height !== undefined) {
       setProfile({ heightCm: height });
     }
-
     setDraft({});
-    setHeightDraft("");
+    setHeightDraft(null);
     setSavedCount(written);
   };
 
   const pending =
-    Object.values(draft).some((value) => value?.trim()) || Boolean(heightDraft.trim());
+    Object.values(draft).some((value) => value?.trim()) || Boolean(heightDraft?.trim());
+
+  const row = (metric: BodyMetric) => {
+    const latest = latestFor(measurements, metric);
+    const change = changeFor(measurements, metric);
+    return (
+      <div key={metric} className="flex items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold">{labelFor(metric)}</p>
+          <p className="text-xs tabular-nums text-muted-foreground">
+            {latest ? `Last: ${latest.value} ${unitFor(metric)}` : "No reading yet"}
+            {change !== undefined ? ` · ${change > 0 ? "+" : ""}${change.toFixed(1)}` : ""}
+          </p>
+        </div>
+        <Input
+          type="number"
+          inputMode="decimal"
+          min={0}
+          step={0.1}
+          aria-label={`Today's ${labelFor(metric)} in ${unitFor(metric)}`}
+          placeholder={unitFor(metric)}
+          className="w-24 shrink-0"
+          value={draft[metric] ?? ""}
+          onChange={(event) => edit(metric, event.target.value)}
+        />
+      </div>
+    );
+  };
+  const tapeCount = TAPE_METRICS.length;
+  const tapeRecorded = TAPE_METRICS.filter((metric) => latestFor(measurements, metric)).length;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Body</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {dueNow.length > 0 ? (
-          <p className="rounded-lg bg-warning/15 px-4 py-3 text-sm font-medium text-warning">
-            Time for {dueNow.join(" and ")}.
+    <section className="space-y-2" data-tour="profile-body">
+      <h2 className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Body</h2>
+      <Card>
+        <CardContent className="mt-0 space-y-4">
+          {dueNow.length > 0 ? (
+            <p className="rounded-lg bg-warning/15 px-4 py-3 text-sm font-medium text-warning">
+              Time for {dueNow.join(" and ")}.
+            </p>
+          ) : null}
+
+          {/* The weigh-in first: it is the one reading most people take. */}
+          {row("weight")}
+
+          <label className="flex items-center gap-3">
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-semibold">Height</span>
+              <span className="block text-xs text-muted-foreground">
+                {profile.heightCm ? "Change it if it is wrong" : "Not set yet"}
+              </span>
+            </span>
+            <Input
+              type="number"
+              inputMode="decimal"
+              min={0}
+              aria-label="Height in cm"
+              placeholder="cm"
+              className="w-24 shrink-0"
+              value={heightDraft ?? (profile.heightCm ? String(profile.heightCm) : "")}
+              onChange={(event) => {
+                setHeightDraft(event.target.value);
+                setSavedCount(0);
+              }}
+            />
+          </label>
+
+          {/* Eleven tape sites are a monthly job for a few people, not the
+              first thing everyone sees. One tap opens them. */}
+          <details className="group rounded-xl bg-muted">
+            <summary className="flex min-h-[44px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
+              <span>
+                <span className="block text-sm font-semibold">Tape measurements</span>
+                <span className="block text-xs text-muted-foreground">
+                  {tapeRecorded > 0 ? `${tapeRecorded} of ${tapeCount} recorded` : `${tapeCount} body sites, in cm`}
+                </span>
+              </span>
+              <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden />
+            </summary>
+            <div className="space-y-2 px-4 pb-4">{TAPE_METRICS.map((metric) => row(metric))}</div>
+          </details>
+
+          <Button className="w-full" onClick={save} disabled={!pending}>
+            Save today&apos;s readings
+          </Button>
+          {savedCount > 0 ? (
+            <p className="flex items-center justify-center gap-1.5 text-sm text-success">
+              <Check className="h-4 w-4" />
+              Saved {savedCount} reading{savedCount === 1 ? "" : "s"}
+            </p>
+          ) : null}
+          <p className="text-center text-xs text-muted-foreground">
+            Leave a field blank to skip it. A second reading on the same day replaces the first.
           </p>
-        ) : null}
 
-        <div className="space-y-3 rounded-xl bg-muted p-4">
-          <CadencePicker
-            label="How often do you weigh in?"
-            hint={dueLabel(weightState)}
-            value={profile.weightCadence}
-            onChange={(weightCadence) => setProfile({ weightCadence })}
-          />
-          <CadencePicker
-            label="How often do you measure?"
-            hint={dueLabel(tapeState)}
-            value={profile.measurementCadence}
-            onChange={(measurementCadence) => setProfile({ measurementCadence })}
-          />
-          <p className="text-xs text-muted-foreground">
-            Checked when you open the app — nothing is sent to your phone. Any one measurement
-            counts as measuring, so recording just your chest clears the reminder.
-          </p>
-        </div>
-
-        <label className="block text-xs font-medium text-muted-foreground">
-          Height (cm)
-          <Input
-            type="number"
-            inputMode="decimal"
-            min={0}
-            className="mt-1"
-            value={heightDraft}
-            placeholder={profile.heightCm ? String(profile.heightCm) : "—"}
-            onChange={(event) => {
-              setHeightDraft(event.target.value);
-              setSavedCount(0);
-            }}
-          />
-        </label>
-
-        <div className="space-y-2">
-          {BODY_METRICS.map((item) => {
-            const latest = latestFor(measurements, item.id);
-            const change = changeFor(measurements, item.id);
-            return (
-              <div key={item.id} className="flex items-center gap-3">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold">{labelFor(item.id)}</p>
-                  <p className="text-xs tabular-nums text-muted-foreground">
-                    {latest ? `${latest.value} ${unitFor(item.id)}` : "—"}
-                    {change !== undefined
-                      ? ` · ${change > 0 ? "+" : ""}${change.toFixed(1)}`
-                      : ""}
-                  </p>
-                </div>
-                <Input
-                  type="number"
-                  inputMode="decimal"
-                  min={0}
-                  step={0.1}
-                  aria-label={`Today's ${labelFor(item.id)} in ${unitFor(item.id)}`}
-                  placeholder={unitFor(item.id)}
-                  className="w-24 shrink-0"
-                  value={draft[item.id] ?? ""}
-                  onChange={(event) => edit(item.id, event.target.value)}
-                />
-              </div>
-            );
-          })}
-        </div>
-
-        <Button className="w-full" onClick={save} disabled={!pending}>
-          Save today&apos;s readings
-        </Button>
-        {savedCount > 0 ? (
-          <p className="flex items-center justify-center gap-1.5 text-sm text-success">
-            <Check className="h-4 w-4" />
-            Saved {savedCount} reading{savedCount === 1 ? "" : "s"}
-          </p>
-        ) : null}
-        <p className="text-center text-xs text-muted-foreground">
-          Leave a field blank to skip it. A second reading on the same day replaces the first.
-        </p>
-      </CardContent>
-    </Card>
+          <details className="group rounded-xl bg-muted">
+            <summary className="flex min-h-[44px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
+              <span>
+                <span className="block text-sm font-semibold">Reminders</span>
+                <span className="block text-xs text-muted-foreground">
+                  Weigh-in: {cadenceLabel(profile.weightCadence)} · Tape: {cadenceLabel(profile.measurementCadence)}
+                </span>
+              </span>
+              <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden />
+            </summary>
+            <div className="space-y-3 px-4 pb-4">
+              <CadencePicker
+                label="How often do you weigh in?"
+                hint={dueLabel(weightState)}
+                value={profile.weightCadence}
+                onChange={(weightCadence) => setProfile({ weightCadence })}
+              />
+              <CadencePicker
+                label="How often do you measure?"
+                hint={dueLabel(tapeState)}
+                value={profile.measurementCadence}
+                onChange={(measurementCadence) => setProfile({ measurementCadence })}
+              />
+              <p className="text-xs text-muted-foreground">
+                Checked when you open the app — nothing is sent to your phone. Any one measurement
+                counts as measuring, so recording just your chest clears the reminder.
+              </p>
+            </div>
+          </details>
+        </CardContent>
+      </Card>
+    </section>
   );
 }

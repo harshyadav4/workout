@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { useAuth } from "@/features/auth/use-auth";
+import { useTour } from "@/features/tour/tour-store";
 import { RankBadge, RankUpNotice } from "@/features/home/hunter-rank";
 import { useWorkoutStore } from "@/features/workout/workout-store";
 
@@ -50,7 +51,12 @@ export function TodayHeader() {
     setGreeting(greetingFor(new Date().getHours()));
   }, []);
 
-  const name = firstName(user?.user_metadata?.full_name) ?? firstName(profileName);
+  // In the tour, the sample's name: the signed-in name over Alex's numbers
+  // would read as if the sample were your own history.
+  const touring = useTour().active;
+  const name = touring
+    ? firstName(profileName)
+    : firstName(user?.user_metadata?.full_name) ?? firstName(profileName);
 
   return (
     <div>

@@ -97,6 +97,12 @@ npm run dev
 
 ## Supabase setup
 
+> **Run `0008_data_deletion.sql` for "Delete all my data".** It adds
+> `profiles.deletion_requested_at` and the `data_archives` table. Without it *Delete all my
+> data* refuses with a message naming this migration — it never deletes anything it cannot first archive. Deletion
+> keeps the old data hidden in `data_archives` for 7 days; there is no scheduled job, so the
+> archive is deleted the first time the user opens the app after the week.
+
 > **Run `0007_cardio_and_skills.sql` for cardio distance, Skills and session times.** It adds
 > `set_logs.distance_km`, the `skill_goals` table, and `scheduled_sessions.started_at` /
 > `finished_at`. Unlike earlier migrations, the app does not break without it: runs sync without
@@ -115,7 +121,7 @@ npm run dev
 
 1. Create a Supabase project.
 2. Run the migrations in `supabase/migrations/` in order — `0001_init.sql` through
-   `0007_cardio_and_skills.sql`.
+   `0008_data_deletion.sql`.
 3. Enable the Google provider under **Authentication → Providers**.
 4. Add your local dev origin and deployed domain to the allowed redirect URLs.
 

@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 
 import { useAuth } from "@/features/auth/use-auth";
+import { afterTour, isTouring } from "@/features/tour/tour-store";
 import { setSyncStatus, useSyncStatus } from "@/features/workout/sync-status";
 import { useWorkoutStoreApi } from "@/features/workout/workout-store";
 import {
@@ -86,6 +87,12 @@ export function SupabaseSync() {
         return;
       }
 
+      // The tour's sample is on screen: it must never reach the account. The
+      // restore at the end is a change too, and diffs to nothing.
+      if (isTouring()) {
+        return;
+      }
+
       const next = snapshotState(store.getState());
       void pushChanges(userId, syncedRef.current ?? NOTHING_KNOWN_REMOTE, next)
         .then(() => {
@@ -131,9 +138,26 @@ export function SupabaseSync() {
           return;
         }
 
-        store.getState().hydrateRemote(remote);
-        syncedRef.current = snapshotState(store.getState());
-        setSyncStatus({ lastSyncedAt: Date.now(), error: undefined });
+        // Mid-tour, the store holds the sample. Merged now, the account's data
+        // would land in it and be thrown away at the end — so it waits, and
+        // lands on the real data the tour gives back.
+        afterTour(() => {
+          if (cancelled) {
+            return;
+          }
+
+          // Another device archived this account's data. The merge below never
+          // deletes, so this device's old copy would sit on screen — and be
+          // pushed back up with its next change. Empty it first.
+          const archivedAt = remote.profile?.deletionRequestedAt;
+          if (archivedAt && store.getState().profile.deletionRequestedAt !== archivedAt) {
+            store.getState().archiveLocal(archivedAt);
+          }
+
+          store.getState().hydrateRemote(remote);
+          syncedRef.current = snapshotState(store.getState());
+          setSyncStatus({ lastSyncedAt: Date.now(), error: undefined });
+        });
       })
       .catch((error: unknown) => {
         // Recoverable now: the subscriber above is live and will push against an
