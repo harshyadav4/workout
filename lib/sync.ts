@@ -105,7 +105,9 @@ function sessionToRow(session: ScheduledSession, userId: string): Row {
     type: session.type,
     status: session.status,
     source: session.source,
-    exercises: session.exercises
+    exercises: session.exercises,
+    started_at: session.startedAt ?? null,
+    finished_at: session.finishedAt ?? null
   };
 }
 
@@ -119,7 +121,9 @@ function rowToSession(row: Row): ScheduledSession {
     type: row.type as ScheduledSession["type"],
     status: row.status as ScheduledSession["status"],
     source: row.source as ScheduledSession["source"],
-    exercises: (row.exercises as ScheduledSession["exercises"]) ?? []
+    exercises: (row.exercises as ScheduledSession["exercises"]) ?? [],
+    startedAt: (row.started_at as string) ?? undefined,
+    finishedAt: (row.finished_at as string) ?? undefined
   };
 }
 
@@ -396,8 +400,9 @@ async function writeTable<T extends Identified>(
  * drop when the project lacks them. `media_path` is 0006 (stored exercise
  * GIFs): without it, saving any exercise template used to fail outright.
  * `distance_km` is 0007 (cardio): a run still syncs its time without it.
+ * `started_at` / `finished_at` are 0007 too: sessions sync, untimed, without them.
  */
-const OPTIONAL_COLUMNS = ["media_path", "distance_km"];
+const OPTIONAL_COLUMNS = ["media_path", "distance_km", "started_at", "finished_at"];
 
 function isMissingOptionalColumn(error: { code?: string; message?: string }): boolean {
   // 42703 from Postgres, PGRST204 from PostgREST's schema cache.

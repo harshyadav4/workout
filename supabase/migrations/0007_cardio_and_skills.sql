@@ -35,3 +35,11 @@ drop policy if exists "own rows" on skill_goals;
 create policy "own rows" on skill_goals for all
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+
+-- When a session was started and when it really ended (Finish, or the last
+-- set plus its rest if Finish came long after — lib/session-time.ts). Nullable:
+-- every session before this has no times, and is left out of the time charts
+-- rather than counted as zero. The app keeps syncing without these columns.
+alter table scheduled_sessions
+  add column if not exists started_at timestamptz,
+  add column if not exists finished_at timestamptz;

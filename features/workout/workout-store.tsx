@@ -8,6 +8,7 @@ import type { PlanImport } from "@/lib/ai-plan";
 import { upsertMeasurement } from "@/lib/body-metrics";
 import { releaseUnusedMedia } from "@/lib/media";
 import { reconcile } from "@/lib/reconcile";
+import { finishTime } from "@/lib/session-time";
 import { muscles, presetWorkouts } from "@/lib/seed-data";
 import type {
   BodyMeasurement,
@@ -161,6 +162,17 @@ function withFreshUpcoming<S extends Pick<WorkoutState, "scheduledSessions" | "s
     todayKey()
   );
   return scheduledSessions === state.scheduledSessions ? state : { ...state, scheduledSessions };
+}
+
+/** The end of a session being finished now — see finishTime. */
+function sessionEnd(session: ScheduledSession): string {
+  const logged = session.exercises.flatMap((exercise) =>
+    exercise.sets
+      .filter((setItem) => setItem.completed && setItem.completedAt)
+      .map((setItem) => ({ at: setItem.completedAt as string, rest: exercise.restSeconds }))
+  );
+  const last = logged.reduce<{ at: string; rest?: number } | undefined>((latest, item) => (!latest || item.at > latest.at ? item : latest), undefined);
+  return finishTime(new Date().toISOString(), logged.map((item) => item.at), last?.rest);
 }
 
 function createInitialState(): Omit<
@@ -523,7 +535,9 @@ function createWorkoutStore() {
             // already in the gym. And `manual`, so regenerating the schedule
             // leaves it alone; see mergeGeneratedSessions.
             status: "active",
-            source: "manual"
+            source: "manual",
+            // The session clock starts the moment it is created and started.
+            startedAt: new Date().toISOString()
           };
 
           return {
@@ -558,7 +572,8 @@ function createWorkoutStore() {
             selectedSessionId: sessionId,
             scheduledSessions: state.scheduledSessions.map((session) =>
               session.id === sessionId && session.type === "workout"
-                ? { ...session, status: "active" as const }
+                ? // The clock starts on Start — once: re-starting keeps the first time.
+                  { ...session, status: "active" as const, startedAt: session.startedAt ?? new Date().toISOString() }
                 : session
             )
           };
@@ -575,7 +590,17 @@ function createWorkoutStore() {
                       ? {
                           ...exercise,
                           sets: exercise.sets.map((setItem) =>
-                            setItem.id === setId ? { ...setItem, ...patch } : setItem
+                            setItem.id === setId
+                              ? {
+                                  ...setItem,
+                                  ...patch,
+                                  // Stamped the first time it is logged; a later
+                                  // correction keeps when it was actually done.
+                                  ...(patch.completed && !setItem.completedAt
+                                    ? { completedAt: new Date().toISOString() }
+                                    : {})
+                                }
+                              : setItem
                           )
                         }
                       : exercise
@@ -681,7 +706,13 @@ function createWorkoutStore() {
             setLogs: [...logged.setLogs, ...state.setLogs],
             scheduledSessions: state.scheduledSessions.map((session) =>
               session.id === selectedSession.id
-                ? { ...session, status: "completed" as const }
+                ? {
+                    ...session,
+                    status: "completed" as const,
+                    // When it really ended: a Finish tapped long after the last
+                    // set is cut back to that set and its rest (lib/session-time).
+                    finishedAt: session.startedAt ? sessionEnd(session) : undefined
+                  }
                 : session
             )
           });

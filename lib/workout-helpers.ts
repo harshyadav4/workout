@@ -284,7 +284,8 @@ export function buildLogFromSession(
       // volume and no reps (see `ExerciseMetric`). The seconds live at the
       // grain, which is the only place they were ever true.
       durationSeconds: setItem.durationSeconds,
-      distanceKm: setItem.distanceKm
+      distanceKm: setItem.distanceKm,
+      completedAt: setItem.completedAt
     }))
   );
 

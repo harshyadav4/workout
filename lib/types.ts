@@ -123,6 +123,8 @@ export interface PlannedSet {
    */
   type: "normal" | "warmup";
   completed?: boolean;
+  /** When Log set was first tapped for it (ISO). Kept on later corrections. */
+  completedAt?: string;
   previousReps?: number;
   previousWeight?: number;
 }
@@ -247,6 +249,10 @@ export interface ScheduledSession {
   type: "workout" | "rest";
   status: "planned" | "active" | "completed";
   source: "manual" | "repeat";
+  /** When Start was tapped (ISO). Absent on sessions from before timing existed. */
+  startedAt?: string;
+  /** When it really ended (lib/session-time finishTime) — not a Finish tapped hours late. */
+  finishedAt?: string;
 }
 
 export type ScheduleMode = "weekly" | "rotation";
