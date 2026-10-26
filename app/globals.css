@@ -158,6 +158,85 @@ html {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Feel like an app, not a page. No rubber-band bounce at the ends and no
+   pull-to-refresh: a pull in the middle of a workout must not reload it. */
+html,
+body {
+  overscroll-behavior: none;
+}
+
+/* Controls are pressed, not read: a long press must not select the label or
+   open the copy menu. Inputs and reading text keep normal selection. */
+button,
+[role="button"],
+[role="tab"],
+[role="switch"],
+nav a,
+.dock {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* No 300 ms wait for a double-tap zoom on anything tappable. */
+a,
+button,
+input,
+select,
+textarea,
+label,
+summary,
+[role="button"],
+[role="tab"],
+[role="switch"] {
+  touch-action: manipulation;
+}
+
+/* No iPhone "save image" / link preview sheet on a long press of a control. */
+img,
+button,
+nav a {
+  -webkit-touch-callout: none;
+}
+
+/*
+ * Changing tabs: a short cross-fade with a small slide (components/layout/
+ * nav-transition.ts starts it). The dock has its own name, so it is cut out
+ * of the page snapshot and stays still. Never under reduced motion.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-old(root) {
+    animation: tab-out 200ms ease-in both;
+  }
+
+  ::view-transition-new(root) {
+    animation: tab-in 200ms ease-out both;
+  }
+
+  ::view-transition-group(dock),
+  ::view-transition-old(dock),
+  ::view-transition-new(dock) {
+    animation: none;
+  }
+
+  .dock {
+    view-transition-name: dock;
+  }
+}
+
+@keyframes tab-out {
+  to {
+    opacity: 0;
+    transform: translateX(var(--tab-slide-out, -8px));
+  }
+}
+
+@keyframes tab-in {
+  from {
+    opacity: 0;
+    transform: translateX(var(--tab-slide-in, 8px));
+  }
+}
+
 html.light {
   color-scheme: light;
 }
@@ -886,3 +965,152 @@ label {
   }
 }
 
+
+/* Tour guide (features/tour/guide-sprite.tsx): a wisp that floats, blinks,
+   sways its flame tail, hops when it speaks and leans when it flies. Each one
+   stops under reduced motion — the sprite then simply stands where it is. */
+.guide-sprite {
+  filter: drop-shadow(0 0 6px rgba(92, 200, 255, 0.55));
+}
+
+.guide-float {
+  animation: guide-float 3.2s ease-in-out infinite;
+}
+
+@keyframes guide-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.guide-hop {
+  animation: guide-hop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes guide-hop {
+  0% {
+    transform: translateY(0) scale(1, 1);
+  }
+  35% {
+    transform: translateY(-7px) scale(0.95, 1.06);
+  }
+  100% {
+    transform: translateY(0) scale(1, 1);
+  }
+}
+
+.guide-fly {
+  transform: rotate(-12deg) scale(0.92);
+  transition: transform 0.2s ease-out;
+}
+
+.guide-blink {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: guide-blink 4.6s infinite;
+}
+
+@keyframes guide-blink {
+  0%,
+  92%,
+  100% {
+    transform: scaleY(1);
+  }
+  95% {
+    transform: scaleY(0.1);
+  }
+}
+
+.guide-tail {
+  transform-box: fill-box;
+  transform-origin: top center;
+  animation: guide-tail 1.6s ease-in-out infinite;
+}
+
+@keyframes guide-tail {
+  0%,
+  100% {
+    transform: skewX(0deg);
+  }
+  50% {
+    transform: skewX(-8deg);
+  }
+}
+
+.guide-chatter {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: guide-chatter 0.22s ease-in-out infinite alternate;
+}
+
+@keyframes guide-chatter {
+  from {
+    transform: scaleY(1);
+  }
+  to {
+    transform: scaleY(0.35);
+  }
+}
+
+/* The guide's speech bubble: the sprite's own blue for its edge and glow,
+   very round, with a tail pointing back at the sprite's mouth. The sprite is
+   always left of the bubble (features/tour/tour.tsx), so the tail is too. */
+.guide-bubble {
+  border-radius: 24px;
+  background-image: linear-gradient(180deg, hsl(var(--surface-top)) 0%, hsl(var(--surface-bottom)) 100%);
+  border: 1px solid rgba(92, 200, 255, 0.55);
+  box-shadow:
+    0 0 0 3px rgba(92, 200, 255, 0.12),
+    0 0 28px rgba(92, 200, 255, 0.28),
+    0 20px 40px rgba(0, 0, 0, 0.45);
+}
+
+.guide-bubble::before {
+  content: "";
+  position: absolute;
+  top: 24px;
+  left: -7px;
+  width: 13px;
+  height: 13px;
+  background: hsl(var(--surface-top));
+  border-left: 1px solid rgba(92, 200, 255, 0.55);
+  border-bottom: 1px solid rgba(92, 200, 255, 0.55);
+  border-bottom-left-radius: 4px;
+  transform: rotate(45deg);
+}
+
+.guide-pop {
+  animation: guide-pop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transform-origin: left 30px;
+}
+
+@keyframes guide-pop {
+  from {
+    transform: scale(0.92);
+    opacity: 0.6;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guide-float,
+  .guide-hop,
+  .guide-blink,
+  .guide-tail,
+  .guide-chatter,
+  .guide-pop {
+    animation: none;
+  }
+
+  .guide-fly {
+    transform: none;
+    transition: none;
+  }
+}

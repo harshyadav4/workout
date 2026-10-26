@@ -42,8 +42,8 @@ const prompt = buildAiPrompt({
 assert.doesNotMatch(prompt, /ai=paste/);
 assert.match(prompt, /Tap the copy button on the box below/);
 assert.match(prompt, /Plan, then Build, then Build with AI/);
-assert.match(prompt, /Tap Paste or upload my plan/);
-assert.match(prompt, /Tap Upload a file/);
+assert.match(prompt, /Tap Add my plan, then Paste the answer/);
+assert.match(prompt, /tap Upload a file/);
 assert.match(prompt, /arise-plan\.json/);
 
 // The interview comes before any plan.

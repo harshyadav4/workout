@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useMemo, useState } from "react";
 
 import { MuscleMapCard } from "@/features/home/muscle-map-card";
 import { BodyWeightCard } from "@/features/progress/body-weight-card";
@@ -130,7 +131,27 @@ const MODES: { id: ProgressMode; label: string }[] = [
   { id: "cardio", label: "Cardio" }
 ];
 
+const RING_IDS: RingId[] = ["strength", "consistency", "body"];
+
+/** The open view, from the URL's `?view=`: none (or an unknown one) is the summary. */
+function viewFromQuery(value: string | null): RingId | undefined {
+  return RING_IDS.find((id) => id === value);
+}
+
+/**
+ * The view lives in the URL (`/progress?view=body`), so a link — and the
+ * guided tour — can open a view. Suspense: the search params are only known
+ * in the browser.
+ */
 export function ProgressDashboard() {
+  return (
+    <Suspense>
+      <ProgressDashboardView />
+    </Suspense>
+  );
+}
+
+function ProgressDashboardView() {
   const logs = useWorkoutStore((state) => state.logs);
   const setLogs = useWorkoutStore((state) => state.setLogs);
   const cardio = useMemo(() => cardioSessions(setLogs, logs), [setLogs, logs]);
@@ -153,9 +174,11 @@ export function ProgressDashboard() {
   // Strength, so it is cleared on the way out rather than silently scoping the
   // other views.
   const [mode, setMode] = useState<ProgressMode>("gym");
-  const [ringView, setRingView] = useState<RingId>();
+  const router = useRouter();
+  const params = useSearchParams();
+  const ringView = viewFromQuery(params.get("view"));
   const openRing = (id?: RingId) => {
-    setRingView(id);
+    router.replace(id ? `/progress?view=${id}` : "/progress", { scroll: false });
     if (id !== "strength") {
       setWorkoutId(undefined);
     }
@@ -358,7 +381,7 @@ export function ProgressDashboard() {
 
   return (
     <section className="space-y-4">
-      <div className="well grid grid-cols-2 gap-1 rounded-xl p-1" role="tablist" aria-label="Progress view">
+      <div className="well grid grid-cols-2 gap-1 rounded-xl p-1" role="tablist" aria-label="Progress view" data-tour="progress-modes">
         {MODES.map((item) => (
           <button
             key={item.id}
@@ -461,7 +484,7 @@ export function ProgressDashboard() {
           <Reveal
             ready={sessionCount >= 2}
             title="Strength growth"
-            need={`${2 - sessionCount} more session${sessionCount === 1 ? "" : "s"} — growth needs a start and an end`}
+            need={`${2 - sessionCount} more workout${sessionCount === 1 ? "" : "s"}`}
           >
             <StrengthGrowthCard growth={view.growth} groupOf={liftGroups} />
           </Reveal>
@@ -483,8 +506,8 @@ export function ProgressDashboard() {
 
           <Reveal
             ready={sessionCount >= 2}
-            title="Personal records"
-            need="a second session — the first time you do a lift is your starting point, not a record"
+            title="Records"
+            need="your second workout"
           >
             <PRLedgerCard entries={lifetime.ledger} days={lifetime.sincePR} />
           </Reveal>
@@ -498,7 +521,7 @@ export function ProgressDashboard() {
           <Reveal
             ready={sessionCount >= 3}
             title="Weight lifted"
-            need={`${3 - sessionCount} more session${3 - sessionCount === 1 ? "" : "s"}`}
+            need={`${3 - sessionCount} more workout${3 - sessionCount === 1 ? "" : "s"}`}
           >
             <VolumeTrendCard points={view.trend} bucket={view.bucket} />
           </Reveal>
@@ -512,7 +535,7 @@ export function ProgressDashboard() {
             title="This week vs normal"
             need={`${LOAD_BASELINE_WEEKS - weeksOfHistory} more week${
               LOAD_BASELINE_WEEKS - weeksOfHistory === 1 ? "" : "s"
-            } of training — the app needs to learn your normal week first`}
+            } of training`}
           >
             <LoadCard points={lifetime.load} />
           </Reveal>
@@ -523,7 +546,7 @@ export function ProgressDashboard() {
             total={lifetime.cumulative.total}
           />
 
-          <SectionRule label="All sessions" hint="every number above, as a list" />
+          <SectionRule label="Workout history" hint="every number, as a list" />
 
           <ProgressTableCard logs={view.scoped} />
         </SectionColors>
@@ -541,13 +564,13 @@ export function ProgressDashboard() {
 
           <Reveal
             ready={sessionCount >= 6}
-            title="Your training week"
-            need={`${6 - sessionCount} more session${6 - sessionCount === 1 ? "" : "s"} — a pattern needs a few weeks`}
+            title="Training week"
+            need={`${6 - sessionCount} more workout${6 - sessionCount === 1 ? "" : "s"}`}
           >
             <RhythmCard rhythm={view.rhythm} rest={view.rest} />
           </Reveal>
 
-          <SectionRule label="Time" hint="how long, and when" />
+          <SectionRule label="Time" hint="length and time of day" />
 
           {/* All timed sessions, not the selected range: a few weeks of
               timing inside a 4W window is too thin to read. */}
@@ -559,17 +582,19 @@ export function ProgressDashboard() {
         <SectionColors section="body">
           {/* Today on the whole history: "what can I train now" does not change
               with the range chip. */}
-          <RecoveryMapCard
-            recovery={recovery}
-            selectedMuscleId={selected?.id}
-            onSelectMuscle={setSelectedMuscle}
-          />
+          <div data-tour="progress-recovery">
+            <RecoveryMapCard
+              recovery={recovery}
+              selectedMuscleId={selected?.id}
+              onSelectMuscle={setSelectedMuscle}
+            />
+          </div>
 
-          <SectionRule label="Muscles" hint="where your training goes" />
+          <SectionRule label="Muscles" hint="how you train each muscle" />
 
           <MuscleMapCard
-            title="Where the work lands"
-            description="Brighter muscles got more of your training in this range. Tap one to see its details."
+            title="Muscles you trained"
+            description="Brighter means more training. Tap a muscle."
             highlights={view.heat}
             selectedMuscleId={selected?.id}
             onSelectMuscle={setSelectedMuscle}
@@ -618,15 +643,15 @@ export function ProgressDashboard() {
 
                   <ConsistencyCard
                     weeks={drilldown.calendar}
-                    title={`When you trained ${drilldown.name}`}
-                    subject="days"
+                    title="Training days"
+                    subject="training days"
                   />
                 </>
               )}
             </div>
           ) : null}
 
-          <SectionRule label="Balance" hint="how you share work between muscles" />
+          <SectionRule label="Balance" hint="how you split training" />
 
           <BalanceCard pushPull={balance.pushPull} upperLower={balance.upperLower} />
 
@@ -644,20 +669,20 @@ export function ProgressDashboard() {
 
           <Reveal
             ready={view.drift.rows.length >= MATRIX_MIN_COLUMNS}
-            title="How your focus changed"
+            title="Focus over time"
             need={`${MATRIX_MIN_COLUMNS - view.drift.rows.length} more period${
               MATRIX_MIN_COLUMNS - view.drift.rows.length === 1 ? "" : "s"
-            } — the chart needs a few periods to compare`}
+            } of training`}
           >
             <SplitDriftCard drift={view.drift} />
           </Reveal>
 
           <Reveal
             ready={view.matrix.columns.length >= MATRIX_MIN_COLUMNS}
-            title="Each muscle over time"
+            title={view.matrix.bucket === "month" ? "Muscles by month" : "Muscles by week"}
             need={`${MATRIX_MIN_COLUMNS - view.matrix.columns.length} more period${
               MATRIX_MIN_COLUMNS - view.matrix.columns.length === 1 ? "" : "s"
-            } of training — the chart needs a few periods to compare`}
+            } of training`}
           >
             <MuscleMatrixCard
               matrix={view.matrix}
@@ -670,8 +695,8 @@ export function ProgressDashboard() {
               lives: fourteen chest sets that were all flat pressing. */}
           <Reveal
             ready={sessionCount >= 3}
-            title="Weekly sets per muscle part"
-            need={`${3 - sessionCount} more session${3 - sessionCount === 1 ? "" : "s"} — the pattern needs a few sessions to show`}
+            title="Muscle part sets"
+            need={`${3 - sessionCount} more workout${3 - sessionCount === 1 ? "" : "s"}`}
           >
             <HeadStimulusCard report={headStimulus} suggestions={headSuggestions} />
           </Reveal>
@@ -700,8 +725,7 @@ export function ProgressDashboard() {
           ) : (
             <Panel title="Track your weight">
               <p className="text-sm text-muted-foreground">
-                Add a weigh-in on Profile. Then this shows your weight trend, your goal, and the
-                date you will likely reach it.
+                Add a weigh-in on You to see your trend.
               </p>
             </Panel>
           )}
@@ -713,12 +737,11 @@ export function ProgressDashboard() {
 
 function UntouchedMuscle({ name, range }: { name: string; range: ProgressRange }) {
   return (
-    <Panel title={`No ${name} training in this range`}>
+    <Panel title={`No ${name} training`}>
       <p className="text-sm text-muted-foreground">
-        None of your sessions in this range trained {name}.{" "}
         {range === "all"
-          ? "Try another muscle from the list below. The muscles with a bar have history."
-          : "Pick a longer time range, or a muscle with a bar in the list below."}
+          ? "Pick a muscle with a bar below."
+          : "Try a longer range, or a muscle with a bar below."}
       </p>
     </Panel>
   );

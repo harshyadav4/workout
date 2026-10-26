@@ -626,7 +626,7 @@ const USER_TABLES = [
  */
 export async function clearUserRows(userId: string): Promise<void> {
   if (!supabase) {
-    throw new Error("Supabase is not configured");
+    throw new Error("Sign-in is not available. Supabase is not set up.");
   }
   for (const table of USER_TABLES) {
     const { error } = await supabase.from(table).delete().eq("user_id", userId);

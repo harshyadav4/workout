@@ -894,7 +894,7 @@ export function buildTableRows(logs: WorkoutLog[], grain: "session" | "week"): T
       return {
         key,
         detail: weekly
-          ? `${sessions} session${sessions === 1 ? "" : "s"} · ${entries.length} exercises`
+          ? `${sessions} workout${sessions === 1 ? "" : "s"} · ${entries.length} exercises`
           : extra > 0
             ? `${lead.name} +${extra}`
             : lead.name,

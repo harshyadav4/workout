@@ -119,7 +119,7 @@ export function DetailedTimingToggle() {
       <span>
         <span className="block text-sm font-semibold">Detailed timing</span>
         <span className="mt-0.5 block text-xs text-muted-foreground">
-          Time per workout and per set — when each set was logged and the gap before it. Session length always shows.
+          Shows the time for each exercise and set.
         </span>
       </span>
       <span aria-hidden className={cn("relative h-7 w-12 shrink-0 rounded-full transition-colors", on ? "bg-primary" : "well")}>

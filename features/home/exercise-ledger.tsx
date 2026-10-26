@@ -51,7 +51,7 @@ function lastSetLabel(setItem: PlannedSet): string {
   }
 
   return setItem.previousReps === undefined
-    ? `last top set ${setItem.previousWeight} kg`
+    ? `last heaviest set ${setItem.previousWeight} kg`
     : `last time ${setItem.previousWeight} kg × ${setItem.previousReps}`;
 }
 
@@ -540,7 +540,7 @@ export function ExerciseLedger({
               type="button"
               role="switch"
               aria-checked={openSet.type === "warmup"}
-              aria-label={openSet.type === "warmup" ? "Warm-up set, not counted" : "Mark as a warm-up set"}
+              aria-label={openSet.type === "warmup" ? "Warm-up set. Not counted in totals" : "Mark as a warm-up set"}
               title="Warm-up"
               onClick={() =>
                 onPatchSet(openSet.id, {
@@ -577,7 +577,7 @@ export function ExerciseLedger({
             ) : null}
           </div>
           {openSet.type === "warmup" ? (
-            <p className="mt-2 text-xs text-warning">Warm-up: logged, not counted in totals.</p>
+            <p className="mt-2 text-xs text-warning">Warm-up sets do not count in totals.</p>
           ) : null}
           {onRemove ? <RemoveExerciseButton name={exercise.templateName} onRemove={onRemove} /> : null}
         </div>

@@ -1,0 +1,47 @@
+# Arise
+
+> Arise is a free workout tracker with a muscle map. It runs in the browser, installs as an app (PWA), works offline in the gym and needs no account.
+
+## What it is
+
+- A gym log app for the phone. You plan workouts, log sets and track progress.
+- It works in any modern browser. You can install it to the home screen as an app.
+- It works offline. Your data saves on your phone.
+- No account is needed (guest mode). Optional Google sign-in saves your data to an account and syncs it.
+
+## Key features
+
+- Plan: build workouts from an exercise library with demo GIFs, and put them on your weekdays.
+- Build with AI: copy a prompt into any AI chat app (for example ChatGPT), paste the answer back, and your workouts and calendar fill in.
+- Today: start a workout and log each set in one tap. A rest timer and a live workout clock run. Arise fills in last time's weight and reps. Progression rules can raise the weight.
+- Muscle map: a front and back body figure shows the muscles today's workout trains. A darker color means more sets. Tap a muscle to see its name.
+- Recovery map: Progress shows which muscles are ready to train.
+- Progress: three rings (Strength, Consistency, Muscles), wins, records, 1-rep max estimates, weekly sets per muscle group, workouts per week, and a bodyweight trend with a goal date.
+- Cardio: runs, rides and swims, with distance, pace and records.
+- Skills: calisthenics skill levels.
+- Hunter rank: a game-style rank from E to S.
+- Guided tour on sample data.
+- Backup download and restore. Delete all data, with 7 days to restore it.
+
+## How to start
+
+1. Open https://workout-one-pearl.vercel.app/ in a browser.
+2. Start a workout on the Today screen, or build a plan in Plan.
+3. To see the app first, open https://workout-one-pearl.vercel.app/?tour=1 for a guided tour on sample data.
+4. To install it: on iPhone, tap Share, then Add to Home Screen in Safari. On Android, tap Install app in the Chrome menu.
+
+## FAQ
+
+- Is Arise free? Yes. Arise is a free workout tracker. It runs in your browser, and you can install it as an app.
+- Do I need an account? No. Your data saves on your phone. Sign in with Google only if you want to save your data to an account and sync it.
+- Does it work offline? Yes. Arise works with no signal in the gym and saves each set on your phone.
+- How do I install it on iPhone or Android? On iPhone, open it in Safari, tap Share, then Add to Home Screen. On Android, open it in Chrome and tap Install app in the menu.
+- Can ChatGPT make my workout plan? Yes. In Plan, tap Build with AI, copy the prompt into ChatGPT or any AI chat app, and paste the answer back. Arise fills in your workouts and calendar.
+- What does the muscle map show? A front and back body figure. The muscles today's workout trains are colored, and a darker color means more sets.
+- Is my data private, and can I delete it? Your data stays on your phone, or in your own account if you sign in. You can download a backup, and you can delete all your data with 7 days to restore it.
+
+## Links
+
+- [About Arise](https://workout-one-pearl.vercel.app/about): what the app does, with screenshots and FAQ
+- [Open the app](https://workout-one-pearl.vercel.app/): the workout tracker itself
+- [llms.txt](https://workout-one-pearl.vercel.app/llms.txt): this file

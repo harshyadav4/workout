@@ -29,26 +29,23 @@ export function PRLedgerCard({ entries, days }: { entries: PREntry[]; days?: num
 
   return (
     <Panel
-      title="Personal records"
+      title="Records"
       caption={
         days === undefined
           ? "No records yet"
           : days === 0
-            ? "A lift set a record today"
+            ? "New record today"
             : `${days} days since the last record`
       }
       note={
         <>
-          A personal record (PR) is a session where you lifted more than ever before on a lift. The
-          first time you do a lift is your starting point, not a record. This list shows all your
-          history, whatever time range you pick.
+          A record is your heaviest weight ever on an exercise. The first time you do an exercise
+          is a start point, not a record. This list ignores the range.
         </>
       }
     >
       {entries.length === 0 ? (
-        <EmptyChart>
-          No records yet. Do the same lift in two sessions, and lift more the second time.
-        </EmptyChart>
+        <EmptyChart>Lift more than last time on an exercise to set one.</EmptyChart>
       ) : (
         <>
           <ol className="divide-y divide-border">

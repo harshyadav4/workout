@@ -48,18 +48,16 @@ export function MuscleMatrixCard({
 
   return (
     <Panel
-      title={matrix.bucket === "month" ? "Each muscle, month by month" : "Each muscle, week by week"}
+      title={matrix.bucket === "month" ? "Muscles by month" : "Muscles by week"}
       caption={
         neglected.length > 0
-          ? `${neglected.length} muscles got no training in this range`
-          : "Every muscle got some training in this range"
+          ? `${neglected.length} muscles not trained in this range`
+          : "Every muscle trained in this range"
       }
       note={
         <>
-          One row per muscle, one column per {matrix.bucket}. A brighter square means that muscle
-          got a bigger share of the weight you lifted in that {matrix.bucket}. Muscles you never
-          trained stay in the list on purpose, so you can see the gaps. Tap a row to open that
-          muscle above.
+          Each row is 1 muscle; each column is 1 {matrix.bucket}. Brighter means a bigger share of
+          that {matrix.bucket}&rsquo;s weight lifted. Tap a row to open that muscle.
         </>
       }
     >
@@ -131,7 +129,7 @@ export function MuscleMatrixCard({
           className="mt-2 min-h-[44px] w-full rounded-xl bg-muted text-xs font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {expanded
-            ? `Show the top ${PAGE}`
+            ? `Show top ${PAGE}`
             : `All ${matrix.rows.length} muscles · ${worked.length} trained`}
         </button>
       ) : null}

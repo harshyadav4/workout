@@ -74,14 +74,12 @@ export function HeadStimulusCard({
 
   return (
     <Panel
-      title="Weekly sets per muscle part"
-      caption={`Goal: ${WEEKLY_SET_TARGET.low}–${WEEKLY_SET_TARGET.high} sets a week for each part`}
+      title="Muscle part sets"
+      caption={`Per week · goal ${WEEKLY_SET_TARGET.low}–${WEEKLY_SET_TARGET.high} each`}
       note={
         <>
-          Some muscles have parts, called heads. For example, the shoulder has a front, side and
-          rear part. This card shows which parts your exercise <em>choice</em> trains most. The app
-          guesses this from the exercise name, so it is an estimate, not a measurement. Read it as
-          &ldquo;my exercises lean toward the front shoulder&rdquo;. Only parts you train are listed.
+          Some muscles have parts, like the front, side, and rear shoulder. The app estimates them
+          from exercise names, so this is not a measurement.
         </>
       }
     >
@@ -100,15 +98,14 @@ export function HeadStimulusCard({
       {report.lowest ? (
         <p className="mt-3 rounded-xl bg-warning/10 px-3 py-2 text-xs leading-relaxed ring-1 ring-warning/25">
           <span className="font-semibold text-warning">
-            {report.lowest.name}: {report.lowest.setsPerWeek.toFixed(1)} sets a week
+            {report.lowest.name}: {report.lowest.setsPerWeek.toFixed(1)} sets a week.
           </span>{" "}
           <span className="text-muted-foreground">
-            — the lowest of all the parts you train, and under the goal of {WEEKLY_SET_TARGET.low}.
-            Your exercises mostly skip it.
+            Your lowest part, under the goal of {WEEKLY_SET_TARGET.low}.
           </span>
           {suggestions.length > 0 ? (
             <span className="mt-1.5 block text-muted-foreground">
-              These lifts in your library train it more:{" "}
+              Try:{" "}
               <span className="text-foreground">
                 {suggestions.map((item) => item.name).join(", ")}
               </span>
@@ -130,14 +127,12 @@ export function WeeklySetsCard({ sets }: { sets: GroupSets[] }) {
 
   return (
     <Panel
-      title="Weekly sets per muscle group"
-      caption={`Goal: ${WEEKLY_SET_TARGET.low}–${WEEKLY_SET_TARGET.high} sets a week for each group`}
+      title="Weekly sets"
+      caption={`Per muscle group · goal ${WEEKLY_SET_TARGET.low}–${WEEKLY_SET_TARGET.high}`}
       note={
         <>
-          A set counts fully for a muscle group when the lift works that group a lot, and as half a
-          set when it helps a little. For example, a bench press counts fully for chest and half for
-          triceps. The goal of 10–20 hard sets a week comes from muscle-growth research. A hard set
-          is a set that ends close to the point where you cannot do one more rep.
+          A hard set ends near the point where you cannot do 1 more rep. A bench press counts fully
+          for chest and half for triceps. The 10–20 goal comes from muscle-growth research.
         </>
       }
     >
@@ -191,13 +186,12 @@ export function MuscleSplitCard({ groups }: { groups: MuscleGroupVolume[] }) {
 
   return (
     <Panel
-      title="Where your training goes"
-      caption={`${lead.label} gets the most: ${Math.round((lead.volume / total) * 100)}% of all the weight you lifted`}
+      title="Weight per group"
+      caption={`${lead.label} gets the most: ${Math.round((lead.volume / total) * 100)}%`}
       note={
         <>
-          How the total weight you lifted in this range is shared between muscle groups. A lift
-          gives more to the muscles it works hardest. This is how your training looks now. The
-          &ldquo;How your focus changed&rdquo; chart below shows how it got here.
+          How the weight lifted in this range splits between muscle groups. &ldquo;Focus over
+          time&rdquo; below shows how it changed.
         </>
       }
     >

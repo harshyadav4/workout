@@ -38,7 +38,7 @@ export function Bullet({
   const max = Math.max(ceiling, band.high, value) || 1;
   const pct = (input: number) => `${Math.min((input / max) * 100, 100)}%`;
   const inBand = value >= band.low && value <= band.high;
-  const state = value < band.low ? "below goal" : value > band.high ? "above goal" : "on goal";
+  const state = value < band.low ? "below goal" : value > band.high ? "above goal" : "in goal range";
 
   return (
     <div className="py-1">

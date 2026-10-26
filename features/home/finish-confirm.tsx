@@ -55,12 +55,12 @@ export function FinishConfirm({
         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden />
         <div>
           <p id="finish-confirm-title" className="font-display text-base font-bold leading-tight tracking-tight">
-            {nothingLogged ? "Nothing logged yet" : "Finish with work left?"}
+            {nothingLogged ? "No sets logged" : "Sets not logged"}
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
             {nothingLogged
-              ? "Finish now and nothing from this session is saved."
-              : "Only the sets you logged are saved. Tap one to do it now:"}
+              ? "Finishing now saves nothing."
+              : "Only logged sets get saved. Tap one to log it:"}
           </p>
         </div>
       </div>
@@ -85,10 +85,10 @@ export function FinishConfirm({
 
       <div className="mt-4 grid grid-cols-2 gap-2">
         <Button onClick={onCancel}>
-          Keep going
+          Log more sets
         </Button>
         <Button variant="secondary" className="text-muted-foreground" onClick={onFinish}>
-          Finish anyway
+          Finish now
         </Button>
       </div>
     </div>

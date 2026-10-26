@@ -109,7 +109,16 @@ interface WorkoutState {
   logTodayWorkout: () => void;
   setActiveDate: (date: string) => void;
   setProfile: (patch: Partial<ProfileInfo>) => void;
-  claimFor: (userId: string) => void;
+  /**
+   * Signed in: show this account's copy on this phone — the one saved here
+   * before, or an empty one. Never another account's data, and never the
+   * guest copy (moving that in is an explicit step, features/auth).
+   */
+  switchToAccount: (userId: string) => void;
+  /** Signed out: show the guest copy. The account copy stays saved for the next sign-in. */
+  switchToGuest: () => void;
+  /** A guest's "Clear this phone": empty the guest copy. There is no account to archive it in. */
+  clearGuestData: () => void;
   /**
    * The local half of "delete all my data": empty this device for a fresh
    * start, keeping the owner, the name and the pending-deletion stamp. The
@@ -140,6 +149,16 @@ interface WorkoutState {
 // is the account bleed this whole mechanism exists to prevent. Anyone already
 // synced gets their data back from the first read.
 const STORAGE_KEY = "gymflow-state-v4";
+
+/**
+ * Guest mode keeps its own copy. One key for both was the shared-phone leak:
+ * sign out, and the next person sees your history. Two keys, and signing out
+ * is a switch, not a wipe — offline work is still there when you sign back in.
+ */
+export const GUEST_STORAGE_KEY = "gymflow-guest-v1";
+
+/** Which copy was on screen, so a reload opens the same one. */
+export const ACTIVE_STORAGE_KEY = "gymflow-active";
 const RETIRED_STORAGE_KEY = "gymflow-state-v3";
 
 function normalizeName(value: string) {
@@ -212,7 +231,9 @@ function createInitialState(): Omit<
   | "logTodayWorkout"
   | "setActiveDate"
   | "setProfile"
-  | "claimFor"
+  | "switchToAccount"
+  | "switchToGuest"
+  | "clearGuestData"
   | "archiveLocal"
   | "restoreArchive"
   | "logMeasurement"
@@ -248,8 +269,9 @@ function persist(state: WorkoutState) {
     return;
   }
 
+  // An owner means an account's copy; no owner is the guest's.
   localStorage.setItem(
-    STORAGE_KEY,
+    state.owner ? STORAGE_KEY : GUEST_STORAGE_KEY,
     JSON.stringify({
       muscles: state.muscles,
       templates: state.templates,
@@ -269,6 +291,81 @@ function persist(state: WorkoutState) {
   );
 }
 
+/** A saved copy, parsed, or undefined when there is none or it is damaged. */
+function readSaved(key: string): Partial<WorkoutState> | undefined {
+  if (typeof window === "undefined") {
+    return undefined;
+  }
+  const raw = localStorage.getItem(key);
+  if (!raw) {
+    return undefined;
+  }
+  try {
+    return JSON.parse(raw) as Partial<WorkoutState>;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Accounts that chose "Keep my account only" for this phone's guest copy. */
+const GUEST_DECLINED_KEY = "gymflow-guest-declined";
+
+/**
+ * The guest copy as the merge takes it in — or undefined when there is none.
+ * Read from storage, not the screen: at sign-in the screen already shows the
+ * account's copy.
+ */
+export function readGuestCopy(): RemoteState | undefined {
+  const saved = readSaved(GUEST_STORAGE_KEY);
+  if (!saved || saved.owner) {
+    return undefined;
+  }
+  return {
+    templates: saved.templates ?? [],
+    sessionTemplates: saved.sessionTemplates ?? [],
+    scheduledSessions: saved.scheduledSessions ?? [],
+    logs: saved.logs ?? [],
+    setLogs: saved.setLogs ?? [],
+    measurements: saved.measurements ?? [],
+    skillGoals: saved.skillGoals,
+    profile: saved.profile,
+    scheduleConfig: saved.scheduleConfig
+  };
+}
+
+/** After the guest copy has moved into an account: so it is never added twice. */
+export function clearGuestCopy() {
+  if (typeof window !== "undefined") {
+    localStorage.removeItem(GUEST_STORAGE_KEY);
+  }
+}
+
+function declinedAccounts(): string[] {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(GUEST_DECLINED_KEY) ?? "[]");
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+export function guestDeclinedBy(userId: string): boolean {
+  return typeof window !== "undefined" && declinedAccounts().includes(userId);
+}
+
+/** "Keep my account only": not asked again for this account on this phone. */
+export function declineGuestFor(userId: string) {
+  if (typeof window !== "undefined") {
+    localStorage.setItem(GUEST_DECLINED_KEY, JSON.stringify([...new Set([...declinedAccounts(), userId])]));
+  }
+}
+
+function markActive(copy: "guest" | "account") {
+  if (typeof window !== "undefined") {
+    localStorage.setItem(ACTIVE_STORAGE_KEY, copy);
+  }
+}
+
 function loadState() {
   if (typeof window === "undefined") {
     return createInitialState();
@@ -278,19 +375,15 @@ function loadState() {
   // last used this device.
   localStorage.removeItem(RETIRED_STORAGE_KEY);
 
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) {
-    return createInitialState();
-  }
+  // The copy that was on screen. A phone from before guest mode has no marker
+  // and one account copy, which is the one to open.
+  const active = localStorage.getItem(ACTIVE_STORAGE_KEY);
+  const saved =
+    active === "guest"
+      ? readSaved(GUEST_STORAGE_KEY)
+      : readSaved(STORAGE_KEY) ?? readSaved(GUEST_STORAGE_KEY);
 
-  try {
-    return {
-      ...createInitialState(),
-      ...JSON.parse(raw)
-    };
-  } catch {
-    return createInitialState();
-  }
+  return saved ? { ...createInitialState(), ...saved } : createInitialState();
 }
 
 function getTodayScheduledSessions(state: Pick<WorkoutState, "scheduledSessions" | "activeDate">) {
@@ -771,21 +864,43 @@ export function createWorkoutStore() {
           };
         }),
       /**
-       * Establish that the persisted copy belongs to `userId` before anything
+       * Establish that what is on screen belongs to `userId` before anything
        * is pushed from it.
        *
-       * A different owner — or none, which is every v3 blob and every fresh
-       * install — means this data is not theirs, so it is dropped rather than
-       * merged or uploaded. Signing *out* deliberately does not clear it: work
-       * done offline should survive signing back in on your own device. It is
-       * the change of owner that matters, not the absence of a session.
+       * The guest copy and the account copy live under different keys. Signing
+       * in switches to the account's copy; signing out switches to the guest's.
+       * Neither switch deletes the other copy: offline work survives signing
+       * back in on your own phone, and a shared phone never shows the next
+       * person your history. Another account's copy is dropped, never merged.
        */
-      claimFor: (userId) =>
+      switchToAccount: (userId) =>
+        setAndPersist((state) => {
+          if (state.owner === userId) {
+            return state;
+          }
+          markActive("account");
+          const saved = readSaved(STORAGE_KEY);
+          const fresh = { ...state, ...createInitialState(), activeDate: todayKey() };
+          // This account's copy from an earlier visit — offline work included —
+          // or an empty one. Another account's copy is dropped, never shown.
+          return saved?.owner === userId
+            ? { ...fresh, ...saved, owner: userId, activeDate: todayKey() }
+            : { ...fresh, owner: userId };
+        }),
+      clearGuestData: () =>
         setAndPersist((state) =>
-          state.owner === userId
-            ? state
-            : { ...state, ...createInitialState(), owner: userId }
+          state.owner ? state : { ...state, ...createInitialState(), owner: undefined, activeDate: todayKey() }
         ),
+      switchToGuest: () =>
+        setAndPersist((state) => {
+          if (!state.owner) {
+            return state;
+          }
+          markActive("guest");
+          const saved = readSaved(GUEST_STORAGE_KEY);
+          const fresh = { ...state, ...createInitialState(), owner: undefined, activeDate: todayKey() };
+          return saved && !saved.owner ? { ...fresh, ...saved, owner: undefined, activeDate: todayKey() } : fresh;
+        }),
       // The owner stays so the next sign-in by the same account does not read
       // an untagged blob. The stamp stays so every screen knows an archive is
       // waiting, and so the sync layer leaves its GIFs alone.

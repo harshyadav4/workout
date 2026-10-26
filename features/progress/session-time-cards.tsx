@@ -43,12 +43,12 @@ function DurationTrendCard({ sessions }: { sessions: TimedSession[] }) {
 
   return (
     <Panel
-      title="Session length"
-      caption={`Average ${formatDuration(average * 60)} · minutes per session`}
-      note={<>From Start to Finish — or to the last set and its rest, when Finish was tapped long after. Sessions from before timing existed are not on the chart.</>}
+      title="Workout length"
+      caption={`Average ${formatDuration(average * 60)} · in minutes`}
+      note={<>Time from Start to Finish. If you tapped Finish late, it ends after your last set and its rest.</>}
     >
       {points.length < 2 ? (
-        <EmptyChart>Two timed sessions are needed to draw a trend. Every session from now on is timed.</EmptyChart>
+        <EmptyChart>Do 2 timed workouts to see a trend.</EmptyChart>
       ) : (
         <ResponsiveContainer width="100%" height={170}>
           <LineChart data={points} margin={{ top: 8, right: 8, bottom: 0, left: -10 }}>
@@ -75,7 +75,7 @@ function WeeklyHoursCard({ sessions, today }: { sessions: TimedSession[]; today:
     <Panel
       title="Time per week"
       caption={`This week ${thisWeek.hours} h · last week ${lastWeek.hours} h`}
-      note={<>Hours of timed sessions per Monday-to-Sunday week, for the last 12 weeks.</>}
+      note={<>Hours of timed workouts per week, Monday to Sunday, for the last 12 weeks.</>}
     >
       <ResponsiveContainer width="100%" height={160}>
         <BarChart data={weeks} margin={{ top: 8, right: 8, bottom: 0, left: -6 }}>
@@ -97,8 +97,8 @@ function WhenYouTrainCard({ sessions }: { sessions: TimedSession[] }) {
   return (
     <Panel
       title="When you train"
-      caption={usualStartMinutes !== undefined ? `Usually starting around ${clockLabel(usualStartMinutes)}` : undefined}
-      note={<>By the start time of each timed session, on this phone&apos;s clock. The usual start is the middle one of all your starts.</>}
+      caption={usualStartMinutes !== undefined ? `Usual start: ${clockLabel(usualStartMinutes)}` : undefined}
+      note={<>From the start time of each timed workout, on this phone's clock. Your usual start is the middle value.</>}
     >
       <ul className="space-y-2">
         {PARTS.map((part) => (
@@ -121,14 +121,14 @@ function WhenYouTrainCard({ sessions }: { sessions: TimedSession[] }) {
 function DurationRecordsCard({ sessions }: { sessions: TimedSession[] }) {
   const records = durationRecords(sessions);
   return (
-    <Panel title="Session records" caption="Per session type" note={<>Average, longest and shortest length of each kind of session you have timed.</>}>
+    <Panel title="Length records" caption="Per workout type">
       <ul className="space-y-2">
         {records.map((record) => (
           <li key={record.name} className="well rounded-lg px-3 py-2.5">
             <div className="flex items-baseline justify-between gap-2">
               <span className="truncate text-sm font-semibold">{record.name}</span>
               <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                {record.count} {record.count === 1 ? "session" : "sessions"}
+                {record.count} {record.count === 1 ? "workout" : "workouts"}
               </span>
             </div>
             <div className="mt-1.5 grid grid-cols-3 gap-2 text-xs tabular-nums">
@@ -157,7 +157,7 @@ export function SessionTimeSection({ sessions, today }: { sessions: TimedSession
   if (sessions.length === 0) {
     return (
       <EmptyChart>
-        Session times start with your next workout: tap Start, train, tap Finish, and how long it took shows up here.
+        Tap Start and Finish on your next workout to time it.
       </EmptyChart>
     );
   }

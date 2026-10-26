@@ -54,21 +54,17 @@ export function StrengthGrowthCard({
   return (
     <Panel
       title="Strength growth"
-      caption="Your first session vs your latest, per lift. Biggest gain first"
+      caption="First vs latest heaviest set"
       note={
         <>
-          The grey dot is your heaviest set the first time you did the lift. The colored dot is your
-          heaviest set now. A longer bar between them means a bigger gain. All rows use the same
-          scale, so you can compare lifts with each other. This is the weight you really lifted,
-          not an estimate.
+          The grey dot is your first heaviest set; the colored dot is your latest. All rows share
+          one scale, so you can compare exercises. These are real weights, not estimates.
         </>
       }
     >
       <div className="space-y-4">
         {rows.length === 0 ? (
-          <EmptyChart>
-            Two sessions of the same lift are needed before there is a trend to draw.
-          </EmptyChart>
+          <EmptyChart>Do an exercise in 2 workouts to see a trend.</EmptyChart>
         ) : null}
 
         {rows.map((row) => {
@@ -111,7 +107,7 @@ export function StrengthGrowthCard({
               </div>
 
               <p className="mt-1.5 text-xs tabular-nums text-muted-foreground">
-                {row.first} → {row.last} kg · {row.sessions} sessions
+                {row.first} → {row.last} kg · {row.sessions} workouts
               </p>
             </div>
           );
@@ -152,7 +148,7 @@ export function TopSetCard({
   name?: string;
 }) {
   return (
-    <Panel title={`Top set · ${name ?? "—"}`} caption="Your heaviest set in each session">
+    <Panel title={`Heaviest set · ${name ?? "—"}`} caption="Per workout">
       <TopSetChart points={points} />
     </Panel>
   );
@@ -168,7 +164,7 @@ export function TopSetChart({ points }: { points: TopSetPoint[] }) {
   return (
     <>
       {points.length < 2 ? (
-          <EmptyChart>Not enough sessions of this lift yet.</EmptyChart>
+          <EmptyChart>Not enough workouts of this exercise yet.</EmptyChart>
         ) : (
           <ResponsiveContainer width="100%" height={180}>
             <LineChart data={points} margin={{ top: 16, right: 16, bottom: 0, left: -12 }}>
@@ -198,7 +194,7 @@ export function TopSetChart({ points }: { points: TopSetPoint[] }) {
                   stroke={CHART.surface}
                   strokeWidth={2}
                   label={{
-                    value: `PB ${best.weight} kg`,
+                    value: `Record ${best.weight} kg`,
                     position: "top",
                     fill: "rgba(226,232,240,0.75)",
                     fontSize: 10,

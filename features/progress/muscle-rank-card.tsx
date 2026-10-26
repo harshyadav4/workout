@@ -47,12 +47,12 @@ export function MuscleRankCard({
 
   return (
     <Panel
-      title="Most to least trained"
-      caption={`${worked.length} of ${muscleVolume.length} muscles got training in this range`}
+      title="Muscle ranking"
+      caption={`${worked.length} of ${muscleVolume.length} muscles trained`}
       note={
         <>
-          Each muscle&apos;s share of all the weight you lifted in this range. A lift gives more to
-          the muscles it works hardest. Tap a row to open that muscle.
+          Each bar is the muscle&rsquo;s share of all weight lifted in this range. Tap a row to
+          open that muscle.
         </>
       }
     >
@@ -115,7 +115,7 @@ export function MuscleRankCard({
               onClick={() => setExpanded((current) => !current)}
               className="mt-3 min-h-[44px] w-full rounded-xl bg-muted text-xs font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              {expanded ? "Show the top 10" : `Show all ${muscleVolume.length} muscles`}
+              {expanded ? "Show top 10" : `Show all ${muscleVolume.length}`}
             </button>
             <GroupLegend
               groups={muscleVolume.flatMap((muscle) => {

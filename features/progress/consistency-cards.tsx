@@ -36,7 +36,7 @@ function cellColor(level: number, heat: readonly string[]) {
 export function ConsistencyCard({
   weeks,
   title = "Consistency",
-  subject = "sessions"
+  subject = "workouts"
 }: {
   weeks: CalendarWeek[];
   title?: string;
@@ -50,12 +50,11 @@ export function ConsistencyCard({
   return (
     <Panel
       title={title}
-      caption={`${trained} ${subject} across ${days} days · ${Math.round((trained / Math.max(days, 1)) * 100)}%`}
+      caption={`${trained} ${subject} in ${days} days · ${Math.round((trained / Math.max(days, 1)) * 100)}%`}
       note={
         <>
-          One square per day, one column per week. A brighter square means you lifted more that day.
-          The colors compare your training days with each other, so one very big day does not make
-          every other day look empty. Tap a square to see its date and total.
+          Each square is 1 day; each column is 1 week. A brighter square means more weight lifted
+          that day, compared to your other training days.
         </>
       }
     >
@@ -139,13 +138,11 @@ export function RhythmCard({ rhythm, rest }: { rhythm: WeekdayStat[]; rest: Rest
 
   return (
     <Panel
-      title="Your training week"
+      title="Training week"
       caption={leaveCopy(quietDays)}
       note={
         <>
-          How many sessions you did on each day of the week in this range. The two days you train
-          least are grey. The four numbers below show how many days you rest between sessions.
-          Training two days in a row counts as zero rest days.
+          Workouts on each weekday in this range. The 2 days you train least are grey.
         </>
       }
     >
@@ -154,12 +151,12 @@ export function RhythmCard({ rhythm, rest }: { rhythm: WeekdayStat[]; rest: Rest
             <XAxis {...axisProps} dataKey="label" minTickGap={0} />
             <Tooltip
               cursor={{ fill: "rgba(255,255,255,0.04)" }}
-              content={<ChartTooltip format={(value) => `${value} sessions`} />}
+              content={<ChartTooltip format={(value) => `${value} ${value === 1 ? "workout" : "workouts"}`} />}
             />
             <Bar
               {...animationProps}
               dataKey="sessions"
-              name="Sessions"
+              name="Workouts"
               radius={[4, 4, 0, 0]}
               maxBarSize={24}
             >
@@ -174,11 +171,11 @@ export function RhythmCard({ rhythm, rest }: { rhythm: WeekdayStat[]; rest: Rest
         </ResponsiveContainer>
 
         <div className="mt-3 grid grid-cols-2 gap-2">
-          <Stat label="Sessions / week" value={rest.sessionsPerWeek.toFixed(1)} />
+          <Stat label="Workouts per week" value={rest.sessionsPerWeek.toFixed(1)} />
           <Stat label="Usual rest" value={restCopy(rest.averageGap)} />
-          <Stat label="Longest break" value={dayCount(rest.longestGap)} />
+          <Stat label="Longest rest" value={dayCount(rest.longestGap)} />
           <Stat
-            label="Last session"
+            label="Last workout"
             value={
               rest.daysSinceLast === undefined
                 ? "—"
@@ -196,14 +193,14 @@ function leaveCopy(quietDays: WeekdayStat[]) {
   const off = quietDays.filter((day) => day.sessions === 0).map((day) => day.label);
 
   if (off.length === 2) {
-    return `${off[0]} and ${off[1]} are your rest days — you never trained either in this range.`;
+    return `${off[0]} and ${off[1]} are your rest days`;
   }
 
   if (off.length === 1) {
-    return `${off[0]} is the day you always rest.`;
+    return `${off[0]} is your rest day`;
   }
 
-  return `You train on every day of the week sometimes. ${quietDays[0].label} is the day you skip most.`;
+  return `You train least on ${quietDays[0].label}`;
 }
 
 function dayCount(days: number) {
@@ -222,7 +219,8 @@ function restCopy(averageGap: number) {
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="well rounded-lg p-3">
-      <p className="text-xs font-semibold text-muted-foreground">
+      {/* Two lines tall, so the values stay level when a long label wraps. */}
+      <p className="min-h-8 text-xs font-semibold text-muted-foreground">
         {label}
       </p>
       <p className="mt-1.5 text-lg font-semibold leading-none">{value}</p>

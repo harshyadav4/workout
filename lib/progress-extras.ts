@@ -89,7 +89,7 @@ const STEPS: Record<BadgeKind, number[]> = {
 };
 
 function formatTonnage(kg: number) {
-  return kg >= 1_000_000 ? `${kg / 1_000_000} million kg` : `${(kg / 1000).toLocaleString("en-US")} thousand kg`;
+  return kg >= 1_000_000 ? `${kg / 1_000_000}M kg` : `${(kg / 1000).toLocaleString("en-US")}k kg`;
 }
 
 /** "3.7 million kg", "70 thousand kg": a distance to a badge is read, not audited. */
@@ -105,12 +105,12 @@ function roughKg(kg: number) {
 
 function stepTitle(kind: BadgeKind, step: number) {
   if (kind === "sessions") {
-    return `${step} sessions`;
+    return `${step} workouts`;
   }
   if (kind === "weight") {
     return `${formatTonnage(step)} lifted`;
   }
-  return `${step} weeks in a row`;
+  return `${step}-week streak`;
 }
 
 /**
@@ -143,7 +143,7 @@ export function buildMilestones(logs: WorkoutLog[], today: string) {
       earned.push({
         kind,
         title: stepTitle(kind, reached[reached.length - 1]),
-        detail: kind === "streak" ? "Your best streak" : "Earned",
+        detail: kind === "streak" ? "Best streak" : "Earned",
         progress: 1
       });
     }
@@ -155,10 +155,10 @@ export function buildMilestones(logs: WorkoutLog[], today: string) {
         title: stepTitle(kind, upcoming),
         detail:
           kind === "sessions"
-            ? `${left} more ${left === 1 ? "session" : "sessions"}`
+            ? `${left} more ${left === 1 ? "workout" : "workouts"}`
             : kind === "weight"
               ? `${roughKg(left)} to go`
-              : `${left} more ${left === 1 ? "week" : "weeks"} in a row`,
+              : `${left} more ${left === 1 ? "week" : "weeks"}`,
         progress: value / upcoming
       });
     }
@@ -202,7 +202,7 @@ export function buildMonthCompare(logs: WorkoutLog[], today: string): MonthCompa
   });
 
   return [
-    row("Sessions", sessionDays(inThis).size, sessionDays(inLast).size),
+    row("Workouts", sessionDays(inThis).size, sessionDays(inLast).size),
     row("Weight lifted", totalVolume(inThis), totalVolume(inLast)),
     row("Records", recordsIn(`${thisMonth}-01`, today), recordsIn(`${lastMonth}-01`, lastEnd))
   ];
@@ -560,8 +560,8 @@ function pair(left: string, right: string, leftVolume: number, rightVolume: numb
     const ratio = Math.round((Math.max(leftVolume, rightVolume) / Math.max(Math.min(leftVolume, rightVolume), 1) - 1) * 100);
     sentence =
       Math.min(leftVolume, rightVolume) === 0
-        ? `All ${more.toLowerCase()}, no ${less.toLowerCase()}. ${fix}`
-        : `You do ${ratio}% more ${more.toLowerCase()} than ${less.toLowerCase()}. ${fix}`;
+        ? `No ${less.toLowerCase()} exercises yet. ${fix}`
+        : `${ratio}% more weight on ${more.toLowerCase()} than ${less.toLowerCase()}. ${fix}`;
   }
 
   return { left, right, leftShare, sentence };
@@ -592,14 +592,14 @@ export function buildBalance(logs: WorkoutLog[]): { pushPull?: BalancePair; uppe
       "Pull",
       push,
       pull,
-      push > pull ? "Add a pulling lift, such as a row or a pulldown." : "Add a pushing lift, such as a press."
+      push > pull ? "Add a row or a pulldown." : "Add a press."
     ),
     upperLower: pair(
       "Upper body",
       "Lower body",
       upper,
       lower,
-      upper > lower ? "Add a leg lift, such as a squat or a lunge." : "Add an upper-body lift."
+      upper > lower ? "Add a squat or a lunge." : "Add an upper body exercise."
     )
   };
 }

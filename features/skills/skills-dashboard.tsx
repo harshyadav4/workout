@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { DRAWER_CONTENT, Dialog, DialogContent } from "@/components/ui/dialog";
+import { InfoNote } from "@/components/ui/info-note";
 import { Input } from "@/components/ui/input";
 import { NumberInput } from "@/components/ui/number-input";
 import { ExercisePicker } from "@/features/planner/exercise-picker";
@@ -85,11 +86,11 @@ function SkillCard({ goal }: { goal: SkillGoal }) {
     }
     const template = await templateForLevel(current, templates);
     if (!template) {
-      setMessage("That exercise could not be loaded. Try again.");
+      setMessage("Cannot load that exercise. Try again.");
       return;
     }
     const replaced = applySkillLevelToPlans({ replaceWorkoutIds: outgrown, level: current, template });
-    setMessage(`${current.name} is in your plan now — ${replaced} ${replaced === 1 ? "place" : "places"} updated.`);
+    setMessage(`${current.name} is now in ${replaced} ${replaced === 1 ? "place" : "places"} in your plan.`);
   };
 
   return (
@@ -120,7 +121,7 @@ function SkillCard({ goal }: { goal: SkillGoal }) {
             <p className="min-w-0 truncate text-sm font-semibold">Now: {current.name}</p>
             <ExerciseDemoButton workoutId={current.workoutId} name={current.name} />
             <span className="ml-auto shrink-0 text-xs text-muted-foreground tabular-nums">
-              clear {levelTarget(current)}
+              target {levelTarget(current)}
             </span>
           </div>
           {/* The best single set against the bar: how close the next level is. */}
@@ -129,17 +130,17 @@ function SkillCard({ goal }: { goal: SkillGoal }) {
           </div>
           <p className="mt-1.5 text-xs text-muted-foreground tabular-nums">
             {progress.best > 0
-              ? `Best set ${progress.best}${current.metric === "time" ? "s" : ""} of ${current.target}${current.metric === "time" ? "s" : ""} — every set of a session must hit it`
-              : `Not logged yet. Add ${current.name} to a session to start.`}
+              ? `Best set ${progress.best}${current.metric === "time" ? "s" : ""} of ${current.target}${current.metric === "time" ? "s" : ""} · every set must hit it`
+              : `Add ${current.name} to a workout to start.`}
           </p>
         </div>
       ) : (
-        <p className="mt-4 text-sm text-success">Every level cleared. This skill is yours.</p>
+        <p className="mt-4 text-sm text-success">You completed every level.</p>
       )}
 
       {canSwap ? (
         <Button variant="secondary" className="mt-3 w-full" onClick={swap}>
-          Use {current?.name} in my plan
+          Use in my plan
         </Button>
       ) : null}
       {message ? <p className="mt-2 text-xs text-success">{message}</p> : null}
@@ -150,7 +151,7 @@ function SkillCard({ goal }: { goal: SkillGoal }) {
         onClick={() => setOpen((value) => !value)}
         className="mt-3 flex min-h-11 w-full items-center justify-between rounded-lg text-xs font-semibold text-muted-foreground"
       >
-        The ladder
+        All levels
         <ChevronDown className={cn("h-4 w-4 transition-transform", open && "rotate-180")} />
       </button>
       {open ? (
@@ -194,7 +195,7 @@ function SkillCard({ goal }: { goal: SkillGoal }) {
           armed ? "bg-danger/15 text-danger ring-1 ring-danger/50" : "text-muted-foreground"
         )}
       >
-        {armed ? `Tap again to drop ${goal.name}` : "Drop this goal"}
+        {armed ? `Tap again to remove ${goal.name}` : "Remove goal"}
       </button>
     </Card>
   );
@@ -228,11 +229,11 @@ function CustomSkillBuilder({ onDone }: { onDone: () => void }) {
 
   const save = () => {
     if (!name.trim()) {
-      setError("Give the skill a name.");
+      setError("Type a name for the skill.");
       return;
     }
     if (levels.length === 0) {
-      setError("Add at least one level.");
+      setError("Add 1 or more levels.");
       return;
     }
     addSkillGoal({ id: crypto.randomUUID(), name: name.trim(), levels, createdAt: new Date().toISOString() });
@@ -241,10 +242,11 @@ function CustomSkillBuilder({ onDone }: { onDone: () => void }) {
 
   return (
     <Card>
-      <p className="font-display text-lg font-bold tracking-tight">Make your own skill</p>
-      <p className="mt-1 text-xs text-muted-foreground">
-        Add exercises easiest first. Each level is cleared by one session where every set hits its target.
-      </p>
+      <InfoNote
+        heading={<p className="font-display text-lg font-bold tracking-tight">Custom skill</p>}
+        note={<p>Each exercise is 1 level. To clear a level, do 1 workout where every set reaches its target.</p>}
+      />
+      <p className="mt-1 text-xs text-muted-foreground">Add exercises, easiest first.</p>
       <label className="mt-4 block text-xs text-muted-foreground">
         Skill name
         <Input className="mt-1" value={name} placeholder="Front lever" onChange={(event) => setName(event.target.value)} />
@@ -294,7 +296,7 @@ function CustomSkillBuilder({ onDone }: { onDone: () => void }) {
 
       <Button variant="secondary" className="mt-3 w-full" onClick={() => setPicking(true)}>
         <Plus className="h-4 w-4" />
-        Add a level from the library
+        Add level
       </Button>
       {error ? <p className="mt-2 text-xs text-danger">{error}</p> : null}
       <div className="mt-4 grid grid-cols-2 gap-2">
@@ -327,7 +329,7 @@ function NewGoal({ onDone }: { onDone: () => void }) {
   return (
     <Card>
       <div className="flex items-center justify-between">
-        <p className="font-display text-lg font-bold tracking-tight">Set a new goal</p>
+        <p className="font-display text-lg font-bold tracking-tight">New goal</p>
         <button type="button" aria-label="Close" onClick={onDone} className="flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground">
           <X className="h-4 w-4" />
         </button>
@@ -362,7 +364,7 @@ function NewGoal({ onDone }: { onDone: () => void }) {
         ))}
       </ul>
       <Button variant="secondary" className="mt-3 w-full" onClick={() => setCustom(true)}>
-        Make your own skill
+        Custom skill
       </Button>
     </Card>
   );
@@ -378,11 +380,16 @@ export function SkillsDashboard() {
     <section className="space-y-4">
       {goals.length === 0 && !adding ? (
         <Card>
-          <p className="font-display text-xl font-bold tracking-tight">Your skill window is empty</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Pick a skill to work toward — a pull-up, a handstand, a pistol squat — and climb it level by level. Log a
-            session that hits a level&apos;s target and the next one unlocks.
-          </p>
+          <InfoNote
+            heading={<p className="font-display text-xl font-bold tracking-tight">No skills yet</p>}
+            note={
+              <>
+                <p>A skill is a hard exercise that you learn in levels, like a pull-up or a handstand.</p>
+                <p>Log a workout where every set reaches a level&apos;s target. Then the next level unlocks.</p>
+              </>
+            }
+          />
+          <p className="mt-1 text-sm text-muted-foreground">Pick a goal to start.</p>
         </Card>
       ) : null}
 
@@ -395,7 +402,7 @@ export function SkillsDashboard() {
       ) : (
         <Button size="lg" className="w-full" onClick={() => setAdding(true)}>
           <Plus className="h-5 w-5" />
-          Set a new goal
+          New goal
         </Button>
       )}
     </section>

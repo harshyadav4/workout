@@ -50,26 +50,17 @@ export function LoadCard({ points }: { points: LoadPoint[] }) {
   return (
     <Panel
       title="This week vs normal"
-      caption={
-        latest
-          ? loadCopy(latest.ratio!)
-          : "Needs a month of training"
-      }
+      caption={latest ? loadCopy(latest.ratio!) : undefined}
       note={
         <>
-          Each point compares one week with your normal week (the average of the last{" "}
-          {CHRONIC_WEEKS} weeks). 1.0 means a normal week. Above the grey band, the week was much
-          harder than normal. Below it, you are doing less than usual. The light area is the time
-          range you picked. The chart always shows all your history, because it needs the weeks
-          before to know what &ldquo;normal&rdquo; is. <strong>This is not an injury score.</strong>{" "}
-          It only shows sudden jumps against your own normal.
+          1.0 is a normal week: your average over the last {CHRONIC_WEEKS} weeks. Above the grey
+          band is a sudden jump; below it is a light week. The light area is the range you picked.{" "}
+          <strong>This is not an injury score.</strong>
         </>
       }
     >
       {warm.length < 2 ? (
-        <EmptyChart>
-          Train for a month first. Then each week can be compared with your normal week.
-        </EmptyChart>
+        <EmptyChart>Train for 1 month to see this.</EmptyChart>
       ) : (
         <ResponsiveContainer width="100%" height={180}>
           <ComposedChart data={points} margin={{ top: 8, right: 8, bottom: 0, left: -18 }}>
@@ -121,7 +112,7 @@ export function LoadCard({ points }: { points: LoadPoint[] }) {
               yAxisId="ratio"
               type="monotone"
               dataKey="ratio"
-              name="vs normal"
+              name="Vs normal"
               stroke={CHART.accent}
               strokeWidth={2}
               dot={false}
@@ -150,12 +141,12 @@ function loadCopy(ratio: number) {
   const percent = Math.round(Math.abs(ratio - 1) * 100);
 
   if (ratio > LOAD_BAND.high) {
-    return `This week is ${percent}% harder than your normal week — a big jump`;
+    return `${percent}% harder than normal — a big jump`;
   }
 
   if (ratio < LOAD_BAND.low) {
-    return `This week is ${percent}% lighter than your normal week`;
+    return `${percent}% lighter than normal`;
   }
 
-  return "This week is close to your normal week";
+  return "Close to your normal week";
 }

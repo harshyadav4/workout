@@ -252,7 +252,7 @@ export function moveSession(
   const moving = sessions.find((session) => session.id === sessionId);
 
   if (!moving) {
-    return { ok: false, reason: "That session is no longer on the calendar." };
+    return { ok: false, reason: "That workout is no longer on the calendar." };
   }
   if (moving.date === toDate) {
     return { ok: true, sessions };
@@ -260,7 +260,7 @@ export function moveSession(
   // A completed session is a record of a day that happened. Moving it would
   // rewrite history and detach it from the logs already written against its date.
   if (moving.status === "completed") {
-    return { ok: false, reason: "That session is already done — it stays on the day you did it." };
+    return { ok: false, reason: "That workout is done. It stays on its day." };
   }
 
   const displaced = sessions.find(
@@ -268,7 +268,7 @@ export function moveSession(
   );
 
   if (displaced?.status === "completed") {
-    return { ok: false, reason: "You already trained that day." };
+    return { ok: false, reason: "You already did a workout on that day." };
   }
 
   const vacated: ScheduledSession = displaced

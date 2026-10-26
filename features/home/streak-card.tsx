@@ -64,7 +64,7 @@ export function StreakCard() {
         <p className="text-xs text-muted-foreground tabular-nums">
           {view.doneThisWeek > 0
             ? `${view.doneThisWeek} day${view.doneThisWeek === 1 ? "" : "s"} · ${formatVolume(view.volume)} kg`
-            : "Nothing logged yet"}
+            : "No workouts yet"}
         </p>
       </div>
 
@@ -74,7 +74,7 @@ export function StreakCard() {
         aria-label={
           trainedNames.length > 0
             ? `Trained this week: ${trainedNames.join(", ")}`
-            : "No sessions logged this week yet"
+            : "No workouts logged this week"
         }
       >
         {view.days.map((day) => {

@@ -37,14 +37,11 @@ export function SplitDriftCard({ drift }: { drift: SplitDrift }) {
 
   return (
     <Panel
-      title="How your focus changed"
-      caption={`Each muscle group's share of the weight you lifted, per ${drift.bucket}`}
+      title="Focus over time"
+      caption={`Share of weight lifted per group, by ${drift.bucket}`}
       note={
         <>
-          Each color band is one muscle group&apos;s share of the weight you lifted in that{" "}
-          {drift.bucket}. Every {drift.bucket} adds up to 100%, so a heavy {drift.bucket} and a light
-          one are the same height. Only the mix changes the shape. A {drift.bucket} with no training
-          shows as zero.
+          Each {drift.bucket} adds up to 100%, so only the mix of muscle groups changes the shape.
         </>
       }
     >

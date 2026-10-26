@@ -48,7 +48,8 @@ export function MuscleMapCard({
   selectedMuscleName,
   selectedMuscleDescription,
   onSelectMuscle,
-  footer
+  footer,
+  tourId
 }: {
   title: string;
   description: string;
@@ -59,6 +60,8 @@ export function MuscleMapCard({
   onSelectMuscle?: (muscleId?: string) => void;
   /** Replaces the default selected-muscle plaque where the caller has more to say. */
   footer?: React.ReactNode;
+  /** The guided tour's `data-tour` marker, on the figures: the whole card is taller than a phone. */
+  tourId?: string;
 }) {
   return (
     <Card className="overflow-hidden">
@@ -67,7 +70,7 @@ export function MuscleMapCard({
         <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="well rounded-xl p-3">
+        <div className="well rounded-xl p-3" data-tour={tourId}>
           <div className="grid grid-cols-2 gap-2">
             <div>
               <p className="mb-2 text-center text-[11px] font-semibold text-muted-foreground">Front</p>
@@ -97,7 +100,7 @@ export function MuscleMapCard({
               {selectedMuscleName ?? "Tap a muscle"}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              {selectedMuscleDescription ?? "Choose a body region to see how the work is spread."}
+              {selectedMuscleDescription ?? "Tap a muscle to see how much work it gets."}
             </p>
           </div>
         )}

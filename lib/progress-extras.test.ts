@@ -46,12 +46,12 @@ function weigh(date: string, value: number): BodyMeasurement {
   const { earned, next } = buildMilestones(logs, today);
 
   const sessions = earned.find((badge) => badge.kind === "sessions");
-  assert.equal(sessions?.title, "25 sessions", "the highest step reached, not every step");
-  assert.equal(earned.find((badge) => badge.kind === "weight")?.title, "10 thousand kg lifted");
+  assert.equal(sessions?.title, "25 workouts", "the highest step reached, not every step");
+  assert.equal(earned.find((badge) => badge.kind === "weight")?.title, "10k kg lifted");
 
   const nextSessions = next.find((badge) => badge.kind === "sessions");
-  assert.equal(nextSessions?.title, "50 sessions");
-  assert.equal(nextSessions?.detail, "20 more sessions");
+  assert.equal(nextSessions?.title, "50 workouts");
+  assert.equal(nextSessions?.detail, "20 more workouts");
   assert.equal(nextSessions?.progress, 30 / 50);
   assert.equal(next.find((badge) => badge.kind === "weight")?.detail, "70 thousand kg to go");
 }
@@ -285,8 +285,8 @@ function weigh(date: string, value: number): BodyMeasurement {
 
   const lopsided = buildBalance([lift("bench", "pecUpper", 2000), lift("row", "lats", 1000)]);
   assert.equal(Math.round(lopsided.pushPull!.leftShare), 67);
-  assert.match(lopsided.pushPull!.sentence, /You do 100% more push than pull\. Add a pulling lift/);
-  assert.match(lopsided.upperLower!.sentence, /All upper body, no lower body\. Add a leg lift/);
+  assert.match(lopsided.pushPull!.sentence, /100% more weight on push than pull\. Add a row/);
+  assert.match(lopsided.upperLower!.sentence, /No lower body exercises yet\. Add a squat/);
 
   const even = buildBalance([
     lift("bench", "pecUpper", 1000),

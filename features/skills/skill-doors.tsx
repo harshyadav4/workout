@@ -81,7 +81,7 @@ export function StatusSkillsDoor({ onNavigate }: { onNavigate?: () => void }) {
       <span className="min-w-0 flex-1">
         <span className="block font-display text-base font-bold tracking-tight">Skills</span>
         <span className="block text-xs text-muted-foreground">
-          {goals.length > 0 ? `${goals.length} ${goals.length === 1 ? "skill" : "skills"} in progress` : "Set a goal and climb it"}
+          {goals.length > 0 ? `${goals.length} ${goals.length === 1 ? "skill" : "skills"} in progress` : "Learn hard exercises in levels"}
         </span>
       </span>
       <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
@@ -144,7 +144,7 @@ export function SkillsGate({ className }: { className?: string }) {
     <div className={cn("flex justify-center", className)}>
       <Link
         href="/skills"
-        aria-label="A gate. Enter the Skills window"
+        aria-label="Open the Skills page"
         className="artifact-rare flex h-12 w-12 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <svg viewBox="0 0 16 16" className="h-7 w-7" aria-hidden>

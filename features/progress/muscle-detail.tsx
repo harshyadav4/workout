@@ -56,7 +56,7 @@ export function MuscleHeroFooter({
       <div className="mt-4 rounded-xl bg-muted p-4 text-center">
         <p className="font-display text-lg font-bold tracking-tight">Tap a muscle</p>
         <p className="mt-1 text-sm text-muted-foreground">
-          See its lifts, how much work it gets, and the last time you trained it.
+          See its exercises, sets, and last workout.
         </p>
       </div>
     );
@@ -68,7 +68,7 @@ export function MuscleHeroFooter({
         <div>
           <p className="font-display text-2xl font-extrabold leading-none tracking-tight">{facts.name}</p>
           <p className="mt-1 text-xs font-semibold text-muted-foreground">
-            #{facts.rank} of {facts.total} by weight lifted · {facts.share.toFixed(1)}% of the total
+            #{facts.rank} of {facts.total} by weight lifted · {facts.share.toFixed(1)}%
           </p>
         </div>
         <button
@@ -91,7 +91,7 @@ export function MuscleHeroFooter({
                 : `${facts.rest.daysSinceLast} ${facts.rest.daysSinceLast === 1 ? "day" : "days"} ago`
           }
         />
-        <Figure label="Sessions" value={`${facts.sessions}`} />
+        <Figure label="Workouts" value={`${facts.sessions}`} />
         <Figure label="Sets / week" value={facts.setsPerWeek.toFixed(1)} />
       </div>
     </div>
@@ -101,7 +101,8 @@ export function MuscleHeroFooter({
 function Figure({ label, value }: { label: string; value: string }) {
   return (
     <div className="well rounded-lg p-2.5">
-      <p className="text-xs font-semibold text-muted-foreground">
+      {/* Two lines tall, so the values stay level when a long label wraps. */}
+      <p className="min-h-8 text-xs font-semibold text-muted-foreground">
         {label}
       </p>
       <p className="mt-1 truncate text-base font-semibold leading-none">{value}</p>
@@ -131,9 +132,8 @@ export function MuscleDoseCard({ name, setsPerWeek }: { name: string; setsPerWee
       caption={doseCopy(name, setsPerWeek, under, over)}
       note={
         <>
-          Hard sets a week for {name}. A set counts fully when the lift works {name} a lot, and as
-          half a set when it helps a little. The goal of 10–20 hard sets a week comes from
-          muscle-growth research. This is the one number here you can change next week.
+          Hard sets a week for {name}. A set counts fully when the exercise works {name} a lot, and
+          half when it only helps. The 10–20 goal comes from muscle-growth research.
         </>
       }
     >
@@ -158,18 +158,18 @@ export function MuscleDoseCard({ name, setsPerWeek }: { name: string; setsPerWee
 
 function doseCopy(name: string, setsPerWeek: number, under: boolean, over: boolean) {
   if (setsPerWeek === 0) {
-    return `No set in this range worked ${name} enough to count. The goal is 10–20 hard sets a week.`;
+    return `No sets counted for ${name} in this range`;
   }
 
   if (under) {
-    return `${name} gets ${setsPerWeek.toFixed(1)} sets a week. The goal is 10–20, so add a few sets.`;
+    return `${setsPerWeek.toFixed(1)} sets a week — aim for 10–20`;
   }
 
   if (over) {
-    return `${name} gets ${setsPerWeek.toFixed(1)} sets a week — more than the 10–20 goal. You can move some of those sets to a weaker muscle.`;
+    return `${setsPerWeek.toFixed(1)} sets a week — over the 10–20 goal`;
   }
 
-  return `${name} is inside the goal of 10–20 hard sets a week. Keep it there.`;
+  return "In the 10–20 goal range";
 }
 
 /**
@@ -194,13 +194,12 @@ export function MuscleVolumeCard({
 
   return (
     <Panel
-      title={`Weight lifted for ${name}`}
-      caption={`The part of your lifting that worked ${name}, per ${bucket}`}
+      title="Weight lifted"
+      caption={`For ${name}, per ${bucket}`}
       note={
         <>
-          Each lift shares its weight between the muscles it works. A bench press gives most of its
-          weight to the chest and a small part to the triceps. This chart adds up only the part that
-          went to {name}, so the same kilo is never counted twice.
+          Each exercise splits its weight between the muscles it works. This counts only the part
+          that went to {name}, so no kilo counts twice.
         </>
       }
     >
@@ -235,7 +234,7 @@ export function MuscleVolumeCard({
             </AreaChart>
           </ResponsiveContainer>
         ) : (
-        <EmptyChart>No lift in this range worked {name}.</EmptyChart>
+        <EmptyChart>No exercise in this range worked {name}.</EmptyChart>
       )}
     </Panel>
   );

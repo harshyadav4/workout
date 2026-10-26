@@ -85,7 +85,7 @@ export function strengthRing(logs: WorkoutLog[]): Ring {
     return {
       fill: 0,
       value: "—",
-      sentence: "Do the same lift in two sessions, and this ring shows if you got stronger.",
+      sentence: "Do an exercise in 2 workouts to see if you got stronger.",
       tone: "steady",
       ready: false
     };
@@ -97,17 +97,17 @@ export function strengthRing(logs: WorkoutLog[]): Ring {
   const tone: RingTone =
     average >= STEADY_PERCENT ? "good" : average > -STEADY_PERCENT ? "steady" : "low";
 
-  const subject = main.length === 1 ? main[0].name : `your ${main.length} main lifts`;
+  const subject = main.length === 1 ? main[0].name : `your ${main.length} main exercises`;
   const sentence =
     tone === "good"
       ? main.length === 1
         ? `${main[0].name} went up ${rounded}%.`
         : up === main.length
-          ? `All ${main.length} of your main lifts went up. Average gain ${rounded}%.`
-          : `${up} of ${subject} went up. Average gain ${rounded}%.`
+          ? `All ${main.length} main exercises went up, ${rounded}% on average.`
+          : `${up} of ${subject} went up, ${rounded}% on average.`
       : tone === "steady"
         ? `${capitalize(subject)} held about the same weight.`
-        : `${capitalize(subject)} went down ${Math.abs(rounded)}% on average. Rest, eat well, and build back up.`;
+        : `${capitalize(subject)} went down ${Math.abs(rounded)}% on average.`;
 
   return {
     fill: up / main.length,
@@ -201,7 +201,7 @@ export function consistencyRing(logs: WorkoutLog[], today: string, weeklyTarget?
     return {
       fill: 0,
       value: `0/${target}`,
-      sentence: "Log your first session, and this ring starts to fill.",
+      sentence: "Log your first workout to start this ring.",
       tone: "steady",
       ready: false
     };
@@ -217,15 +217,13 @@ export function consistencyRing(logs: WorkoutLog[], today: string, weeklyTarget?
   if (done >= target) {
     sentence =
       streak >= 2
-        ? `Weekly goal done. ${streak} weeks in a row with training.`
-        : "Weekly goal done. Great week.";
+        ? `Weekly goal done, ${streak} weeks in a row.`
+        : "Weekly goal done.";
   } else if (done === 0 && streak >= 1) {
-    sentence = `No session yet this week. One session keeps your ${streak}-week streak.`;
+    sentence = `Do 1 workout this week to keep your ${streak}-week streak.`;
   } else {
-    sentence = `${left} more ${left === 1 ? "session" : "sessions"} this week to reach your goal of ${target}.`;
-    if (done > 0 && streak >= 2) {
-      sentence += ` Your streak: ${streak} weeks in a row.`;
-    }
+    const more = `${left} more ${left === 1 ? "workout" : "workouts"} to reach ${target} this week`;
+    sentence = done > 0 && streak >= 2 ? `${more} (${streak}-week streak).` : `${more}.`;
   }
 
   return {
@@ -256,7 +254,7 @@ export function musclesRing(weeklySets: GroupSets[]): Ring {
     return {
       fill: 0,
       value: `0/${ALL_GROUPS}`,
-      sentence: "Log a session, and this ring shows which muscles get enough work.",
+      sentence: "Log a workout to see which muscles get enough sets.",
       tone: "steady",
       ready: false
     };
@@ -271,15 +269,15 @@ export function musclesRing(weeklySets: GroupSets[]): Ring {
 
   let sentence: string;
   if (onGoal.length === ALL_GROUPS) {
-    sentence = `All ${ALL_GROUPS} muscle groups get ${low}–${high} sets a week. Well balanced.`;
+    sentence = `All ${ALL_GROUPS} muscle groups get ${low}–${high} sets a week.`;
   } else if (under.length > 0) {
     const worst = under[0];
     sentence =
       worst.setsPerWeek === 0
-        ? `${onGoal.length} of ${ALL_GROUPS} muscle groups are on goal. ${worst.label} gets no sets at all.`
-        : `${onGoal.length} of ${ALL_GROUPS} muscle groups are on goal. ${worst.label} needs more sets (${worst.setsPerWeek.toFixed(1)} a week).`;
+        ? `${onGoal.length} of ${ALL_GROUPS} groups on target — ${worst.label} gets no sets.`
+        : `${onGoal.length} of ${ALL_GROUPS} groups on target — ${worst.label} gets ${worst.setsPerWeek.toFixed(1)} sets a week.`;
   } else {
-    sentence = `${onGoal.length} of ${ALL_GROUPS} muscle groups are on goal. ${over[0].label} gets more than ${high} sets a week.`;
+    sentence = `${onGoal.length} of ${ALL_GROUPS} groups on target — ${over[0].label} gets over ${high} sets a week.`;
   }
 
   return {
@@ -314,7 +312,7 @@ export function bodyRing(measurements: BodyMeasurement[], goalWeightKg?: number)
     return {
       fill: 0,
       value: "—",
-      sentence: "Add a weigh-in on Profile to start this ring.",
+      sentence: "Add a weigh-in to start this ring.",
       tone: "steady",
       ready: false
     };
@@ -326,7 +324,7 @@ export function bodyRing(measurements: BodyMeasurement[], goalWeightKg?: number)
     return {
       fill: 0,
       value: formatKg(current),
-      sentence: "Set a goal weight on Profile, and this ring shows how close you are.",
+      sentence: "Set a goal weight to see how close you are.",
       tone: "steady",
       ready: false
     };
@@ -364,7 +362,7 @@ export function bodyRing(measurements: BodyMeasurement[], goalWeightKg?: number)
   return {
     fill: Math.min(1, moved / total),
     value: `${formatKg(moved)}`,
-    sentence: `${formatKg(moved)} of ${formatKg(total)} done. ${formatKg(toGo)} to go.`,
+    sentence: `${formatKg(moved)} of ${formatKg(total)} done, ${formatKg(toGo)} to go.`,
     tone: moved > GOAL_REACHED_KG ? "good" : "steady",
     ready: true
   };
@@ -461,7 +459,7 @@ export function buildWins({
       wins.push({
         kind: "streak",
         title: `${streak} weeks in a row`,
-        detail: "At least one session every week"
+        detail: "At least 1 workout every week"
       });
     }
   }

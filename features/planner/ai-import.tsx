@@ -1,6 +1,7 @@
 "use client";
 
 import { AlertTriangle, Check, ClipboardCopy, ClipboardPaste, Sparkles, Upload } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +14,7 @@ import {
   DialogTitle,
   DRAWER_CONTENT
 } from "@/components/ui/dialog";
+import { useAuth } from "@/features/auth/use-auth";
 import { ExercisePicker } from "@/features/planner/exercise-picker";
 import { useWorkoutStore, useWorkoutStoreApi } from "@/features/workout/workout-store";
 import {
@@ -42,20 +44,20 @@ const RETIRED_NOTES_KEY = "gymflow.aiNotes";
  */
 function friendly(message: string): { headline: string; advice: string } {
   if (/Nothing was pasted/.test(message)) {
-    return { headline: "Nothing to paste yet.", advice: "Copy the AI's whole answer first, then tap Paste the answer." };
+    return { headline: "Nothing to paste.", advice: "Copy the full AI answer first." };
   }
   if (/file could not be read/.test(message)) {
-    return { headline: "That file could not be opened.", advice: "Pick the plan file the AI gave you. It ends in .json or .txt." };
+    return { headline: "That file did not open.", advice: "Choose the AI plan file (.json or .txt)." };
   }
   if (/No JSON object|must be an object|incomplete or broken/.test(message)) {
     return {
-      headline: "That doesn't look like the plan.",
-      advice: "Make sure the AI has finished, then use the copy button on the plan box in its answer."
+      headline: "That text is not a plan.",
+      advice: "Let the AI finish, then copy its plan box."
     };
   }
   return {
-    headline: "The plan has a mistake the app can't fix.",
-    advice: "Send the AI the fix-it message below. It will send a corrected plan."
+    headline: "The plan has a mistake.",
+    advice: "Send the fix-it message below to the AI."
   };
 }
 
@@ -143,7 +145,9 @@ export function AiImportSheet({
   const [replace, setReplace] = useState<Set<string>>(new Set());
   const [applySchedule, setApplySchedule] = useState(true);
   const [picking, setPicking] = useState<string | null>(null);
-  const [media, setMedia] = useState<{ done: number; failed: number; total: number }>({ done: 0, failed: 0, total: 0 });
+  const [media, setMedia] = useState<{ done: number; failed: number; total: number; guest?: boolean }>({ done: 0, failed: 0, total: 0 });
+  // Storing a GIF needs an account: the file lives in the account's own folder.
+  const { user } = useAuth();
   const [summary, setSummary] = useState<string>("");
   const [showBox, setShowBox] = useState(false);
   const [fixCopied, setFixCopied] = useState(false);
@@ -219,7 +223,7 @@ export function AiImportSheet({
     } catch {
       // Denied or unsupported: the box below is the way in.
       setShowBox(true);
-      setError("Your phone didn't let the app read the clipboard. Press and hold in the box below, then Paste.");
+      setError("Your phone blocked the clipboard. Paste into the box below.");
     }
   };
 
@@ -292,14 +296,19 @@ export function AiImportSheet({
     });
     importAiPlan(built);
     setSummary(
-      `${built.sessions.length} session${built.sessions.length === 1 ? "" : "s"} added${
-        built.scheduleConfig ? `, calendar filled ${formatDayKey(built.scheduleConfig.startDate)} to ${formatDayKey(built.scheduleConfig.endDate)}` : ""
-      }.`
+      `${built.sessions.length} workout${built.sessions.length === 1 ? "" : "s"} added.${
+        built.scheduleConfig ? ` Calendar set ${formatDayKey(built.scheduleConfig.startDate)} – ${formatDayKey(built.scheduleConfig.endDate)}.` : ""
+      }`
     );
     setView("done");
 
     // GIFs for exercises outside the library, one at a time. A failure leaves
     // that exercise without a demo; it never undoes the import.
+    if (!user) {
+      // A guest: the plan is in, the demos wait for an account.
+      setMedia({ done: 0, failed: 0, total: built.media.length, guest: true });
+      return;
+    }
     setMedia({ done: 0, failed: 0, total: built.media.length });
     for (const request of built.media) {
       try {
@@ -340,16 +349,15 @@ export function AiImportSheet({
                 Build with AI
               </DialogTitle>
               <DialogDescription>
-                A free AI coach writes your sessions and schedule. Use the AI app you already have;
-                it costs nothing.
+                An AI chat writes your workouts and schedule, free.
               </DialogDescription>
             </DialogHeader>
             <ol className="space-y-2.5 text-sm">
               {[
-                "Copy the question below.",
-                "Paste it into any AI chat (ChatGPT, Claude, Gemini) and answer its questions.",
-                "When it shows your plan, copy it, or save it as a file.",
-                "Come back here and tap Paste or upload my plan."
+                "Copy the question.",
+                "Paste it into ChatGPT, Claude or Gemini. Answer its questions.",
+                "Copy the plan, or save it as a file.",
+                "Come back and tap Add my plan."
               ].map((step, index) => (
                 <li key={step} className="flex gap-3">
                   <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand/15 text-xs font-bold text-brand">
@@ -371,22 +379,19 @@ export function AiImportSheet({
             {copied ? (
               <p className="mt-3 flex items-center justify-center gap-1.5 text-sm text-success" role="status">
                 <Check className="h-4 w-4" />
-                Now paste it into your AI chat.
+                Now paste it into your AI chat
               </p>
             ) : null}
 
             <Button variant="secondary" className="mt-4 w-full" onClick={() => setView("paste")}>
-              Paste or upload my plan
+              Add my plan
             </Button>
           </>
         ) : view === "paste" ? (
           <>
             <DialogHeader>
-              <DialogTitle>Bring your plan in</DialogTitle>
-              <DialogDescription>
-                Copy the plan from your AI chat and tap Paste. If the AI gave you a file, tap Upload
-                a file.
-              </DialogDescription>
+              <DialogTitle>Add my plan</DialogTitle>
+              <DialogDescription>Copy the plan from your AI chat, then paste it.</DialogDescription>
             </DialogHeader>
 
             <Button size="lg" className="h-16 w-full" disabled={library.length === 0} onClick={() => void pasteFromClipboard()}>
@@ -431,7 +436,7 @@ export function AiImportSheet({
                     }}
                   >
                     {fixCopied ? <Check className="h-4 w-4" /> : <ClipboardCopy className="h-4 w-4" />}
-                    {fixCopied ? "Copied. Paste it to the AI" : "Copy a fix-it message"}
+                    {fixCopied ? "Copied" : "Copy fix-it message"}
                   </Button>
                 ) : null}
                 <p className="mt-3 text-xs text-muted-foreground">Details: {error}</p>
@@ -455,7 +460,7 @@ export function AiImportSheet({
                 onClick={() => setShowBox(true)}
                 className="mt-3 min-h-11 w-full text-center text-sm font-medium text-muted-foreground underline-offset-4 hover:underline"
               >
-                Paste by hand instead
+                Paste by hand
               </button>
             )}
 
@@ -465,7 +470,7 @@ export function AiImportSheet({
               </Button>
               {showBox ? (
                 <Button className="flex-1" disabled={!pasted.trim() || library.length === 0} onClick={check}>
-                  Check it
+                  Check plan
                 </Button>
               ) : null}
             </div>
@@ -473,10 +478,10 @@ export function AiImportSheet({
         ) : view === "review" && plan ? (
           <>
             <DialogHeader>
-              <DialogTitle>Review the plan</DialogTitle>
+              <DialogTitle>Review plan</DialogTitle>
               <DialogDescription>
-                {plan.sessions.length} session{plan.sessions.length === 1 ? "" : "s"}
-                {needsLook > 0 ? ` · ${needsLook} exercise${needsLook === 1 ? "" : "s"} to check` : " · every exercise matched"}
+                {plan.sessions.length} workout{plan.sessions.length === 1 ? "" : "s"}
+                {needsLook > 0 ? ` · ${needsLook} exercise${needsLook === 1 ? "" : "s"} to check` : " · all exercises match"}
               </DialogDescription>
             </DialogHeader>
 
@@ -506,9 +511,9 @@ export function AiImportSheet({
                             })
                           }
                         >
-                          You already have &quot;{session.name}&quot;.{" "}
-                          <span className="text-muted-foreground">
-                            {replace.has(session.name) ? "Yours will be replaced." : `Imported as "${session.name} (AI)".`}
+                          Replace my &quot;{session.name}&quot;{" "}
+                          <span className="block text-xs text-muted-foreground">
+                            {replace.has(session.name) ? "The new one replaces yours." : `Off: adds "${session.name} (AI)".`}
                           </span>
                         </Switch>
                       </div>
@@ -535,7 +540,7 @@ export function AiImportSheet({
                                 <p className="truncate text-xs text-muted-foreground tabular-nums">
                                   {item.sets} × {item.seconds ? `${item.seconds}s` : item.reps}
                                   {item.weightKg ? ` · ${item.weightKg} kg` : ""}
-                                  {exercise && normalize(exercise.name) !== normalize(item.name) ? ` · AI said "${item.name}"` : ""}
+                                  {exercise && normalize(exercise.name) !== normalize(item.name) ? ` · AI name: "${item.name}"` : ""}
                                 </p>
                               </div>
                               <Badge
@@ -588,7 +593,7 @@ export function AiImportSheet({
                                   onClick={() => setChoices((current) => ({ ...current, [key]: {} }))}
                                   className="h-9 rounded-full px-3 text-xs font-semibold text-muted-foreground"
                                 >
-                                  Keep as custom
+                                  Keep custom
                                 </button>
                               </div>
                             ) : null}
@@ -610,7 +615,7 @@ export function AiImportSheet({
                     >
                       <span className="block font-display text-lg font-bold tracking-tight">Schedule</span>
                       <span className="block text-xs text-muted-foreground">
-                        {applySchedule ? "Fills your calendar" : "Not applied: sessions only"} ·{" "}
+                        {applySchedule ? "Fills your calendar" : "Off: workouts only"} ·{" "}
                         {plan.schedule.startDate ? formatDayKey(plan.schedule.startDate) : "from today"} to{" "}
                         {plan.schedule.endDate ? formatDayKey(plan.schedule.endDate) : "8 weeks later"}
                       </span>
@@ -646,8 +651,7 @@ export function AiImportSheet({
                     </p>
                   ) : null}
                   <p className="mt-2 px-1 text-xs text-muted-foreground">
-                    Planned days in this range are replaced. Started and finished workouts stay, and so does
-                    everything you have logged.
+                    Replaces planned days only. Done workouts and logs stay.
                   </p>
                 </div>
               ) : null}
@@ -671,12 +675,19 @@ export function AiImportSheet({
               </DialogTitle>
               <DialogDescription>{summary}</DialogDescription>
             </DialogHeader>
-            {media.total > 0 ? (
+            {media.guest ? (
+              <p className="text-sm text-muted-foreground" role="status">
+                <Link href="/login" className="font-semibold text-brand underline-offset-2 hover:underline">
+                  Sign in
+                </Link>{" "}
+                and import again to save {media.total} demo GIF{media.total === 1 ? "" : "s"}.
+              </p>
+            ) : media.total > 0 ? (
               <p className="text-sm text-muted-foreground" role="status">
                 {media.done + media.failed < media.total
                   ? `Saving demo GIFs… ${media.done + media.failed} of ${media.total}`
                   : media.failed > 0
-                    ? `${media.done} demo GIF${media.done === 1 ? "" : "s"} saved. ${media.failed} link${media.failed === 1 ? "" : "s"} did not work; those exercises have no demo.`
+                    ? `${media.done} demo GIF${media.done === 1 ? "" : "s"} saved. ${media.failed} did not load.`
                     : `${media.done} demo GIF${media.done === 1 ? "" : "s"} saved.`}
               </p>
             ) : null}

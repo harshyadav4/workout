@@ -171,7 +171,7 @@ export function MeasurementsCard() {
         <CardContent className="mt-0 space-y-4">
           {dueNow.length > 0 ? (
             <p className="rounded-lg bg-warning/15 px-4 py-3 text-sm font-medium text-warning">
-              Time for {dueNow.join(" and ")}.
+              It is time for {dueNow.join(" and ")}.
             </p>
           ) : null}
 
@@ -182,7 +182,7 @@ export function MeasurementsCard() {
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-semibold">Height</span>
               <span className="block text-xs text-muted-foreground">
-                {profile.heightCm ? "Change it if it is wrong" : "Not set yet"}
+                {profile.heightCm ? "In cm" : "Not set yet"}
               </span>
             </span>
             <Input
@@ -216,7 +216,7 @@ export function MeasurementsCard() {
           </details>
 
           <Button className="w-full" onClick={save} disabled={!pending}>
-            Save today&apos;s readings
+            Save readings
           </Button>
           {savedCount > 0 ? (
             <p className="flex items-center justify-center gap-1.5 text-sm text-success">
@@ -225,7 +225,7 @@ export function MeasurementsCard() {
             </p>
           ) : null}
           <p className="text-center text-xs text-muted-foreground">
-            Leave a field blank to skip it. A second reading on the same day replaces the first.
+            Leave a field blank to skip it.
           </p>
 
           <details className="group rounded-xl bg-muted">
@@ -252,8 +252,7 @@ export function MeasurementsCard() {
                 onChange={(measurementCadence) => setProfile({ measurementCadence })}
               />
               <p className="text-xs text-muted-foreground">
-                Checked when you open the app — nothing is sent to your phone. Any one measurement
-                counts as measuring, so recording just your chest clears the reminder.
+                Reminders show in the app, not as phone notifications.
               </p>
             </div>
           </details>

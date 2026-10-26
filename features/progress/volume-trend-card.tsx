@@ -20,12 +20,10 @@ export function VolumeTrendCard({ points, bucket }: { points: TrendPoint[]; buck
   return (
     <Panel
       title="Weight lifted"
-      caption={`Total kilos you lifted each ${bucket === "week" ? "week" : "day"} (weight × reps × sets)`}
+      caption={`Total kg per ${bucket === "week" ? "week" : "day"}`}
       note={
         <>
-          Every {bucket} in the range is on the chart, also the ones without training. So a break
-          from training shows as a dip to zero. A line that goes up over time means you are doing
-          more work.
+          Weight × reps, added up over every set. A {bucket} without training shows as 0.
         </>
       }
     >
@@ -58,7 +56,7 @@ export function VolumeTrendCard({ points, bucket }: { points: TrendPoint[]; buck
             </AreaChart>
           </ResponsiveContainer>
         ) : (
-        <EmptyChart>No sessions in this range. Pick a longer range, or go train.</EmptyChart>
+        <EmptyChart>No workouts in this range.</EmptyChart>
       )}
     </Panel>
   );

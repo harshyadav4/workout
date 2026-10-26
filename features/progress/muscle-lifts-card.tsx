@@ -47,19 +47,18 @@ export function MuscleLiftsCard({
 
   return (
     <Panel
-      title={`The lifts that build ${name}`}
-      caption="Heaviest first — tap a lift to see its heaviest set over time"
+      title="Exercises"
+      caption="Tap one to see its heaviest set"
       note={
         <>
-          The lifts in this range that train {name}. Each lift gets its own line, because 200 kg on
-          a deadlift and 60 kg on a pulldown cannot be compared. &ldquo;Direct&rdquo; means the lift
-          works {name} a lot. &ldquo;Indirect&rdquo; means it helps a little.
+          Exercises in this range that train {name}. &ldquo;Direct&rdquo; means the exercise works
+          {name} a lot; &ldquo;indirect&rdquo; means it only helps.
         </>
       }
     >
       <div className="space-y-1.5">
         {rows.length === 0 ? (
-          <EmptyChart>No lift in this range worked {name}.</EmptyChart>
+          <EmptyChart>No exercise in this range worked {name}.</EmptyChart>
         ) : null}
 
         {rows.map((row) => {
@@ -90,8 +89,8 @@ export function MuscleLiftsCard({
                   </span>
                   <span className="mt-0.5 block text-xs tabular-nums text-muted-foreground">
                     {trend
-                      ? `${trend.first} → ${trend.last} kg · ${row.sessions} sessions`
-                      : `${row.topSet} kg top set · ${row.sessions} session${row.sessions === 1 ? "" : "s"}`}
+                      ? `${trend.first} → ${trend.last} kg · ${row.sessions} workouts`
+                      : `${row.topSet} kg heaviest set · ${row.sessions} workout${row.sessions === 1 ? "" : "s"}`}
                   </span>
                 </span>
 

@@ -145,7 +145,7 @@ export function LiveTimerControl({
       </div>
       <div className="min-w-0 flex-1">
         <p className={cn("text-sm font-semibold", reached && "text-brand")}>
-          {reached ? "Target hit — keep going or finish" : hasTarget ? `Target ${formatClock(targetSeconds ?? 0)}` : "Timing"}
+          {reached ? "Target done" : hasTarget ? `Target ${formatClock(targetSeconds ?? 0)}` : "Timing"}
         </p>
         <div className="mt-2 flex gap-2">
           <button

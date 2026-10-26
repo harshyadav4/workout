@@ -167,27 +167,27 @@ function rankIndexFor(score: number) {
 
 function reasonFor(parts: RankParts, rank: number, aim: number, enoughHistory: boolean) {
   if (!enoughHistory) {
-    return "Your first two weeks set the starting line. Keep training.";
+    return "Train for 2 weeks to set your start point.";
   }
   const missed = parts.planned > 0 ? Math.max(0, parts.planned - parts.trained) : 0;
   const why =
     missed > 0
-      ? `${missed} planned session${missed === 1 ? "" : "s"} missed in the last 4 weeks.`
+      ? `You missed ${missed} planned workout${missed === 1 ? "" : "s"} in 4 weeks.`
       : parts.planned === 0 && parts.showingUp < 1
         ? "Train about 3 days a week to raise your score."
         : parts.strength < 0.6
-          ? "Your best sets are lighter than the month before."
+          ? "Your heaviest sets are lighter than last month."
           : parts.volume < 0.6
-            ? "Less total work than the month before."
+            ? "You lifted less weight than last month."
             : undefined;
   if (aim < rank) {
     const weeks = weeksToFall(rank);
-    return `${why ?? "Your score is below this rank."} ${weeks === 1 ? "One more week" : `${weeks} weeks`} like this drops a rank.`;
+    return `${why ?? "Your score is below this rank."} Rank drops in ${weeks === 1 ? "1 week" : `${weeks} weeks`}.`;
   }
   if (aim > rank) {
-    return why ? `${why} Still on track.` : "This week counts toward the next rank. Keep it up.";
+    return why ?? "This week counts toward the next rank.";
   }
-  return why ?? (parts.strength < 0.85 ? "Every session done. Push your best sets up to climb." : "Every session done, and your lifts are going up.");
+  return why ?? (parts.strength < 0.85 ? "Lift heavier sets to go up a rank." : "Every workout done, and your sets get heavier.");
 }
 
 /**

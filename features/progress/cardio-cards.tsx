@@ -34,7 +34,7 @@ function WeeklyDistanceCard({ sessions, today, unit }: { sessions: CardioSession
     <Panel
       title="Weekly distance"
       caption={`This week ${formatDistance(thisWeek.km, unit)} · last week ${formatDistance(lastWeek.km, unit)}`}
-      note={<>Every kind of cardio added up, per Monday-to-Sunday week, for the last 12 weeks. An empty week is a 0, not a gap.</>}
+      note={<>All cardio types added up, per week (Monday to Sunday), for the last 12 weeks.</>}
     >
       <ResponsiveContainer width="100%" height={170}>
         <BarChart data={weeks} margin={{ top: 8, right: 8, bottom: 0, left: -6 }}>
@@ -59,10 +59,10 @@ function PaceTrendCard({ sessions, workoutId, name, unit }: { sessions: CardioSe
     <Panel
       title="Pace trend"
       caption={`${name} · min per ${unit} · lower is faster`}
-      note={<>Each point is one session&apos;s pace: its whole time over its whole distance, so intervals count as one session. The axis runs fast at the top.</>}
+      note={<>Each point is 1 cardio workout: total time divided by total distance. Faster is higher.</>}
     >
       {points.length < 2 ? (
-        <EmptyChart>Two timed sessions of {name.toLowerCase()} are needed to draw a trend.</EmptyChart>
+        <EmptyChart>Log a time in 2 cardio workouts to see a trend.</EmptyChart>
       ) : (
         <ResponsiveContainer width="100%" height={170}>
           <LineChart data={points} margin={{ top: 8, right: 8, bottom: 0, left: -10 }}>
@@ -104,7 +104,7 @@ function RecordsCard({ sessions, name, unit }: { sessions: CardioSession[]; name
     <Panel
       title="Records"
       caption={name}
-      note={<>Your best single sessions of {name.toLowerCase()}. Fastest pace counts only sessions of at least {FASTEST_MIN_KM} km, so a short sprint does not stand as a record.</>}
+      note={<>Fastest pace counts only distances of {FASTEST_MIN_KM} km or more, so a short sprint is not a record.</>}
     >
       <div className="grid grid-cols-2 gap-2">
         {tiles.map((tile) => (
@@ -133,8 +133,7 @@ export function CardioProgress({ sessions, today }: { sessions: CardioSession[];
   if (!current) {
     return (
       <EmptyChart>
-        No cardio yet. Add a run, a ride or any distance exercise to a session — set it to Distance in Build — and
-        it shows up here.
+        No cardio yet. Add a run or ride, set to Distance in Build.
       </EmptyChart>
     );
   }

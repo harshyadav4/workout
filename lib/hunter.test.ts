@@ -93,7 +93,7 @@ const missedTwo = weeks(10).filter((row) => row.date !== plannedDays[3] && row.d
 const withPlan = hunterRank(missedTwo, scheduled, today);
 assert.equal(withPlan.parts.planned, 12);
 assert.equal(withPlan.parts.trained, 10);
-assert.match(withPlan.reason, /2 planned sessions missed/);
+assert.match(withPlan.reason, /You missed 2 planned workouts/);
 
 // Best before today only, per exercise.
 const history = [log("2026-01-01", "bench", 70), log("2026-01-02", "bench", 75), log("2026-01-02", "squat", 120), log("2026-01-03", "bench", 90)];

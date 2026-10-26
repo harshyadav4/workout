@@ -40,24 +40,18 @@ export function OneRepMaxCard({
 
   return (
     <Panel
-      title="Your one-lift max (estimated)"
-      caption="The most you could likely lift once, from your best set — tap a lift for its chart"
+      title="1-rep max"
+      caption="Estimated · tap one for its chart"
       note={
         <>
-          Gym-goers call this a &ldquo;1RM&rdquo; (one-rep max): the heaviest weight you can lift
-          one time. You do not need to test it. The app estimates it from your sets with a standard
-          formula (Epley). 100 kg × 3 reps can beat 105 kg × 1, so the app uses the set with the
-          best estimate, not only the heaviest one. Sets with more than {MAX_ELIGIBLE_REPS} reps are
-          not used, because the estimate gets unreliable. Each row shows the set it came from. Tap a
-          lift to see what weight to use for 3, 5, 8 or 10 reps.
+          The heaviest weight you could likely lift 1 time, estimated from your sets (Epley
+          formula). Sets over {MAX_ELIGIBLE_REPS} reps are left out. Tap an exercise to see the
+          weight for 3, 5, 8, or 10 reps.
         </>
       }
     >
       {rows.length === 0 ? (
-        <EmptyChart>
-          No set of {MAX_ELIGIBLE_REPS} reps or fewer in this time range, so there is nothing to
-          estimate from.
-        </EmptyChart>
+        <EmptyChart>No sets of {MAX_ELIGIBLE_REPS} reps or fewer in this range.</EmptyChart>
       ) : (
         <ul className="space-y-1">
           {rows.map(({ exercise, estimate }) => {

@@ -6,16 +6,16 @@
  */
 export function streakHeadline(currentWeeks: number, longestWeeks: number, hasLogs: boolean) {
   if (!hasLogs) {
-    return { title: "Start the streak", caption: "One session this week is all it takes." };
+    return { title: "Start the streak", caption: "Do 1 workout this week to start it." };
   }
 
   if (currentWeeks === 0) {
     return {
-      title: "Pick it back up",
+      title: "Start again",
       caption:
         longestWeeks > 1
-          ? `You have held ${longestWeeks} weeks before. One session restarts it.`
-          : "One session this week puts you back on."
+          ? `Do 1 workout to start again. Record: ${longestWeeks} weeks.`
+          : "Do 1 workout this week to start again."
     };
   }
 
@@ -23,7 +23,7 @@ export function streakHeadline(currentWeeks: number, longestWeeks: number, hasLo
     title: `${currentWeeks} week${currentWeeks === 1 ? "" : "s"} in a row`,
     caption:
       currentWeeks >= longestWeeks
-        ? "Your longest run yet. Keep it."
-        : `Best so far: ${longestWeeks} weeks.`
+        ? "Your longest streak yet."
+        : `Your record: ${longestWeeks} weeks.`
   };
 }

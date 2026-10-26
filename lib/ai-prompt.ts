@@ -160,8 +160,8 @@ ${libraryBlock(library)}`,
 When I confirm, start your reply with these steps, word for word, so someone who is not technical knows how to get the plan into the app:
 1. "Tap the copy button on the box below."
 2. "Open the Arise app and go to Plan, then Build, then Build with AI."
-3. "Tap Paste or upload my plan, then Paste the answer."
-4. "Saved the plan as a file instead? Tap Upload a file and pick it."
+3. "Tap Add my plan, then Paste the answer."
+4. "If you saved a file, tap Upload a file and choose it."
 If you can create downloadable files, also attach the same plan as a file named arise-plan.json, and say so in one short line.
 Then give exactly ONE JSON object in ONE \`\`\`json code block, and nothing after it. The app reads it directly, so:
 - "name" of every exercise MUST be copied exactly from the exercise library at the end of this prompt whenever a suitable one exists. Those names have demo animations in the app.

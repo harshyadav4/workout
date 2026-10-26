@@ -30,14 +30,8 @@ export function ProgressTableCard({ logs }: { logs: WorkoutLog[] }) {
 
   return (
     <Panel
-      title="Session history"
-      caption="Newest first — tap a row to open that session"
-      note={
-        <>
-          All the numbers from the charts above, as a list. Use it to check the exact values for a
-          session.
-        </>
-      }
+      title="Workout history"
+      caption="Newest first · tap a row to open it"
       action={
         <div
           role="group"
@@ -79,10 +73,10 @@ export function ProgressTableCard({ logs }: { logs: WorkoutLog[] }) {
                       Reps
                     </th>
                     <th scope="col" className="pb-2 pr-3 text-right font-normal">
-                      Volume
+                      Weight lifted
                     </th>
                     <th scope="col" className="pb-2 text-right font-normal">
-                      Top set
+                      Heaviest set
                     </th>
                   </tr>
                 </thead>
@@ -185,7 +179,7 @@ function SessionDetail({
               <span className="block text-xs tabular-nums text-muted-foreground">
                 {grain === "week" ? `${formatDayKey(log.date)} · ` : ""}
                 {log.totalSets ?? 0} × {log.totalReps ?? 0} reps
-                {log.peakWeight ? ` · top ${log.peakWeight} kg` : ""}
+                {log.peakWeight ? ` · heaviest ${log.peakWeight} kg` : ""}
               </span>
             </span>
             <span className="shrink-0 text-xs tabular-nums text-muted-foreground">

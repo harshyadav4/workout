@@ -74,7 +74,7 @@ export function SessionPreview({ session }: { session: ScheduledSession }) {
   return (
     <div className="mt-1 pb-1 pl-[18px] pr-2">
       <p className="text-xs text-muted-foreground tabular-nums">
-        {rows.length} {rows.length === 1 ? "workout" : "workouts"} · {setCount} sets
+        {rows.length} {rows.length === 1 ? "exercise" : "exercises"} · {setCount} sets
       </p>
       {session.startedAt && session.finishedAt ? (
         <p className="mt-0.5 text-xs font-semibold text-brand tabular-nums">

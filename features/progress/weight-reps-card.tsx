@@ -57,19 +57,18 @@ export function WeightRepsCard({
       title="Weight and reps"
       caption={
         first && last
-          ? `${current.exercise.name}: ${setCopy(first)} at the start → ${setCopy(last)} now`
-          : "Your best set in each session"
+          ? `${current.exercise.name}: ${setCopy(first)} → ${setCopy(last)}`
+          : "Heaviest set per workout"
       }
       note={
         <>
-          The top chart is the weight of your heaviest set in each session. The bottom chart is how
-          many reps you did in that set. Two things mean you got stronger: the weight goes up, or
-          the reps go up at the same weight.
+          Top: your heaviest set per workout. Bottom: reps in that set. More weight, or more reps
+          at the same weight, means you got stronger.
         </>
       }
     >
       {!current ? (
-        <EmptyChart>Do the same lift in two sessions, and its chart appears here.</EmptyChart>
+        <EmptyChart>Do an exercise in 2 workouts to see its chart.</EmptyChart>
       ) : (
         <>
           {workoutId ? null : (

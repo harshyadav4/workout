@@ -14,7 +14,7 @@
  *
  * Bump VERSION to drop every old cache on the next visit.
  */
-const VERSION = "v4";
+const VERSION = "v5";
 const SHELL = `gymflow-shell-${VERSION}`;
 const STATIC = `gymflow-static-${VERSION}`;
 // Not versioned: the files are immutable, and re-downloading every demo on each
@@ -106,4 +106,17 @@ self.addEventListener("fetch", (event) => {
       })
     );
   }
+});
+
+// "Rest done" (features/pwa/rest-alerts.tsx): a tap brings the app back —
+// the open window if there is one, else a new one on Today.
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windows) => {
+      const open = windows.find((client) => new URL(client.url).origin === self.location.origin);
+      if (open) return open.focus();
+      return self.clients.openWindow("/");
+    })
+  );
 });

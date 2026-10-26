@@ -2,6 +2,7 @@
 
 import { CalendarDays, PersonStanding, TrendingUp } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
@@ -11,9 +12,9 @@ import { useAuth } from "@/features/auth/use-auth";
 import { isSupabaseConfigured } from "@/lib/supabase";
 
 const points = [
-  { icon: CalendarDays, label: "Plan your week in minutes." },
-  { icon: TrendingUp, label: "Track PRs and strength gains." },
-  { icon: PersonStanding, label: "See which muscles you worked." }
+  { icon: CalendarDays, label: "Plan your week" },
+  { icon: TrendingUp, label: "Track your records" },
+  { icon: PersonStanding, label: "See muscles worked" }
 ];
 
 /** Google's "G", in its own colours, as Google asks sign-in buttons to show it. */
@@ -29,7 +30,10 @@ function GoogleMark() {
 }
 
 /**
- * The front door.
+ * Sign in — a door, no longer the only one. The app works without an account
+ * (guest mode); this page is where the account is added, from the You tab or
+ * a prompt, and "Use without an account" goes straight back. "Take the tour"
+ * shows the app on sample data before anyone decides.
  *
  * On a phone it is the whole screen, not a card floating on one: the pitch in
  * the middle, the one button at the bottom where a thumb is.
@@ -56,6 +60,10 @@ export default function LoginPage() {
 
   return (
     <main className="login-night relative flex min-h-[100dvh] items-stretch justify-center overflow-hidden sm:items-center sm:px-4">
+      {/* A client page cannot export metadata, so the tag goes here: React 19
+          lifts <meta> into <head>. Sign-in is a door, not a page to find in
+          search; /about is (app/about). */}
+      <meta name="robots" content="noindex, follow" />
       <Image
         src={ironArt}
         alt=""
@@ -78,7 +86,7 @@ export default function LoginPage() {
             <span className="text-brand">Arise.</span>
           </h1>
           <p className="mt-4 max-w-[19rem] text-[15px] leading-relaxed text-muted-foreground">
-            Start weak. Show up daily. Become the one nobody saw coming.
+            Start where you are. Get stronger each week.
           </p>
 
           <ul className="mt-8 space-y-4 [@media(max-height:700px)]:mt-5 [@media(max-height:700px)]:space-y-3">
@@ -101,10 +109,30 @@ export default function LoginPage() {
             onClick={() => void signIn()}
           >
             <GoogleMark />
-            Continue with Google
+            Sign in with Google
           </Button>
           <p className="mt-3 text-center text-xs text-muted-foreground">
-            Your progress is saved to your account. Only you see it.
+            Your data is private and works on any phone.
+          </p>
+          <Button asChild variant="ghost" className="mt-2 w-full">
+            <Link href="/">Use without an account</Link>
+          </Button>
+          {/* ?tour=1 starts the tour on sample data (features/tour/tour.tsx). */}
+          <p className="mt-1 text-center text-sm">
+            <Link
+              href="/?tour=1"
+              className="font-semibold text-brand underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              Take the tour
+            </Link>
+          </p>
+          <p className="mt-1 text-center text-xs">
+            <Link
+              href="/about"
+              className="text-muted-foreground underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              About Arise
+            </Link>
           </p>
           {!isSupabaseConfigured ? (
             <p className="mt-2 text-center text-xs text-warning">

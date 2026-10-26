@@ -123,13 +123,13 @@ function ExerciseGif({ exercise }: { exercise: Exercise }) {
       : gif === "loading"
         ? "Loading video…"
         : gif === "slow"
-          ? "Video is slow on this network"
-          : "The video didn't load";
+          ? "The video is slow to load"
+          : "The video did not load";
 
   if (stillFailed && !showGif) {
     return (
       <p className="flex aspect-[4/3] items-center justify-center rounded-lg bg-muted px-6 text-center text-sm text-muted-foreground">
-        The demo didn&apos;t load. The steps below still apply.
+        The demo did not load. Use the steps below.
       </p>
     );
   }
@@ -194,7 +194,7 @@ export function ExerciseMediaView({ datasetId, gifUrl, name, onBack }: ExerciseM
           <button
             type="button"
             onClick={onBack}
-            aria-label="Back to session"
+            aria-label="Back"
             className="key-quiet flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-foreground"
           >
             <ChevronLeft className="h-4 w-4" />
@@ -203,7 +203,7 @@ export function ExerciseMediaView({ datasetId, gifUrl, name, onBack }: ExerciseM
         <div className="min-w-0">
           <DialogTitle className="truncate capitalize">{name}</DialogTitle>
           <DialogDescription className="capitalize">
-            {exercise ? `${exercise.target} · ${exercise.equipment}` : "How it is done"}
+            {exercise ? `${exercise.target} · ${exercise.equipment}` : "How to do it"}
           </DialogDescription>
         </div>
       </div>
@@ -216,7 +216,7 @@ export function ExerciseMediaView({ datasetId, gifUrl, name, onBack }: ExerciseM
         <p className="py-8 text-center text-sm text-muted-foreground">Loading demo…</p>
       ) : status === "error" || !exercise ? (
         <p className="py-8 text-center text-sm text-muted-foreground">
-          No demo available for this exercise.
+          This exercise has no demo.
         </p>
       ) : (
         <>

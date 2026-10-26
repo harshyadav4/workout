@@ -1,11 +1,17 @@
 /**
  * The tour, one screen part at a time. Each step names the page it is on and
  * the `data-tour` marker it points at; a step without a marker is a centred
- * card (the welcome and the end). Text in plain words, one idea a sentence,
- * because this is the first thing a new lifter reads.
+ * card (the welcome, the words, the end).
+ *
+ * Written in ASD-STE100 style, because this is the first thing a new lifter
+ * reads: short sentences, one idea in each, active voice, and every term
+ * defined before it is used. One term for one thing — "workout", never
+ * "session". Two or three sentences a step: the bubble sits over the page.
  */
 export interface TourStep {
   route: "/" | "/plan" | "/progress" | "/profile";
+  /** A tab of the page, as its URL query — Plan's Build tab is `mode=build`. */
+  query?: string;
   /** The `data-tour` value of the part to highlight. Absent: a centred card. */
   target?: string;
   title: string;
@@ -16,65 +22,96 @@ export const TOUR_STEPS: TourStep[] = [
   {
     route: "/",
     title: "Welcome to Arise",
-    body: "This is a sample account: Alex, six months into training. Look around with real-looking numbers. Your own data is safe and comes back when the tour ends."
+    body: "This sample account shows Alex after 6 months of training. Your own data is safe. It comes back when the tour ends."
+  },
+  {
+    route: "/",
+    title: "Three words you will see",
+    body: "A workout is the exercises you do in one gym visit. A set is one round of an exercise. A rep is one movement in a set."
   },
   {
     route: "/",
     target: "home-today",
-    title: "Today's session",
-    body: "Home shows what is planned for today. Tap Start session when you begin, and the session clock starts."
+    title: "Today's workout",
+    body: "Home shows today's workout. Tap Start workout when you begin. A clock counts your time."
   },
   {
     route: "/",
     target: "home-work",
     title: "Log each set",
-    body: "Tap a set, check the weight and reps, and log it. The app fills in what you lifted last time, so most sets are one tap."
+    body: "Do a set, then tap it to log it. The app fills in your weight and reps from last time."
+  },
+  {
+    route: "/",
+    target: "home-muscles",
+    title: "Muscle map",
+    body: "The map shows the muscles today's workout trains. Darker means more sets. Tap a muscle to see its name."
   },
   {
     route: "/plan",
     target: "plan-week",
     title: "Your week",
-    body: "Plan shows your week. Tap a day to see its session. A dot means training, a grey dot means rest."
+    body: "Tap a day to see its workout. A blue dot is a training day. A grey dot is a rest day."
   },
   {
     route: "/plan",
     target: "plan-modes",
-    title: "Build your sessions",
-    body: "Build is where you make sessions from exercises. Schedule puts them on your days, and repeats them every week."
+    title: "Build and Schedule",
+    body: "Build: make a workout from exercises. Schedule: put your workouts on days. They repeat each week."
+  },
+  {
+    route: "/plan",
+    query: "mode=build",
+    target: "plan-ai",
+    title: "Build with AI",
+    body: "Copy the prompt into an AI app, for example ChatGPT. Paste its answer here. Your workouts and calendar fill in."
+  },
+  {
+    route: "/progress",
+    target: "progress-modes",
+    title: "Gym and Cardio",
+    body: "Gym shows your weight training. Cardio shows your runs, rides and swims."
   },
   {
     route: "/progress",
     target: "progress-rings",
     title: "Three rings",
-    body: "Strength: are your lifts going up? Consistency: sessions this week against your goal. Muscles: which groups got enough sets in the last 4 weeks."
+    body: "Strength: does your weight go up? Consistency: your workouts this week. Muscles: enough sets for each muscle group."
   },
   {
     route: "/progress",
     target: "progress-tabs",
-    title: "Tap for the details",
-    body: "Each ring opens its own page of charts. Summary keeps the short version: your wins and one thing to try next."
+    title: "See the details",
+    body: "Tap a ring or a tab to see its charts. Summary shows your wins and 1 thing to try next."
+  },
+  {
+    route: "/progress",
+    query: "view=body",
+    target: "progress-recovery",
+    title: "Ready today",
+    body: "This map shows which muscles have recovered. Train the ready ones next."
   },
   {
     route: "/progress",
     target: "progress-wins",
     title: "Your wins",
-    body: "New records, lifts that went up, and weeks in a row. The app finds them for you after every session."
+    body: "New records, exercises that went up, and weeks in a row. The app finds them after each workout."
   },
   {
     route: "/profile",
     target: "profile-body",
     title: "Your body",
-    body: "Weigh in here, and add tape measurements when you like. Set a goal weight, and Progress shows when you will likely reach it."
+    body: "Add your weight and tape measurements. Set a goal weight. Progress then shows when you will likely reach it."
   },
   {
     route: "/profile",
     target: "profile-data",
     title: "Your data is yours",
-    body: "Download a backup any time, and restore it on any phone. Everything also saves to your account by itself."
+    body: "Download a backup at any time, and restore it on any phone. Sign in to also save your data to your account."
   },
   {
     route: "/",
     title: "You are ready",
-    body: "Start with your own data now, or keep looking around the sample first. You can take this tour again from the You tab."
+    body: "Start with your own data, or look at the sample first. The You tab has this tour again."
   }
 ];

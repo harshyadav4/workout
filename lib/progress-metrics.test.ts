@@ -311,7 +311,7 @@ const weekRows = buildTableRows(
   "week"
 );
 assert.equal(weekRows.length, 1, "Monday and the Saturday after it are one week");
-assert.equal(weekRows[0].detail, "2 sessions · 2 exercises");
+assert.equal(weekRows[0].detail, "2 workouts · 2 exercises");
 
 // The muscle drill-down: one muscle, its lifts, and the volume that reached it.
 const latPull = log("2026-08-01", "row", { name: "Row", totalVolume: 1200 }, [

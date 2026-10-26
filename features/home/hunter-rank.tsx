@@ -12,10 +12,12 @@ import {
   DRAWER_CONTENT
 } from "@/components/ui/dialog";
 import { MeasurementOrb, RankCrest, TreasureChest } from "@/features/home/artifacts";
+import { useTour } from "@/features/tour/tour-store";
 import { useWorkoutStore } from "@/features/workout/workout-store";
 import { hunterRank, RANKS, type Rank } from "@/lib/hunter";
 import { formatDayKey } from "@/lib/progress-metrics";
 import { StatusSkillsDoor, useSkillsFound } from "@/features/skills/skill-doors";
+import { InfoNote } from "@/components/ui/info-note";
 import { cn } from "@/lib/utils";
 
 function useHunterRank() {
@@ -41,7 +43,7 @@ export function RankBadge({ name }: { name?: string }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        aria-label={`Hunter rank ${rank}. How ranks work`}
+        aria-label={`Hunter rank ${rank}. Show how ranks work`}
         className={cn(
           "rank-chip inline-flex h-8 shrink-0 items-center gap-2 rounded-[9px] px-3 leading-none transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           !skillsFound && "skills-hint"
@@ -55,7 +57,7 @@ export function RankBadge({ name }: { name?: string }) {
         <DialogContent className={`${DRAWER_CONTENT} max-h-[88dvh] overflow-y-auto`}>
           <DialogHeader className="sr-only">
             <DialogTitle>Hunter rank {rank}</DialogTitle>
-            <DialogDescription>Your status: rank, progress to the next one, and this week&apos;s score.</DialogDescription>
+            <DialogDescription>Your rank, progress, and score this week.</DialogDescription>
           </DialogHeader>
           <RankSheet name={name} />
         </DialogContent>
@@ -100,16 +102,16 @@ export function RankProgress() {
           <>
             <span className="text-brand">{percent}%</span> to {next.rank} · {next.weeksDone} of {next.weeksNeeded} weeks
             {next.onTrack && next.eta ? (
-              <span className="text-muted-foreground"> · by {formatDayKey(next.eta)} if you keep this up</span>
+              <span className="text-muted-foreground"> · by {formatDayKey(next.eta)} at this pace</span>
             ) : score === 0 ? null : (
               <span className="text-muted-foreground">
                 {" "}
-                · paused: a week counts at {next.score}+, you are at {score}
+                · paused, needs {next.score}+
               </span>
             )}
           </>
         ) : (
-          <span className="text-brand">The top rank. Hold it every week.</span>
+          <span className="text-brand">Top rank. Train like this to keep it.</span>
         )}
       </p>
       <p className={cn("mt-1 text-xs", slipping ? "text-warning" : "text-muted-foreground")}>{reason}</p>
@@ -119,12 +121,12 @@ export function RankProgress() {
 }
 
 const LADDER_COPY: Record<Rank, string> = {
-  E: "Where everyone starts",
+  E: "The start rank",
   D: "About 2 months",
   C: "About 2.5 months more",
   B: "About 2.5 months more",
   A: "About 2.5 months more",
-  S: "About 3 months more, at near-perfect weeks"
+  S: "About 3 months more, near-perfect weeks"
 };
 
 type Parts = ReturnType<typeof hunterRank>["parts"];
@@ -133,13 +135,13 @@ type Parts = ReturnType<typeof hunterRank>["parts"];
 function stats(parts: Parts) {
   return [
     {
-      label: "Showing up",
+      label: "Consistency",
       worth: 50,
       value: parts.showingUp,
-      how: parts.planned > 0 ? "Do every session your schedule plans." : "Train about 3 days a week."
+      how: parts.planned > 0 ? "Do every workout in your plan." : "Train about 3 days a week."
     },
-    { label: "Strength", worth: 30, value: parts.strength, how: "Beat last month's best sets, even by a little." },
-    { label: "Volume", worth: 20, value: parts.volume, how: "Do a bit more total work than last month." }
+    { label: "Strength", worth: 30, value: parts.strength, how: "Lift a bit heavier than last month." },
+    { label: "Weight lifted", worth: 20, value: parts.volume, how: "Lift a bit more in total than last month." }
   ];
 }
 
@@ -186,7 +188,7 @@ function RankLadder({ rank }: { rank: Rank }) {
 }
 
 const RULE =
-  "Every week gets a score out of 100 from your last 4 weeks. A week at the next rank's level counts toward it; enough of them and you rank up. Two weeks below your rank in a row drop it one.";
+  "Ranks go from E (lowest) to S (highest). Each week scores 0–100 from your last 4 weeks. Enough weeks at the next rank's score move you up 1 rank. 2 weeks in a row below your rank's score move you down 1 rank.";
 
 /** "How ranks work", folded away under the bar on the This week card. */
 function RankGuide({ rank, parts }: { rank: Rank; parts: Parts }) {
@@ -266,9 +268,9 @@ function RankSheet({ name }: { name?: string }) {
       <SheetLabel>EXP</SheetLabel>
       <div className="mt-3">
         <div className="flex items-baseline justify-between text-sm">
-          <span className="font-semibold">{next ? `To ${next.rank}-rank` : "You are at the top"}</span>
+          <span className="font-semibold">{next ? `To ${next.rank}-rank` : "You have the top rank"}</span>
           <span className="text-xs text-muted-foreground tabular-nums">
-            {next ? `${next.weeksDone} of ${next.weeksNeeded} weeks` : "Hold it every week"}
+            {next ? `${next.weeksDone} of ${next.weeksNeeded} weeks` : "Keep it every week"}
           </span>
         </div>
         <div className="well mt-2 h-2 overflow-hidden rounded-full" aria-hidden>
@@ -278,9 +280,9 @@ function RankSheet({ name }: { name?: string }) {
           <span className="font-semibold text-brand">{percent}%</span>
           {next ? (
             next.onTrack && next.eta ? (
-              <span className="text-muted-foreground"> · by {formatDayKey(next.eta)} if you keep this up</span>
+              <span className="text-muted-foreground"> · by {formatDayKey(next.eta)} at this pace</span>
             ) : score === 0 ? null : (
-              <span className="text-muted-foreground"> · paused: a week counts at {next.score}+, you are at {score}</span>
+              <span className="text-muted-foreground"> · paused, needs {next.score}+</span>
             )
           ) : null}
         </p>
@@ -299,8 +301,12 @@ function RankSheet({ name }: { name?: string }) {
       </div>
 
       <SheetLabel>Rank ladder</SheetLabel>
-      <p className="mt-3 text-xs text-muted-foreground">{RULE}</p>
-      <div className="mt-3">
+      <InfoNote
+        className="mt-2"
+        heading={<p className="text-xs font-semibold">How ranks work</p>}
+        note={<p>{RULE}</p>}
+      />
+      <div className="mt-2">
         <RankLadder rank={rank} />
       </div>
     </div>
@@ -320,8 +326,15 @@ const order = (rank: Rank) => RANKS.findIndex((step) => step.rank === rank);
 export function RankUpNotice() {
   const { rank } = useHunterRank();
   const [shown, setShown] = useState<Rank>();
+  // The tour's sample has its own rank. Announced, it congratulated an empty
+  // account on Alex's C-rank; remembered, it hid the user's own next rank-up.
+  const touring = useTour().active;
 
   useEffect(() => {
+    if (touring) {
+      setShown(undefined);
+      return;
+    }
     try {
       const seen = localStorage.getItem(SEEN_KEY) as Rank | null;
       if (seen && order(seen) >= 0 && order(rank) > order(seen)) {
@@ -332,7 +345,7 @@ export function RankUpNotice() {
     } catch {
       // No storage, no announcement; the rank itself still shows.
     }
-  }, [rank]);
+  }, [rank, touring]);
 
   if (!shown) {
     return null;
@@ -353,10 +366,10 @@ export function RankUpNotice() {
       <div className="min-w-0 flex-1">
         <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-brand">New rank</p>
         <p className="mt-0.5 font-display text-xl font-extrabold leading-tight tracking-tight">You are {shown}-rank</p>
-        <p className="mt-0.5 text-xs text-muted-foreground">Weeks of showing up did this. Hold it.</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">Your regular workouts earned it.</p>
       </div>
       <Button size="sm" variant="secondary" onClick={close}>
-        Nice
+        Close
       </Button>
     </div>
   );

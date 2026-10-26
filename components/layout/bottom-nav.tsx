@@ -5,7 +5,9 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { BarChart3, CalendarDays, Home, UserCircle2 } from "lucide-react";
 
+import { useNavTransition } from "@/components/layout/nav-transition";
 import { isTextEntry } from "@/components/ui/use-keyboard";
+import { useTour } from "@/features/tour/tour-store";
 import { useWorkoutStore } from "@/features/workout/workout-store";
 import { isRecordingDue } from "@/lib/body-metrics";
 import { cn } from "@/lib/utils";
@@ -29,6 +31,12 @@ export function BottomNav() {
   const profile = useWorkoutStore((state) => state.profile);
   const recordingDue = isRecordingDue(measurements, profile);
   const typing = useTyping();
+  const navigate = useNavTransition();
+  // The tour changes pages itself and measures them at once; no animation then.
+  const touring = useTour().active;
+  const currentIndex = items.findIndex((item) =>
+    item.href === "/" ? pathname === "/" : pathname.startsWith(item.href)
+  );
 
   return (
     <nav
@@ -38,8 +46,8 @@ export function BottomNav() {
       hidden={typing}
       className="fixed bottom-0 left-0 right-0 z-40 px-4 pb-[calc(env(safe-area-inset-bottom)+0.875rem)]"
     >
-      <div className="dock mx-auto grid max-w-md grid-cols-4 gap-1 rounded-3xl border border-border p-1.5 shadow-dock">
-        {items.map((item) => {
+      <div className="dock mx-auto grid max-w-md grid-cols-4 gap-1 rounded-3xl border border-border p-1.5 shadow-dock" data-tour="nav">
+        {items.map((item, index) => {
           const active =
             item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
           const Icon = item.icon;
@@ -51,6 +59,17 @@ export function BottomNav() {
               key={item.href}
               href={item.href}
               aria-current={active ? "page" : undefined}
+              // Where the tour's guide flies to before it changes page.
+              data-tour={`nav-${item.href}`}
+              onNavigate={(event) => {
+                if (active) {
+                  return;
+                }
+                // Slides toward the side the tab is on.
+                if (navigate(item.href, index > currentIndex ? 1 : -1, touring)) {
+                  event.preventDefault();
+                }
+              }}
               className={cn(
                 "flex h-14 flex-col items-center justify-center gap-1 rounded-xl text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 active ? "dock-active" : "text-muted-foreground active:bg-secondary/70"
@@ -67,7 +86,7 @@ export function BottomNav() {
               </span>
               <span>
                 {item.label}
-                {dot ? <span className="sr-only"> — a reading is due</span> : null}
+                {dot ? <span className="sr-only">. A measurement is due</span> : null}
               </span>
             </Link>
           );

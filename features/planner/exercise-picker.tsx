@@ -100,7 +100,7 @@ export function ExercisePicker({ onBack, onPick }: ExercisePickerProps) {
           </Button>
           <Button className="flex-1" onClick={() => onPick(preview)}>
             <Plus className="h-4 w-4" />
-            Add this
+            Add exercise
           </Button>
         </div>
       </div>
@@ -113,14 +113,14 @@ export function ExercisePicker({ onBack, onPick }: ExercisePickerProps) {
         <button
           type="button"
           onClick={onBack}
-          aria-label="Back to session"
+          aria-label="Back to workout"
           className="key-quiet flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-foreground"
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
         <div>
           <DialogTitle>Add exercise</DialogTitle>
-          <DialogDescription>Search the library, or filter by body part.</DialogDescription>
+          <DialogDescription>Search by name, or filter by body part.</DialogDescription>
         </div>
       </div>
 
@@ -162,7 +162,7 @@ export function ExercisePicker({ onBack, onPick }: ExercisePickerProps) {
         <p className="py-8 text-center text-sm text-muted-foreground">Loading exercises…</p>
       ) : status === "error" ? (
         <p className="py-8 text-center text-sm text-danger">
-          Couldn&apos;t load the exercise library. Check your connection and try again.
+          The exercises did not load. Check your connection.
         </p>
       ) : (
         <>
@@ -174,7 +174,7 @@ export function ExercisePicker({ onBack, onPick }: ExercisePickerProps) {
           <div className="space-y-2">
             {shown.length === 0 ? (
               <p className="py-8 text-center text-sm text-muted-foreground">
-                No matches. Try a different search or filter.
+                No exercises found. Try another search.
               </p>
             ) : (
               shown.map((exercise) => (

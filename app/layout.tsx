@@ -1,3 +1,4 @@
+import { Analytics } from "@vercel/analytics/next";
 import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque, Inter } from "next/font/google";
 
@@ -5,7 +6,9 @@ import "@/app/globals.css";
 import { AppProviders } from "@/components/layout/app-providers";
 import { TapFeedback } from "@/components/layout/tap-feedback";
 import { RegisterServiceWorker } from "@/features/pwa/register-sw";
+import { SITE_DESCRIPTION, SITE_KEYWORDS, SITE_NAME, SITE_TAGLINE, SITE_URL } from "@/lib/site";
 import { THEME_BOOTSTRAP } from "@/lib/theme";
+import { SPLASH_IMAGES } from "@/lib/splash";
 
 // Everything you read is set in this. Numbers get `tabular-nums` so a stepper
 // does not jitter as it runs.
@@ -26,8 +29,28 @@ const bricolage = Bricolage_Grotesque({
 });
 
 export const metadata: Metadata = {
-  title: "Arise",
-  description: "Mobile-first workout tracking for the gym floor",
+  // Relative URLs below (canonical, the social card from opengraph-image.tsx)
+  // resolve against this. lib/site.ts says where it comes from.
+  metadataBase: new URL(SITE_URL),
+  // A page sets its own title and gets "Title · Arise".
+  title: { default: `${SITE_NAME} · ${SITE_TAGLINE}`, template: `%s · ${SITE_NAME}` },
+  description: SITE_DESCRIPTION,
+  keywords: SITE_KEYWORDS,
+  // The image comes from app/opengraph-image.tsx; Next adds it on its own.
+  openGraph: {
+    type: "website",
+    siteName: SITE_NAME,
+    locale: "en",
+    title: `${SITE_NAME} · ${SITE_TAGLINE}`,
+    description: SITE_DESCRIPTION,
+    url: "/"
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${SITE_NAME} · ${SITE_TAGLINE}`,
+    description: SITE_DESCRIPTION
+  },
+  alternates: { canonical: "/" },
   // Next emits this string verbatim and does not resolve it against public/, so
   // it has to match the file on disk. It said "/manifest.json" and 404'd, which
   // silently cost the app its install prompt.
@@ -46,7 +69,9 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     title: "Arise",
-    statusBarStyle: "black-translucent"
+    statusBarStyle: "black-translucent",
+    // The launch screen while the app opens, instead of a white flash.
+    startupImage: SPLASH_IMAGES
   },
   applicationName: "Arise",
   formatDetection: { telephone: false }
@@ -83,6 +108,8 @@ export default function RootLayout({
       <body className={`${inter.variable} ${bricolage.variable}`}>
         <AppProviders>{children}</AppProviders>
         <RegisterServiceWorker />
+        {/* Page views on Vercel (no cookies). Counts nothing in development. */}
+        <Analytics />
         <TapFeedback />
       </body>
     </html>

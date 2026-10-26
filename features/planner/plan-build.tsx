@@ -14,6 +14,7 @@ import {
   DialogTrigger,
   DRAWER_CONTENT
 } from "@/components/ui/dialog";
+import { InfoNote } from "@/components/ui/info-note";
 import { Input } from "@/components/ui/input";
 import { NumberInput } from "@/components/ui/number-input";
 import { ThemedSelect } from "@/components/ui/select";
@@ -335,7 +336,7 @@ export function PlanBuild() {
     const trimmedName = sessionName.trim();
 
     if (!trimmedName) {
-      setError({ field: "name", message: "Name your session." });
+      setError({ field: "name", message: "Type a workout name." });
       return;
     }
     if (
@@ -343,7 +344,7 @@ export function PlanBuild() {
         (item) => item.id !== editingId && item.name.trim().toLowerCase() === trimmedName.toLowerCase()
       )
     ) {
-      setError({ field: "name", message: "You already have a session with that name." });
+      setError({ field: "name", message: "You already have a workout with this name." });
       return;
     }
 
@@ -380,7 +381,7 @@ export function PlanBuild() {
       if (seen.has(normalized)) {
         setError({
           field: "form",
-          message: `"${exercise.name.trim()}" is in this session twice — each exercise can only appear once.`
+          message: `"${exercise.name.trim()}" is in this workout 2 times.`
         });
         return;
       }
@@ -446,7 +447,7 @@ export function PlanBuild() {
     // The store normalizes names slightly differently than the check above, so
     // a rejected write here must not close the drawer and drop the edit.
     if (!saved) {
-      setError({ field: "name", message: "You already have a session with that name." });
+      setError({ field: "name", message: "You already have a workout with this name." });
       return;
     }
 
@@ -463,11 +464,10 @@ export function PlanBuild() {
           {hasPlan ? null : (
             <>
               <h2 className="font-display text-[28px] font-extrabold leading-none tracking-tight">
-                Build a session once, reuse it forever
+                Build a workout once. Use it many times.
               </h2>
               <p className="mt-3 text-sm text-muted-foreground">
-                Pick exercises from the library, set your targets, and name the session like Push or
-                Legs. Then switch to Schedule to drop it onto your week.
+                Name it, add exercises, then put it on days in Schedule.
               </p>
             </>
           )}
@@ -483,7 +483,7 @@ export function PlanBuild() {
             <DialogTrigger asChild>
               <Button size="lg" className={hasPlan ? "w-full" : "mt-5 w-full"} onClick={resetBuilder}>
                 <Plus className="h-5 w-5" strokeWidth={2.5} />
-                {hasPlan ? "Add another session" : "Build your first session"}
+                Add workout
               </Button>
             </DialogTrigger>
             {/* The sub-views have their own Back; the dialog's ✕ discards the whole
@@ -520,12 +520,12 @@ export function PlanBuild() {
               ) : (
                 <>
               <DialogHeader>
-                <DialogTitle>{editingId ? "Edit session" : "Session builder"}</DialogTitle>
-                <DialogDescription>Name the session, add exercises, and set targets.</DialogDescription>
+                <DialogTitle>{editingId ? "Edit workout" : "Add workout"}</DialogTitle>
+                <DialogDescription>Type a name, add exercises, and set targets.</DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
                 <label className="block text-xs font-medium text-muted-foreground">
-                  Session name
+                  Name
                   <Input
                     className="mt-1"
                     placeholder="Push, Pull, Legs"
@@ -543,9 +543,18 @@ export function PlanBuild() {
                     Off keeps the numbers below exactly as typed, which is what
                     every session built before this existed still does. */}
                 <div className="rounded-xl bg-muted p-3">
-                  <p className="text-xs font-medium text-muted-foreground">
-                    Progression
-                  </p>
+                  <InfoNote
+                    heading={<p className="text-xs font-medium text-muted-foreground">Progression</p>}
+                    note={
+                      <>
+                        <p>Off: each workout starts with the weights you type below.</p>
+                        <p>Linear: the weight increases when you do all the reps.</p>
+                        <p>Double: the reps increase to the maximum. Then the weight increases.</p>
+                        <p>Time: the hold time increases when you reach the target.</p>
+                        <p>If you miss the target in 2 workouts, it decreases by 10%.</p>
+                      </>
+                    }
+                  />
                   <ThemedSelect
                     aria-label="Progression"
                     className="mt-1"
@@ -558,14 +567,14 @@ export function PlanBuild() {
                     }
                     options={Object.entries(PROGRESSION_LABELS).map(([rule, label]) => ({
                       value: rule,
-                      label
+                      label: label.split(" — ")[0]
                     }))}
                   />
 
                   {progression.rule !== "off" ? (
                     <div className="mt-2 flex gap-2">
                       <label className="block flex-1 text-xs text-muted-foreground">
-                        {isTimeRule ? "Add per jump (s)" : "Add per jump (kg)"}
+                        {isTimeRule ? "Increase by (s)" : "Increase by (kg)"}
                         <NumberInput
                           className="mt-1"
                           inputMode="decimal"
@@ -583,7 +592,7 @@ export function PlanBuild() {
                       </label>
                       {progression.rule === "double" ? (
                         <label className="block flex-1 text-xs text-muted-foreground">
-                          Top of rep range
+                          Maximum reps
                           <NumberInput
                             className="mt-1"
                             inputMode="numeric"
@@ -595,14 +604,6 @@ export function PlanBuild() {
                       ) : null}
                     </div>
                   ) : null}
-
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    {progression.rule === "off"
-                      ? "Sessions open with the weights you type below."
-                      : isTimeRule
-                        ? "Holds get longer only when you reach the target. Two short sessions cut it 10%."
-                        : "Missed reps never move the weight up. Two stalls at one weight drops it 10%."}
-                  </p>
                 </div>
                 {builderExercises.map((exercise, exerciseIndex) => (
                   openExerciseId !== exercise.id ? (
@@ -728,7 +729,7 @@ export function PlanBuild() {
                                 active ? "key" : "text-muted-foreground"
                               }`}
                             >
-                              {item === "reps" ? "Reps" : item === "time" ? "Hold / time" : "Distance"}
+                              {item === "reps" ? "Reps" : item === "time" ? "Time" : "Distance"}
                             </button>
                           );
                         })}
@@ -738,7 +739,7 @@ export function PlanBuild() {
                           pre-filled, so the placeholder never rendered once. */}
                       <div className="grid grid-cols-2 gap-3">
                         <label className="text-xs text-muted-foreground">
-                          {exercise.metric === "distance" ? "Rows (intervals)" : "Sets"}
+                          {exercise.metric === "distance" ? "Intervals" : "Sets"}
                           <NumberInput
                             min={1}
                             className="mt-1"
@@ -748,7 +749,7 @@ export function PlanBuild() {
                         </label>
                         {exercise.metric === "distance" ? (
                           <label className="text-xs text-muted-foreground">
-                            Distance per row ({unit})
+                            Distance ({unit})
                             <NumberInput
                               min={0}
                               step={0.1}
@@ -781,7 +782,7 @@ export function PlanBuild() {
                         )}
                         {exercise.metric === "distance" ? (
                           <label className="text-xs text-muted-foreground">
-                            Target time (minutes)
+                            Time (min)
                             <NumberInput
                               min={0}
                               step={1}
@@ -794,9 +795,9 @@ export function PlanBuild() {
                         {exercise.metric === "time" || exercise.metric === "distance" ? null : (
                           <label className="col-span-2 flex items-center justify-between text-xs text-muted-foreground">
                             <span>
-                              Reps are the total across both sides
+                              Reps count both sides
                               <span className="mt-0.5 block text-[11px]">
-                                Lunges, single-arm rows — logged as a total, shown as a split
+                                For example, lunges or one-arm rows
                               </span>
                             </span>
                             <button
@@ -898,7 +899,7 @@ export function PlanBuild() {
                     scroll away from wherever you finished editing. */}
                 <div className="sticky bottom-0 border-t border-border bg-card pt-3">
                   <Button className="w-full" onClick={saveSession}>
-                    {editingId ? "Save changes" : "Save session"}
+                    {editingId ? "Save changes" : "Save workout"}
                   </Button>
                 </div>
               </div>
@@ -906,7 +907,7 @@ export function PlanBuild() {
               )}
             </DialogContent>
           </Dialog>
-          <Button variant="secondary" className="mt-2 w-full" onClick={() => setAiOpen(true)}>
+          <Button variant="secondary" className="mt-2 w-full" onClick={() => setAiOpen(true)} data-tour="plan-ai">
             <Sparkles className="h-4 w-4 text-brand" />
             Build with AI
           </Button>
@@ -917,8 +918,8 @@ export function PlanBuild() {
       {hasPlan ? (
         <Card>
           <CardHeader>
-            <CardTitle>Your sessions</CardTitle>
-            <CardDescription>Reusable templates. Switch to Schedule to place them on a day.</CardDescription>
+            <CardTitle>Your workouts</CardTitle>
+            <CardDescription>Put them on days in Schedule.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {sessionTemplates.map((session) => (
@@ -934,7 +935,7 @@ export function PlanBuild() {
                   <div className="flex shrink-0 items-center gap-1.5">
                     <button
                       type="button"
-                      aria-label={`Edit ${session.name} session`}
+                      aria-label={`Edit ${session.name}`}
                       className="key-quiet flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground"
                       onClick={() => openEdit(session)}
                     >
@@ -942,7 +943,7 @@ export function PlanBuild() {
                     </button>
                     <button
                       type="button"
-                      aria-label={`Delete ${session.name} session`}
+                      aria-label={`Delete ${session.name}`}
                       className="key-quiet flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground"
                       onClick={() => setSessionToDelete({ id: session.id, name: session.name })}
                     >
@@ -1000,7 +1001,7 @@ export function PlanBuild() {
       ) : (
         <Card>
           <CardContent className="py-8 text-center text-sm text-muted-foreground">
-            No sessions yet. Build your first one above, then head to Schedule to plan your week.
+            Add your first workout above.
           </CardContent>
         </Card>
       )}
@@ -1008,13 +1009,13 @@ export function PlanBuild() {
       <Dialog open={!!sessionToDelete} onOpenChange={(open) => !open && setSessionToDelete(null)}>
         <DialogContent className={DRAWER_CONTENT}>
           <DialogHeader>
-            <DialogTitle>Delete session template?</DialogTitle>
+            <DialogTitle>Delete workout?</DialogTitle>
             <DialogDescription className="space-y-2 pt-2">
               <span className="block text-sm text-foreground font-medium">
-                Are you sure you want to delete &quot;{sessionToDelete?.name}&quot;?
+                {sessionToDelete?.name}
               </span>
               <span className="block text-xs text-muted-foreground">
-                This template will no longer be available to select in the Schedule section. (Existing workouts already scheduled on your calendar will remain).
+                Days already on your calendar stay.
               </span>
             </DialogDescription>
           </DialogHeader>

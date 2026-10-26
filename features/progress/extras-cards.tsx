@@ -80,11 +80,11 @@ export function MilestonesCard({ earned, next }: { earned: Badge[]; next: Badge[
   return (
     <Panel
       title="Milestones"
-      caption="What you have earned, and what comes next"
+      caption="Earned, and up next"
       note={
         <>
-          Badges for your total sessions, the total weight you have ever lifted, and your best
-          streak of weeks in a row. Each bar shows how close you are to the next badge.
+          Badges come from your total workouts, total weight lifted, and best week streak. Each
+          bar shows how close the next badge is.
         </>
       }
     >
@@ -145,12 +145,12 @@ export function MilestonesCard({ earned, next }: { earned: Badge[]; next: Badge[
 export function MonthCompareCard({ rows }: { rows: MonthCompareRow[] }) {
   return (
     <Panel
-      title="This month vs last month"
-      caption="So far this month, against the same days of last month"
+      title="This month vs last"
+      caption="Same days of each month"
       note={
         <>
-          The first days of this month against the same days of last month. On the 12th, it
-          compares the 1st–12th with the 1st–12th. So the comparison is fair on any day.
+          On the 12th, this compares the 1st–12th of both months. So the comparison is fair on
+          any day.
         </>
       }
     >
@@ -163,7 +163,8 @@ export function MonthCompareCard({ rows }: { rows: MonthCompareRow[] }) {
 
           return (
             <div key={row.label} className="well rounded-lg p-3">
-              <p className="text-xs font-semibold text-muted-foreground">{row.label}</p>
+              {/* Two lines tall, so the values stay level when a long label wraps. */}
+              <p className="min-h-8 text-xs font-semibold text-muted-foreground">{row.label}</p>
               <p className="mt-1.5 font-display text-lg font-extrabold leading-none tabular-nums">
                 {row.label === "Weight lifted" ? compactKg(row.now) : row.now}
               </p>
@@ -202,8 +203,8 @@ export function StrengthRatioCard({
 }) {
   if (ratios.length === 0) {
     return (
-      <Panel title="Strength for your size">
-        <EmptyChart>Add a weigh-in on Profile to compare your lifts with your bodyweight.</EmptyChart>
+      <Panel title="Strength vs bodyweight">
+        <EmptyChart>Add a weigh-in to see this.</EmptyChart>
       </Panel>
     );
   }
@@ -213,13 +214,12 @@ export function StrengthRatioCard({
 
   return (
     <Panel
-      title="Strength for your size"
-      caption={`Your ${top.name} is ${top.ratio.toFixed(2)}× your bodyweight`}
+      title="Strength vs bodyweight"
+      caption={`${top.name}: ${top.ratio.toFixed(2)}× bodyweight`}
       note={
         <>
-          Your best set on each main lift, divided by your latest weigh-in. 1× means you lift your
-          own bodyweight. It is a fair way to compare strength between people of different sizes,
-          and to see progress when your weight changes.
+          Each bar is your heaviest set on a main exercise, divided by your latest weigh-in. 1×
+          means you lift your own bodyweight.
         </>
       }
     >
@@ -251,7 +251,7 @@ export function StrengthRatioCard({
           );
         })}
       </ul>
-      <p className="mt-2 text-xs text-muted-foreground">The thin line marks 1× — your own bodyweight.</p>
+      <p className="mt-2 text-xs text-muted-foreground">The thin line marks 1× bodyweight.</p>
       <GroupLegend groups={ratios.map((row) => groupOf.get(row.workoutId) ?? "chest")} />
     </Panel>
   );
@@ -272,18 +272,17 @@ export function RecordsMonthCard({ months }: { months: RecordsMonth[] }) {
       title="Records per month"
       caption={
         best
-          ? `${total} records in ${months.length} months · most in ${best.label} (${best.total})`
+          ? `${total} records · most in ${best.label} (${best.total})`
           : `No records in the last ${months.length} months`
       }
       note={
         <>
-          How many personal records you set each month. Each color is the muscle group of the lift.
-          A tall bar means a month where you got stronger on many lifts.
+          A record is your heaviest weight ever on an exercise. Colors show the muscle group.
         </>
       }
     >
       {total === 0 ? (
-        <EmptyChart>Lift more than ever before on any lift, and it shows here.</EmptyChart>
+        <EmptyChart>Beat your heaviest weight to set a record.</EmptyChart>
       ) : (
         <>
           <ResponsiveContainer width="100%" height={170}>
@@ -334,12 +333,12 @@ export function WeeklyGoalCard({
 
   return (
     <Panel
-      title="Sessions per week"
-      caption={`Goal reached in ${hits} of the last ${complete.length} weeks · goal ${target} a week`}
+      title="Workouts per week"
+      caption={`Goal hit ${hits} of ${complete.length} weeks · ${target} a week`}
       note={
         <>
-          Each bar is one week, Monday to Sunday. The dashed line is your weekly goal. A ✓ marks a
-          week that reached it. The last bar is this week, so it is still filling.
+          Each bar is one week, Monday to Sunday. The dashed line is your goal, and ✓ marks a week
+          that reached it. The last bar is this week.
         </>
       }
     >
@@ -353,12 +352,12 @@ export function WeeklyGoalCard({
             content={
               <ChartTooltip
                 labelFormat={(key) => `Week of ${formatDayKey(key)}`}
-                format={(value) => `${value} ${value === 1 ? "session" : "sessions"}`}
+                format={(value) => `${value} ${value === 1 ? "workout" : "workouts"}`}
               />
             }
           />
           <ReferenceLine y={target} stroke={CHART.axis} strokeDasharray="4 4" />
-          <Bar {...animationProps} dataKey="sessions" name="Sessions" radius={[4, 4, 0, 0]} maxBarSize={20}>
+          <Bar {...animationProps} dataKey="sessions" name="Workouts" radius={[4, 4, 0, 0]} maxBarSize={20}>
             {data.map((week) => (
               <Cell
                 key={week.start}
@@ -375,8 +374,8 @@ export function WeeklyGoalCard({
         <p className="mt-3 flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-sm">
           <Medal className="h-4 w-4 shrink-0" style={{ color: accent }} aria-hidden />
           <span>
-            Your best month: <span className="font-semibold">{bestMonth.label}</span>, {bestMonth.sessions}{" "}
-            sessions.
+            Best month: <span className="font-semibold">{bestMonth.label}</span>, {bestMonth.sessions}{" "}
+            {bestMonth.sessions === 1 ? "workout" : "workouts"}
           </span>
         </p>
       ) : null}
@@ -406,12 +405,12 @@ export function WeightChangeCard({
 
   return (
     <Panel
-      title="Weight change per month"
-      caption="Your average weight each month, against the month before"
+      title="Monthly weight change"
+      caption="Average weight vs the month before"
       note={
         <>
-          Each bar is the change in your average weight from one month to the next. A bar below the
-          line means you got lighter that month. A brighter bar moved toward your goal weight.
+          A bar below the line means you got lighter that month. A brighter bar is a move toward
+          your goal weight.
         </>
       }
     >

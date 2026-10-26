@@ -63,7 +63,7 @@ export function WorkoutPicker({ confirmLabel, onConfirm }: WorkoutPickerProps) {
       return;
     }
 
-    onConfirm(plannedExercisesFromWorkouts(picked, { logs, setLogs }), group ?? "Session");
+    onConfirm(plannedExercisesFromWorkouts(picked, { logs, setLogs }), group ?? "Workout");
     setPickedIds([]);
   };
 
@@ -71,11 +71,11 @@ export function WorkoutPicker({ confirmLabel, onConfirm }: WorkoutPickerProps) {
     <>
       <div className="flex items-baseline justify-between">
         <p className="text-sm text-muted-foreground">
-          {group ? "Tap what you're doing." : "What are you training?"}
+          {group ? "Tap the exercises you do." : "Pick a muscle group."}
         </p>
         {pickedIds.length > 0 ? (
           <p className="text-xs tabular-nums text-muted-foreground">
-            {pickedIds.length} picked
+            {pickedIds.length} selected
           </p>
         ) : null}
       </div>
@@ -143,7 +143,7 @@ export function WorkoutPicker({ confirmLabel, onConfirm }: WorkoutPickerProps) {
           <Button size="lg" className="w-full" disabled={pickedIds.length === 0} onClick={confirm}>
             <Dumbbell className="h-4 w-4" />
             {pickedIds.length === 0
-              ? "Pick at least one"
+              ? "Pick exercises"
               : `${confirmLabel} · ${pickedIds.length}`}
           </Button>
         </div>
@@ -161,7 +161,7 @@ export function QuickStart() {
       <h3 className="font-display text-[22px] font-extrabold leading-none tracking-tight">Train now</h3>
       <div className="mt-1">
         <WorkoutPicker
-          confirmLabel="Start"
+          confirmLabel="Start workout"
           // The group is the session's name: "Push", not "Session". It lives in
           // the picker, so it comes back with the picks.
           onConfirm={(exercises, group) => startAdHocSession({ name: group, exercises })}

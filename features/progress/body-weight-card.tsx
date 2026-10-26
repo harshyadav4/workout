@@ -42,13 +42,11 @@ export function BodyWeightCard({
   return (
     <Panel
       title="Bodyweight"
-      caption="Every weigh-in, with a 7-day average"
+      caption="Weigh-ins and 7-day average"
       note={
         <>
-          The dots show what the scale said. The line shows your average of the last 7 days. Your
-          weight changes from day to day, mostly because of water, so watch the line, not the dots.
-          The chart does not start at zero, so small real changes are easy to see. Set a goal weight
-          on Profile, and it shows as a dashed line.
+          Daily weight moves with water, so trust the 7-day line over the dots. Set a goal weight
+          on You to see it as a dashed line.
         </>
       }
     >
@@ -116,7 +114,7 @@ export function BodyWeightCard({
           </LineChart>
         </ResponsiveContainer>
       ) : (
-        <EmptyChart>No weigh-ins yet. Record one on Profile.</EmptyChart>
+        <EmptyChart>No weigh-ins yet. Add one on You.</EmptyChart>
       )}
 
       {/* An estimate, and it says so: a straight line through eight weeks
@@ -127,12 +125,11 @@ export function BodyWeightCard({
           style={{ backgroundColor: `${accent}1a`, ["--tw-ring-color" as string]: `${accent}40` }}
         >
           <span className="font-semibold" style={{ color: accent }}>
-            Goal date estimate: {formatLongDate(eta.date)}
+            Goal by about {formatLongDate(eta.date)}.
           </span>{" "}
           <span className="text-muted-foreground">
-            — at your pace of the last 8 weeks ({eta.perWeek > 0 ? "+" : ""}
-            {eta.perWeek.toFixed(1)} kg a week), you reach {goalWeightKg.toFixed(1)} kg around then.
-            It is an estimate, not a promise.
+            At your 8-week pace of {eta.perWeek > 0 ? "+" : ""}
+            {eta.perWeek.toFixed(1)} kg a week.
           </span>
         </p>
       ) : null}

@@ -53,13 +53,12 @@ export function CumulativeCard({
 
   return (
     <Panel
-      title="All the weight you have ever lifted"
-      caption={last ? `Past ${last.label} kg since you started` : "Since your first set"}
+      title="All-time weight lifted"
+      caption={last ? `Over ${last.label} kg so far` : "Since your first set"}
       note={
         <>
-          Every kilo of every set, added up from your first session to today. This card always
-          shows all your history, whatever time range you pick. The light area is the range you
-          picked. The dots mark big milestones.
+          Every set since your first workout. The range does not change it; the light area marks
+          the range you picked.
         </>
       }
     >
@@ -71,7 +70,7 @@ export function CumulativeCard({
       </p>
 
       {points.length < 2 ? (
-        <EmptyChart>Not enough history to draw a line yet.</EmptyChart>
+        <EmptyChart>Not enough data yet.</EmptyChart>
       ) : (
         <ResponsiveContainer width="100%" height={150}>
           <AreaChart data={points} margin={{ top: 18, right: 10, bottom: 0, left: -14 }}>

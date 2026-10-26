@@ -4,6 +4,7 @@ import { Minus, Plus, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { RecoveryPotion } from "@/features/home/recovery-potion";
+import { scheduleRestAlert } from "@/features/pwa/rest-alerts";
 import { REST_KEY, readStorage, restoreRest, writeStorage } from "@/lib/timer";
 import { cn } from "@/lib/utils";
 
@@ -100,6 +101,16 @@ export function useRestTimer() {
     setTotal((current) => Math.max(1, current + deltaSeconds));
   }, []);
 
+  // "Rest alerts" (You page): a notification at the end time if the app is
+  // hidden then. Re-armed whenever the end moves; cancelled on skip. The
+  // phone may freeze this timer in the background — see features/pwa/rest-alerts.
+  useEffect(() => {
+    if (endsAt === undefined) {
+      return;
+    }
+    return scheduleRestAlert(endsAt);
+  }, [endsAt]);
+
   // Saved after the fact rather than inside the setters above, which React may
   // run twice. A rest that has run out is dropped, so it is not restored.
   useEffect(() => {
@@ -141,7 +152,7 @@ export function RestDial({ remaining, total, onExtend, onSkip }: RestDialProps) 
       <button
         type="button"
         aria-expanded={open}
-        aria-label={done ? "Rest done. Rest controls" : `${formatRest(remaining)} of rest left. Rest controls`}
+        aria-label={done ? "Rest is done. Show rest controls" : `${formatRest(remaining)} of rest left. Show rest controls`}
         onClick={() => setOpen((current) => !current)}
         className={cn(
           "well flex h-14 min-w-[5.75rem] shrink-0 items-center justify-center gap-2 rounded-lg px-2.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
@@ -161,7 +172,7 @@ export function RestDial({ remaining, total, onExtend, onSkip }: RestDialProps) 
             {formatRest(remaining)}
           </span>
           <span className="mt-1 text-[10px] font-semibold text-muted-foreground">
-            {done ? "go" : "recovering"}
+            {done ? "done" : "resting"}
           </span>
         </span>
       </button>

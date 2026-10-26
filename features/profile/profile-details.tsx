@@ -1,17 +1,20 @@
 "use client";
 
 import { ChevronRight, Compass, Download, Upload } from "lucide-react";
+import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { InfoNote } from "@/components/ui/info-note";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/features/auth/use-auth";
-import { DataDeletion } from "@/features/profile/data-deletion";
+import { ClearThisPhone, DataDeletion } from "@/features/profile/data-deletion";
 import { useStartTour } from "@/features/tour/tour";
 import { useTour } from "@/features/tour/tour-store";
 import { DetailedTimingToggle, DistanceUnitToggle, ThemeToggle } from "@/features/profile/theme-toggle";
 import { InstallCard } from "@/features/pwa/install-card";
+import { RestAlertsToggle } from "@/features/pwa/rest-alerts";
 import { retrySync, useSyncStatus } from "@/features/workout/sync-status";
 import { useWorkoutStore, useWorkoutStoreApi } from "@/features/workout/workout-store";
 import { hasGoal } from "@/lib/body-metrics";
@@ -21,7 +24,7 @@ import {
   parseExportText,
   type ParsedBackup
 } from "@/lib/import-backup";
-import { downloadJson } from "@/lib/download";
+import { shareOrDownloadJson } from "@/lib/download";
 import { buildPRLedger, buildStreaks } from "@/lib/progress-trends";
 import { buildExport } from "@/lib/sync";
 import { todayKey } from "@/lib/utils";
@@ -67,8 +70,9 @@ export function ProfileHeader() {
 
   // In the tour, the sample's own name and address, not the signed-in ones.
   const touring = useTour().active;
-  const name = touring ? profile.name : metadataName(user?.user_metadata?.full_name) ?? profile.name;
-  const email = touring ? profile.email : user?.email ?? profile.email;
+  const guest = !user && !touring;
+  const name = touring ? profile.name : guest ? "Guest" : metadataName(user?.user_metadata?.full_name) ?? profile.name;
+  const email = touring ? profile.email : guest ? "Not signed in" : user?.email ?? profile.email;
   const initial = name?.trim()[0]?.toUpperCase() ?? email?.trim()[0]?.toUpperCase() ?? "?";
 
   const stats = useMemo(() => {
@@ -99,16 +103,21 @@ export function ProfileHeader() {
             </p>
             <p className="mt-1.5 truncate text-sm text-muted-foreground">{email || "—"}</p>
           </div>
+          {guest ? (
+            <Button asChild size="sm" className="ml-auto shrink-0">
+              <Link href="/login">Sign in</Link>
+            </Button>
+          ) : null}
         </div>
 
         {stats ? (
           <dl className="grid grid-cols-3 gap-2">
-            <Stat label="Sessions" value={stats.sessions} hint="days you trained" />
-            <Stat label="Week streak" value={stats.streak} hint="weeks in a row with training" />
-            <Stat label="Records" value={stats.records} hint="times you beat your best" />
+            <Stat label="Workouts" value={stats.sessions} hint="days trained" />
+            <Stat label="Week streak" value={stats.streak} hint="weeks in a row" />
+            <Stat label="Records" value={stats.records} hint="records set" />
           </dl>
         ) : (
-          <p className="text-sm text-muted-foreground">Your sessions, streak and records show here after your first session.</p>
+          <p className="text-sm text-muted-foreground">Your stats show here after your first workout.</p>
         )}
       </CardContent>
     </Card>
@@ -122,7 +131,9 @@ export function ProfileHeader() {
 function Stat({ label, value, hint }: { label: string; value: number; hint: string }) {
   return (
     <div className="well flex flex-col rounded-lg p-3">
-      <dt className="text-xs font-semibold text-muted-foreground">{label}</dt>
+      {/* Two lines tall: a label that wraps on a narrow phone must not push
+          its number below the others in the row. */}
+      <dt className="min-h-8 text-xs font-semibold text-muted-foreground">{label}</dt>
       <dd className="mt-1 font-display text-xl font-extrabold leading-none tabular-nums">{value}</dd>
       <dd className="mt-1.5 text-xs leading-snug text-muted-foreground">{hint}</dd>
     </div>
@@ -165,7 +176,7 @@ export function GoalsSection() {
           }}
         />
         <span className="mt-2 block text-xs text-muted-foreground">
-          Shown on your bodyweight chart, with an estimated date. Empty the field to remove it.
+          Shows on the bodyweight chart. Clear it for no goal.
         </span>
       </label>
     </Section>
@@ -180,6 +191,7 @@ export function SettingsSection() {
       <ThemeToggle />
       <DistanceUnitToggle />
       <DetailedTimingToggle />
+      <RestAlertsToggle />
     </Section>
   );
 }
@@ -202,12 +214,12 @@ function SyncStatus() {
     return (
       <div className="rounded-xl border border-danger/40 p-4" role="alert">
         <p className="text-sm font-semibold text-danger">
-          {stalled ? "Couldn't read your account" : "Last change hasn't reached the cloud"}
+          {stalled ? "Cannot read your account" : "Last change not saved to your account"}
         </p>
         <p className="mt-1 text-sm text-muted-foreground">
           {stalled
-            ? "What you log here is still being saved to your account. Anything recorded on your other devices is missing until this succeeds."
-            : "It's saved on this device and will be sent again with your next change."}
+            ? "New data still saves, but data from other devices does not show."
+            : "It is on this phone and sends with your next change."}
         </p>
         <p className="mt-1 break-words text-xs text-muted-foreground">{error.message}</p>
         {stalled ? (
@@ -261,6 +273,7 @@ function ActionRow({
 }
 
 export function DataSection() {
+  const signedIn = Boolean(useAuth().user);
   // `hydrateRemote` is the sync path's merge — reconcile(local, incoming), which
   // is deletion-blind. Reusing it is what makes an import unable to destroy
   // anything: a stale backup adds what it holds and removes nothing.
@@ -285,13 +298,16 @@ export function DataSection() {
       <ActionRow
         icon={Download}
         label="Download a backup"
-        hint="Saves all your data to one file on this phone."
+        hint="A file with all your data."
         onClick={() => {
           setError(null);
+          const failed = (cause: unknown) =>
+            setError(cause instanceof Error ? cause.message : "Could not make the backup.");
           try {
-            downloadJson(`arise-${todayKey()}.json`, buildExport(store.getState()));
+            // Built and handed over in the same tap: the share sheet needs it.
+            shareOrDownloadJson(`arise-${todayKey()}.json`, buildExport(store.getState()), "Arise backup").catch(failed);
           } catch (cause) {
-            setError(cause instanceof Error ? cause.message : "Could not build the backup.");
+            failed(cause);
           }
         }}
       />
@@ -314,8 +330,8 @@ export function DataSection() {
       />
       <ActionRow
         icon={Upload}
-        label="Restore from a backup"
-        hint="Adds what a backup file holds. Nothing you have is deleted."
+        label="Restore a backup"
+        hint="Adds data from a backup file. Deletes nothing."
         onClick={() => fileInput.current?.click()}
       />
 
@@ -324,13 +340,17 @@ export function DataSection() {
           can tell — so the numbers go in front of the decision. */}
       {staged ? (
         <div className="rounded-xl bg-muted p-3 text-sm">
-          <p>
-            This file holds <span className="tabular-nums">{importSummary(staged.counts)}</span>.
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Restoring merges — nothing you already have is deleted. Where both sides have the same
-            entry, the file wins.
-          </p>
+          <InfoNote
+            heading={
+              <>
+                <p>
+                  This file contains <span className="tabular-nums">{importSummary(staged.counts)}</span>.
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">The app adds it to your data and deletes nothing.</p>
+              </>
+            }
+            note={<p>If an item is in both, the app keeps the one from the file.</p>}
+          />
           <div className="mt-3 flex gap-2">
             <Button
               className="flex-1"
@@ -339,7 +359,7 @@ export function DataSection() {
                 setStaged(null);
               }}
             >
-              Restore it
+              Restore
             </Button>
             <Button variant="secondary" className="flex-1" onClick={() => setStaged(null)}>
               Cancel
@@ -350,7 +370,17 @@ export function DataSection() {
 
       {error ? <p className="text-center text-sm text-danger">{error}</p> : null}
 
-      <SyncStatus />
+      {signedIn ? (
+        <SyncStatus />
+      ) : (
+        <p className="px-1 text-xs text-muted-foreground" role="status">
+          Saved on this phone only.{" "}
+          <Link href="/login" className="font-semibold text-brand underline-offset-2 hover:underline">
+            Sign in
+          </Link>{" "}
+          to save it in your account.
+        </p>
+      )}
     </Section>
   );
 }
@@ -365,7 +395,7 @@ export function HelpSection() {
       <ActionRow
         icon={Compass}
         label="Take the tour"
-        hint="A short walk through the app, with sample data. Your own data is safe."
+        hint="A short guide on sample data."
         onClick={startTour}
       />
     </Section>
@@ -376,7 +406,7 @@ export function HelpSection() {
 
 /** Last on the page, and apart from everything else: the actions that end things. */
 export function AccountSection() {
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -386,10 +416,35 @@ export function AccountSection() {
     try {
       await logout();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not sign out. Check your connection.");
-      setPending(false);
+      setError(cause instanceof Error ? cause.message : "Could not sign out. Check your internet connection.");
     }
+    // Signed out, the page stays: it becomes the guest's.
+    setPending(false);
   };
+
+  if (!user) {
+    return (
+      <>
+        <InstallCard />
+        <Section title="Account">
+          <InfoNote
+            heading={<p className="text-sm text-muted-foreground">Your data is on this phone only.</p>}
+            note={
+              <>
+                <p>You use Arise without an account.</p>
+                <p>Sign in to save your data in your account. Then it shows on all your devices.</p>
+                <p>The data on this phone joins your account when you sign in.</p>
+              </>
+            }
+          />
+          <Button asChild className="w-full">
+            <Link href="/login">Sign in with Google</Link>
+          </Button>
+          <ClearThisPhone />
+        </Section>
+      </>
+    );
+  }
 
   return (
     <>

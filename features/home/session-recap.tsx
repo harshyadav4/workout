@@ -1,8 +1,10 @@
 "use client";
 
-import { ArrowDownRight, ArrowUpRight, ChevronRight, Info, Trophy } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, ChevronRight, Info, Share2, Trophy } from "lucide-react";
 import Link from "next/link";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+
+import { Button } from "@/components/ui/button";
 
 import { LevelUpGem, QuestScroll } from "@/features/home/artifacts";
 import { ExerciseDemoButton } from "@/features/workout/exercise-media-dialog";
@@ -113,7 +115,7 @@ function ExerciseRecap({
           {isRecord ? (
             <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-brand/15 px-2 py-0.5 text-[11px] font-bold text-brand">
               <Trophy className="h-3 w-3" aria-hidden />
-              New best
+              New record
             </p>
           ) : null}
         </div>
@@ -165,7 +167,7 @@ function ExerciseRecap({
                 ) : null}
               </span>
               {isTop ? (
-                <span className="text-[11px] font-bold text-brand">Top set</span>
+                <span className="text-[11px] font-bold text-brand">Heaviest set</span>
               ) : isWarmup ? (
                 <span className="text-[11px] font-semibold text-warning">Warm-up</span>
               ) : (
@@ -228,6 +230,66 @@ function SkillLevelUps({ written }: { written: WorkoutLog[] }) {
 }
 
 /**
+ * "Share" on the finish card: a few lines of text through the phone's share
+ * sheet — name, date, sets, weight lifted, records, and a link to the app.
+ * Shown only where the browser can share (most phones; few desktops).
+ */
+function ShareWorkout({ text, title }: { text: string; title: string }) {
+  const [canShare, setCanShare] = useState(false);
+  // After mount: the server render has no navigator.
+  useEffect(() => setCanShare(typeof navigator.share === "function"), []);
+
+  if (!canShare) {
+    return null;
+  }
+
+  return (
+    <Button
+      variant="secondary"
+      size="sm"
+      className="shrink-0"
+      onClick={() => {
+        navigator.share({ title, text: `${text}\n${location.origin}/r/share` }).catch(() => {
+          // Closed the sheet (AbortError) or the share failed: nothing to report.
+        });
+      }}
+    >
+      <Share2 className="h-4 w-4" aria-hidden />
+      Share
+    </Button>
+  );
+}
+
+/**
+ * The finish card's numbers as text for the share sheet.
+ */
+function shareText(
+  session: ScheduledSession,
+  summary: SessionSummary,
+  distance: string | undefined
+): string {
+  const date = new Date(`${session.date}T00:00:00`).toLocaleDateString([], {
+    weekday: "short",
+    day: "numeric",
+    month: "short"
+  });
+  const numbers = [
+    `${summary.sets} ${summary.sets === 1 ? "set" : "sets"}`,
+    summary.volume > 0 ? `${formatVolume(summary.volume)} kg lifted` : undefined,
+    distance
+  ].filter(Boolean);
+  const lines = [`${session.sessionName || "Workout"} · ${date}`, numbers.join(" · ")];
+  if (summary.personalRecords.length > 0) {
+    lines.push(
+      `New ${summary.personalRecords.length === 1 ? "record" : "records"}: ${summary.personalRecords
+        .map((record) => `${record.name} ${record.weight} kg`)
+        .join(", ")}`
+    );
+  }
+  return lines.join("\n");
+}
+
+/**
  * The finish screen, in one card: what the session added up to, then every
  * set you actually did, exercise by exercise. It replaces a "Daily quest
  * cleared" banner that said nothing, over a list of pills with no numbers in it.
@@ -258,7 +320,7 @@ export function SessionRecap({
       <div className="mt-4 flex items-center gap-3 rounded-lg bg-muted px-4 py-3 text-sm">
         <Info className="h-4 w-4 shrink-0 text-muted-foreground" />
         <p className="text-muted-foreground">
-          Finished with nothing logged — no sets were ticked off, so there is nothing to save.
+          No sets logged, so nothing is saved.
         </p>
       </div>
     );
@@ -291,10 +353,10 @@ export function SessionRecap({
     <div className="system-pop mt-4">
       <div className="flex items-center gap-2.5">
         <QuestScroll className="h-9 w-[42px]" />
-        <div className="min-w-0">
-          <p className="font-display text-lg font-bold leading-tight tracking-tight">Session done</p>
+        <div className="min-w-0 flex-1">
+          <p className="font-display text-lg font-bold leading-tight tracking-tight">Workout done</p>
           <p className="text-xs text-muted-foreground tabular-nums">
-            {doneCount} {doneCount === 1 ? "exercise" : "exercises"} · saved to your progress
+            {doneCount} {doneCount === 1 ? "exercise" : "exercises"} · saved to Progress
           </p>
           {session.startedAt && session.finishedAt ? (
             <p className="text-xs font-semibold text-brand tabular-nums">
@@ -303,6 +365,10 @@ export function SessionRecap({
             </p>
           ) : null}
         </div>
+        <ShareWorkout
+          title="Workout done"
+          text={shareText(session, summary, distanceKm > 0 ? formatDistance(distanceKm, unit) : undefined)}
+        />
       </div>
 
       <div
@@ -349,7 +415,7 @@ export function SessionRecap({
 
       {summary.muscles.length > 0 ? (
         <div className="border-t border-border pt-3">
-          <p className="text-xs font-semibold text-muted-foreground">What you hit</p>
+          <p className="text-xs font-semibold text-muted-foreground">Muscles used</p>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {summary.muscles.map((muscle) => (
               <span

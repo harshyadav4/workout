@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { SignInNudge } from "@/features/auth/sign-in-nudge";
 import { LevelUpGem } from "@/features/home/artifacts";
 import { ExerciseLedger } from "@/features/home/exercise-ledger";
 import { FinishConfirm } from "@/features/home/finish-confirm";
@@ -121,7 +122,7 @@ function SessionClock({ startedAt }: { startedAt?: string }) {
     return null;
   }
   return (
-    <p className="mt-0.5 truncate text-xs text-brand tabular-nums" role="timer" aria-label="Session time">
+    <p className="mt-0.5 truncate text-xs text-brand tabular-nums" role="timer" aria-label="Workout time">
       Started {formatTimeOfDay(startedAt)} · {formatClock(elapsedSeconds(Date.parse(startedAt), now))}
     </p>
   );
@@ -163,7 +164,7 @@ function SessionStrip({
 
 function NextUp({ session }: { session?: ScheduledSession }) {
   if (!session) {
-    return <p className="text-sm text-muted-foreground">Nothing scheduled ahead.</p>;
+    return <p className="text-sm text-muted-foreground">No workout is scheduled.</p>;
   }
 
   return (
@@ -196,7 +197,7 @@ function LevelUpNotice({ name, weight }: { name: string; weight: number }) {
       <div className="min-w-0">
         <p className="font-display text-base font-extrabold leading-tight tracking-tight text-brand">Level up!</p>
         <p className="truncate text-xs text-muted-foreground">
-          New best on <span className="capitalize">{name}</span>: {weight} kg
+          New record on <span className="capitalize">{name}</span>: {weight} kg
         </p>
       </div>
     </div>
@@ -398,15 +399,14 @@ export function HomeDashboard() {
           <DayHeader
             tag="Setup"
             tone="warning"
-            title="Build your first session"
-            detail="Nothing scheduled yet"
+            title="Make your first workout"
+            detail="No workouts scheduled"
           />
           <p className="mt-4 max-w-[20rem] text-sm text-muted-foreground">
-            Put a session together once — exercises, sets, weights — then schedule it across the
-            weeks. This screen becomes your logbook.
+            Build a workout once, then schedule it on your training days.
           </p>
           <Button asChild size="lg" className="mt-5 w-full">
-            <Link href="/plan?mode=build">Create a session</Link>
+            <Link href="/plan?mode=build">Add workout</Link>
           </Button>
         </Card>
         {/* Above the map, below the pitch: the fastest path from install to a
@@ -414,7 +414,7 @@ export function HomeDashboard() {
         <QuickStart />
         <MuscleMapCard
           title="Muscle map"
-          description="Once a session is scheduled, the muscles it works light up here."
+          description="Schedule a workout to see the muscles it uses."
           highlights={muscleHighlights}
           selectedMuscleId={selectedMuscle.id}
           selectedMuscleName={selectedMuscle.name}
@@ -434,11 +434,11 @@ export function HomeDashboard() {
           <DayHeader
             tag={isRest ? "Rest" : "Open"}
             tone={isRest ? "accent" : "secondary"}
-            title={isRest ? "Rest day" : "No session today"}
+            title={isRest ? "Rest day" : "No workout today"}
             detail={
               isRest
-                ? "Recovery is when the work sticks. Nothing to log."
-                : "This weekday has nothing assigned."
+                ? "Your muscles recover today."
+                : "No workout is set for this day."
             }
           />
           <div className="mt-4">
@@ -448,7 +448,7 @@ export function HomeDashboard() {
             <Button asChild variant="secondary" className="mt-3 w-full">
               <Link href="/plan">
                 <CalendarPlus className="h-4 w-4" />
-                Schedule a session
+                Schedule workout
               </Link>
             </Button>
           )}
@@ -462,8 +462,8 @@ export function HomeDashboard() {
           title="Muscle map"
           description={
             next
-              ? `What ${next.sessionName} works when it comes around.`
-              : "Schedule a session to see the muscles it works."
+              ? `The muscles that ${next.sessionName} uses.`
+              : "Schedule a workout to see the muscles it uses."
           }
           highlights={muscleHighlights}
           selectedMuscleId={selectedMuscle.id}
@@ -515,7 +515,7 @@ export function HomeDashboard() {
             <p className="flex items-center gap-2 rounded-xl bg-brand/10 px-4 py-2.5 text-xs ring-1 ring-brand/25">
               <Timer className="h-4 w-4 shrink-0 text-brand" aria-hidden />
               <span>
-                Session clock started at {formatTimeOfDay(day.session.startedAt)}. It stops when you tap Finish.
+                Clock started at {formatTimeOfDay(day.session.startedAt)}. Finish workout stops it.
               </span>
             </p>
           ) : null}
@@ -543,13 +543,15 @@ export function HomeDashboard() {
           {day.kind === "ready" ? (
             <Button size="lg" className="mt-5 w-full" onClick={() => startSession(day.session.id)}>
               <PlayCircle className="h-5 w-5" />
-              Start session
+              Start workout
             </Button>
           ) : null}
 
           {isDone ? (
             <>
               <SessionRecap summary={sessionSummary} session={day.session} logs={writtenLogs} />
+              {/* A guest's first finished session: the moment an account is worth it. */}
+              <SignInNudge place="finish-card" />
               {/* Below the payoff, never above it. The reward comes first. */}
               <MeasurementPrompt />
             </>
@@ -563,7 +565,7 @@ export function HomeDashboard() {
         <Card className="pb-2 pt-2" data-tour="home-work">
           <div className="flex items-baseline justify-between py-2">
             <h3 className="text-[15px] font-bold tracking-tight">
-              The work
+              Today's exercises
             </h3>
             <p className="text-xs text-muted-foreground tabular-nums">
               {exerciseCount(day.session.exercises.length)}
@@ -603,7 +605,7 @@ export function HomeDashboard() {
             <div className="mt-2 border-t border-border pt-3 pb-2">
               {addingExercise ? (
                 <WorkoutPicker
-                  confirmLabel="Add"
+                  confirmLabel="Add exercises"
                   onConfirm={(exercises) => {
                     addExerciseToSession(day.session.id, exercises);
                     setAddingExercise(false);
@@ -612,7 +614,7 @@ export function HomeDashboard() {
               ) : (
                 <Button variant="ghost" className="w-full" onClick={() => setAddingExercise(true)}>
                   <Plus className="h-4 w-4" />
-                  Add an exercise
+                  Add exercise
                 </Button>
               )}
             </div>
@@ -625,8 +627,8 @@ export function HomeDashboard() {
           <Info className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
           <p className="text-muted-foreground">
             {totals.done === 0
-              ? "No sets logged yet — Finish now and nothing from this session is saved."
-              : `Only the ${totals.done} of ${totals.total} sets you logged will be saved. The rest won't count.`}
+              ? "No sets logged. Finishing now saves nothing."
+              : `Only your ${totals.done} of ${totals.total} logged sets get saved.`}
           </p>
         </div>
       ) : null}
@@ -644,7 +646,7 @@ export function HomeDashboard() {
           />
         ) : (
           <Button size="lg" className="w-full" onClick={requestFinish}>
-            Finish session
+            Finish workout
           </Button>
         )
       ) : null}
@@ -659,13 +661,14 @@ export function HomeDashboard() {
       {isLogging ? null : <InstallCard dismissible />}
 
       <MuscleMapCard
+        tourId="home-muscles"
         title="Muscle map"
         description={
           isLogging
-            ? "Following the set you are on. Tap another set to move the highlight."
+            ? "Muscles for your current set."
             : isDone
-              ? "What today's session worked."
-              : "Everything today's session covers."
+              ? "The muscles today's workout used."
+              : "The muscles today's workout uses."
         }
         highlights={muscleHighlights}
         selectedMuscleId={selectedMuscle.id}

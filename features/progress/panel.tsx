@@ -1,7 +1,6 @@
 "use client";
 
-import { Info } from "lucide-react";
-
+import { InfoNote } from "@/components/ui/info-note";
 import { cn } from "@/lib/utils";
 
 /**
@@ -18,10 +17,8 @@ import { cn } from "@/lib/utils";
  * why not an estimated 1RM — which is a page explaining itself instead of
  * showing you something. The prose is all still here, one tap behind the ⓘ.
  *
- * ponytail: `<details>`. It is a disclosure widget with keyboard support, an
- * accessible open/closed state and zero bytes of JavaScript. The whole header is
- * the summary, which is also how it clears the 44px touch minimum without a
- * separate hit area.
+ * The ⓘ itself is `InfoNote` (components/ui/info-note), shared with the
+ * other pages.
  */
 export function Panel({
   title,
@@ -42,7 +39,7 @@ export function Panel({
   children: React.ReactNode;
 }) {
   const heading = (
-    <div className="min-w-0 flex-1">
+    <div className="min-w-0">
       <h3 className="truncate text-[15px] font-bold tracking-tight">{title}</h3>
       {caption ? (
         <p className="mt-0.5 text-xs leading-snug text-muted-foreground">{caption}</p>
@@ -57,19 +54,11 @@ export function Panel({
           the workaround is a preventDefault that quietly breaks the keyboard. */}
       <div className="flex items-start gap-3">
         {note ? (
-          <details className="group min-w-0 flex-1">
-            <summary className="flex min-h-[44px] cursor-pointer list-none items-center gap-3 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
-              {heading}
-              <Info
-                className="h-4 w-4 shrink-0 text-muted-foreground transition-colors group-open:text-foreground"
-                aria-hidden
-              />
-              <span className="sr-only">About this chart</span>
-            </summary>
-            <p className="mb-1 mt-1 text-xs leading-relaxed text-muted-foreground">{note}</p>
-          </details>
+          <InfoNote heading={heading} note={note} label="About this chart" />
         ) : (
-          <div className="flex min-h-[44px] min-w-0 flex-1 items-center">{heading}</div>
+          <div className="flex min-h-[44px] min-w-0 flex-1 items-center">
+            <div className="min-w-0 flex-1">{heading}</div>
+          </div>
         )}
         {action}
       </div>

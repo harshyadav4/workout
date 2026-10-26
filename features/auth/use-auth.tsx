@@ -44,7 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loading,
     signIn: async () => {
       if (!supabase) {
-        throw new Error("Supabase is not configured");
+        throw new Error("Sign-in is not available. Supabase is not set up.");
       }
       // Redirect rather than popup: popups are blocked by default on mobile
       // browsers, which is where this app is used.
@@ -61,7 +61,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // chain, an unconfigured Supabase resolved as success.
     logout: async () => {
       if (!supabase) {
-        throw new Error("Supabase is not configured");
+        throw new Error("Sign-in is not available. Supabase is not set up.");
       }
       const { error } = await supabase.auth.signOut();
       if (error) {

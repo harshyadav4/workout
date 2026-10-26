@@ -53,21 +53,17 @@ export function TopSetWall({
 
   return (
     <Panel
-      title="Each lift over time"
-      caption="Your heaviest set in each session, one box per lift. Biggest gain first"
+      title="Heaviest set"
+      caption="Per exercise · biggest gain first"
       note={
         <>
-          Each box shows the heaviest set of each session for one lift. A line that goes up means
-          you got stronger. Each box has its own scale, so a 4 kg gain on a curl is as easy to see
-          as a 40 kg gain on a deadlift. Look at the line for the direction, and at the number for
-          the size. This is the weight you really lifted, not an estimate.
+          Each box has its own scale, so a 4 kg gain on a curl shows as clearly as 40 kg on a
+          deadlift. These are real weights, not estimates.
         </>
       }
     >
       {tiles.length === 0 ? (
-        <EmptyChart>
-          Do the same lift in two sessions, and its line appears here.
-        </EmptyChart>
+        <EmptyChart>Do an exercise in 2 workouts to see its line.</EmptyChart>
       ) : (
         <ul className="grid grid-cols-2 gap-x-3 gap-y-2">
           {tiles.map((tile) => (
@@ -131,7 +127,7 @@ function Sparkline({ points, color }: { points: TopSetPoint[]; color: string }) 
       className="my-1 h-[34px] w-full"
       preserveAspectRatio="none"
       role="img"
-      aria-label={`${points.length} sessions, ${low} kg to ${high} kg`}
+      aria-label={`${points.length} workouts, ${low} kg to ${high} kg`}
     >
       <polyline
         points={coords.map(([x, y]) => `${x},${y}`).join(" ")}

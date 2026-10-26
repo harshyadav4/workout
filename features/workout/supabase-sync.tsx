@@ -5,7 +5,14 @@ import { useEffect, useRef } from "react";
 import { useAuth } from "@/features/auth/use-auth";
 import { afterTour, isTouring } from "@/features/tour/tour-store";
 import { setSyncStatus, useSyncStatus } from "@/features/workout/sync-status";
-import { useWorkoutStoreApi } from "@/features/workout/workout-store";
+import { askGuestMerge } from "@/features/auth/guest-merge-prompt";
+import {
+  clearGuestCopy,
+  guestDeclinedBy,
+  readGuestCopy,
+  useWorkoutStoreApi
+} from "@/features/workout/workout-store";
+import { countCopy, decideGuestMerge, describeCounts, guestAsIncoming } from "@/lib/guest-merge";
 import {
   loadUserState,
   pushChanges,
@@ -47,7 +54,7 @@ const NOTHING_KNOWN_REMOTE: SyncableState = {
 };
 
 export function SupabaseSync() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const store = useWorkoutStoreApi();
   const userId = user?.id;
   // The only reason this component subscribes to its own status: a Retry tap on
@@ -66,13 +73,19 @@ export function SupabaseSync() {
     if (!supabase || !userId) {
       syncedRef.current = undefined;
       setSyncStatus({ lastSyncedAt: undefined, error: undefined });
+      // Known to be signed out: the guest copy, never the last account's —
+      // that one stays saved for the next sign-in. Not while sign-in is still
+      // loading (a second of "no user" on every open), and not mid-tour.
+      if (!loading) {
+        afterTour(() => store.getState().switchToGuest());
+      }
       return;
     }
 
     // Before anything is read or pushed: prove the persisted copy is this
     // user's, or drop it. Everything below may upload local state, and on a
     // shared device that state can be the previous account's.
-    store.getState().claimFor(userId);
+    store.getState().switchToAccount(userId);
 
     loadFailedRef.current = false;
     let cancelled = false;
@@ -157,6 +170,22 @@ export function SupabaseSync() {
           store.getState().hydrateRemote(remote);
           syncedRef.current = snapshotState(store.getState());
           setSyncStatus({ lastSyncedAt: Date.now(), error: undefined });
+
+          // Then the guest copy — after the baseline above, so moving it in is
+          // a change, and the next push sends it to the account.
+          const guest = readGuestCopy();
+          const decision = decideGuestMerge({
+            guest,
+            account: snapshotState(store.getState()),
+            declined: guestDeclinedBy(userId)
+          });
+          if (guest && decision === "move") {
+            // An empty account: nothing to mix with, so no question.
+            store.getState().hydrateRemote(guestAsIncoming(guest, store.getState().profile));
+            clearGuestCopy();
+          } else if (guest && decision === "ask") {
+            askGuestMerge(userId, describeCounts(countCopy(guest)));
+          }
         });
       })
       .catch((error: unknown) => {
@@ -178,7 +207,7 @@ export function SupabaseSync() {
       window.removeEventListener("pagehide", flushNow);
       unsubscribe();
     };
-  }, [attempt, store, userId]);
+  }, [attempt, loading, store, userId]);
 
   return null;
 }

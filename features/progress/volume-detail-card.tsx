@@ -23,19 +23,19 @@ export function VolumeDetailCard({
 
   const rows = [
     {
-      label: "Weight lifted / week",
+      label: "Kg per week",
       value: formatVolume(summary.volumePerWeek),
       unit: "kg",
       change: previous ? percentChange(summary.volumePerWeek, previous.volumePerWeek) : undefined
     },
     {
-      label: "Weight per session",
+      label: "Kg per workout",
       value: formatVolume(summary.sessionVolume),
       unit: "kg",
       change: previous ? percentChange(summary.sessionVolume, previous.sessionVolume) : undefined
     },
     {
-      label: "Average weight per rep",
+      label: "Kg per rep",
       value: summary.weightPerRep.toFixed(1),
       unit: "kg",
       change: previous ? percentChange(summary.weightPerRep, previous.weightPerRep) : undefined
@@ -46,7 +46,7 @@ export function VolumeDetailCard({
       change: previous ? percentChange(summary.repsPerSet, previous.repsPerSet) : undefined
     },
     {
-      label: "Sets per session",
+      label: "Sets per workout",
       value: summary.setsPerSession.toFixed(1),
       change: previous ? percentChange(summary.setsPerSession, previous.setsPerSession) : undefined
     }
@@ -54,14 +54,12 @@ export function VolumeDetailCard({
 
   return (
     <Panel
-      title="What made the total"
+      title="Weight breakdown"
       caption={readOf(summary, previous)}
       note={
         <>
-          Total weight lifted = weight × reps × sets. (A rep is one repetition.) This card splits the total into those parts.
-          If the total goes up but the weight per rep stays the same, you did <em>more</em> work.
-          If the weight per rep goes up, you got <em>stronger</em>. The total alone cannot show the
-          difference.
+          Weight lifted = weight × reps × sets. If the total goes up but kg per rep does not, you did{" "}
+          <em>more</em> work. If kg per rep goes up, you got <em>stronger</em>.
         </>
       }
     >
@@ -93,27 +91,27 @@ export function VolumeDetailCard({
 /** One sentence naming which factor actually moved — the thing a grid of five numbers hides. */
 function readOf(summary: ProgressSummary, previous?: ProgressSummary) {
   if (!previous || previous.sessions === 0) {
-    return "The parts of your total: how heavy, how many reps, and how many sets.";
+    return "How heavy, how many reps, how many sets";
   }
 
   const load = percentChange(summary.weightPerRep, previous.weightPerRep) ?? 0;
   const work = percentChange(summary.sets, previous.sets) ?? 0;
 
   if (Math.abs(load) < 2 && Math.abs(work) < 2) {
-    return "Weight and sets stayed about the same as the period before.";
+    return "About the same weight and sets as before";
   }
 
   if (load >= 2 && work >= 2) {
-    return "Heavier weights and more sets. Strong progress — make sure you rest enough.";
+    return "Heavier weights and more sets — rest well";
   }
 
   if (load >= 2) {
-    return "You lifted heavier with the same number of sets. You are getting stronger.";
+    return "Heavier weights, same sets — you got stronger";
   }
 
   if (work >= 2) {
-    return "You did more sets at a similar weight. More work, not heavier work.";
+    return "More sets at a similar weight";
   }
 
-  return "Both weight and sets went down. Fine for an easy week; if not planned, get back on track.";
+  return "Less weight and fewer sets — fine for an easy week";
 }

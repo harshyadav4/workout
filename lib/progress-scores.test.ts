@@ -67,10 +67,10 @@ function set(date: string, weight: number, reps: number, extra: Partial<SetLog> 
   assert.equal(ring.fill, 0.5, "fill is the share of lifts that went up");
   assert.equal(ring.value, "+5%", "value is the average gain");
   assert.equal(ring.tone, "good");
-  assert.match(ring.sentence, /1 of your 2 main lifts went up/);
+  assert.match(ring.sentence, /1 of your 2 main exercises went up/);
   assert.match(
     strengthRing([log("2026-09-01", "bench", 100), log("2026-10-01", "bench", 110), log("2026-09-01", "squat", 100), log("2026-10-01", "squat", 105)]).sentence,
-    /^All 2 of your main lifts went up/
+    /^All 2 main exercises went up/
   );
 
   const single = strengthRing([log("2026-09-01", "bench", 100), log("2026-10-01", "bench", 120)]);
@@ -104,12 +104,12 @@ function set(date: string, weight: number, reps: number, extra: Partial<SetLog> 
   const behind = consistencyRing([...habit, log(monday, "bench")], today);
   assert.equal(behind.value, "1/4");
   assert.equal(behind.fill, 0.25);
-  assert.match(behind.sentence, /3 more sessions this week/);
-  assert.match(behind.sentence, /Your streak: 9 weeks in a row/, "a live streak is named");
+  assert.match(behind.sentence, /3 more workouts to reach 4 this week/);
+  assert.match(behind.sentence, /9-week streak/, "a live streak is named");
 
   const keepStreak = consistencyRing(habit, today);
   assert.equal(keepStreak.value, "0/4");
-  assert.match(keepStreak.sentence, /One session keeps your 8-week streak/);
+  assert.match(keepStreak.sentence, /Do 1 workout this week to keep your 8-week streak/);
 
   const done = consistencyRing(
     [...habit, ...[0, 1].map((day) => log(shiftKey(monday, day), "bench"))],
@@ -118,7 +118,7 @@ function set(date: string, weight: number, reps: number, extra: Partial<SetLog> 
   );
   assert.equal(done.fill, 1, "a passed target fills the ring");
   assert.equal(done.tone, "good");
-  assert.match(done.sentence, /Weekly goal done\. 9 weeks in a row/);
+  assert.match(done.sentence, /Weekly goal done, 9 weeks in a row/);
 
   // Two exercises on one day are one session.
   const sameDay = consistencyRing([log(monday, "bench"), log(monday, "squat")], today, 3);
@@ -159,7 +159,7 @@ function set(date: string, weight: number, reps: number, extra: Partial<SetLog> 
   const losing = bodyRing([weigh("2026-09-01", 80), weigh("2026-10-01", 77)], 75);
   assert.equal(losing.fill, 0.6);
   assert.equal(losing.value, "3.0 kg");
-  assert.match(losing.sentence, /3\.0 kg of 5\.0 kg done\. 2\.0 kg to go\./);
+  assert.match(losing.sentence, /3\.0 kg of 5\.0 kg done, 2\.0 kg to go\./);
   assert.equal(losing.tone, "good");
 
   // Gaining works by the sign of the goal.
@@ -279,14 +279,14 @@ function set(date: string, weight: number, reps: number, extra: Partial<SetLog> 
   assert.equal(mixed.value, "4/6", "10 and 20 are both on goal");
   assert.equal(mixed.fill, 4 / 6);
   assert.equal(mixed.tone, "steady");
-  assert.match(mixed.sentence, /Core needs more sets \(3\.0 a week\)/, "the lowest group is named");
+  assert.match(mixed.sentence, /Core gets 3\.0 sets a week/, "the lowest group is named");
 
   const skipped = musclesRing(sets([12, 14, 10, 15, 0, 12]));
-  assert.match(skipped.sentence, /Core gets no sets at all/);
+  assert.match(skipped.sentence, /Core gets no sets/);
   assert.equal(skipped.tone, "good");
 
   assert.match(musclesRing(sets([12, 12, 12, 12, 12, 12])).sentence, /All 6 muscle groups/);
-  assert.match(musclesRing(sets([12, 12, 12, 12, 12, 30])).sentence, /Legs gets more than 20/);
+  assert.match(musclesRing(sets([12, 12, 12, 12, 12, 30])).sentence, /Legs gets over 20/);
 }
 
 console.log("progress score checks passed");

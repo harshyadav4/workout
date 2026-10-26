@@ -21,8 +21,7 @@ export function WinsCard({ wins, rangeLabel }: { wins: Win[]; rangeLabel: string
     <Panel title="Your wins" caption={rangeLabel}>
       {wins.length === 0 ? (
         <p className="py-2 text-sm text-muted-foreground">
-          Your wins show here: new records, lifts that went up, and weeks in a row. Keep logging
-          your sessions.
+          Records, gains, and streaks show here as you train.
         </p>
       ) : (
         <ul className="space-y-2">

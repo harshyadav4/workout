@@ -102,7 +102,7 @@ export function ExerciseChips({
     <div className="-mx-4 overflow-x-auto px-4 scrollbar-hide [mask-image:linear-gradient(to_right,black_calc(100%-24px),transparent)]">
       <div className="flex w-max gap-2">
         <Chip active={!workoutId} onClick={() => onWorkoutChange(undefined)}>
-          All lifts
+          All exercises
         </Chip>
         {exercises.map((exercise) => (
           <Chip

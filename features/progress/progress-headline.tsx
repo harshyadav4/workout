@@ -62,7 +62,7 @@ export function ProgressHeadline({
   return (
     <Card>
       <p className="text-xs font-semibold text-muted-foreground">
-        Total weight lifted · {RANGE_LABELS[range]}
+        Weight lifted · {RANGE_LABELS[range]}
       </p>
       <p className="mt-1.5 font-display text-3xl font-extrabold leading-none tracking-tight tabular-nums">
         {formatBig(summary.volume)}
@@ -138,7 +138,7 @@ function verdict({
   topGain?: StrengthGrowth;
 }): { good?: string; next: string } {
   if (summary.sessions === 0) {
-    return { next: "No sessions in this time range. Pick a longer range, or go train." };
+    return { next: "No workouts in this range. Try a longer range." };
   }
 
   return { good: goingWell(summary, change, streaks, topGain), next: tryNext(change, weeklySets, daysSincePR) };
@@ -151,23 +151,23 @@ function goingWell(
   topGain?: StrengthGrowth
 ) {
   if (topGain && topGain.changePercent >= 2) {
-    return `${topGain.name} went up from ${topGain.first} kg to ${topGain.last} kg (+${Math.round(topGain.changePercent)}%).`;
+    return `${topGain.name}: ${topGain.first} → ${topGain.last} kg (+${Math.round(topGain.changePercent)}%).`;
   }
 
   if (change !== undefined && change >= NOTABLE_CHANGE) {
-    return `You lifted ${Math.round(change)}% more than in the period before.`;
+    return `${Math.round(change)}% more weight lifted than the period before.`;
   }
 
   if (streaks.currentWeeks >= 2) {
-    return `${streaks.currentWeeks} weeks in a row with at least one session.`;
+    return `${streaks.currentWeeks} weeks in a row with a workout.`;
   }
 
-  return `${summary.sessions} ${summary.sessions === 1 ? "session" : "sessions"} done in this range. Every one counts.`;
+  return `${summary.sessions} ${summary.sessions === 1 ? "workout" : "workouts"} in this range.`;
 }
 
 function tryNext(change: number | undefined, weeklySets: GroupSets[], daysSincePR?: number) {
   if (daysSincePR !== undefined && daysSincePR >= PLATEAU_DAYS) {
-    return `No new personal record in ${Math.floor(daysSincePR / 7)} weeks. Try to add a little weight, or one more rep, to one main lift.`;
+    return `No record in ${Math.floor(daysSincePR / 7)} weeks — add a little weight or 1 rep.`;
   }
 
   // Only groups you actually train: a group at zero is a programme choice, and
@@ -178,18 +178,18 @@ function tryNext(change: number | undefined, weeklySets: GroupSets[], daysSinceP
 
   if (lagging.length > 0) {
     const worst = lagging[lagging.length - 1];
-    return `${worst.label} gets only ${worst.setsPerWeek.toFixed(1)} sets a week (goal ${WEEKLY_SET_TARGET.low}–${WEEKLY_SET_TARGET.high}). Add a few ${worst.label.toLowerCase()} sets next week.`;
+    return `${worst.label} gets ${worst.setsPerWeek.toFixed(1)} sets a week — aim for ${WEEKLY_SET_TARGET.low}–${WEEKLY_SET_TARGET.high}.`;
   }
 
   if (change !== undefined && change <= -NOTABLE_CHANGE) {
-    return `You lifted ${Math.abs(Math.round(change))}% less than in the period before. Fine if you planned an easy phase; if not, get back to your usual week.`;
+    return `${Math.abs(Math.round(change))}% less weight than before — fine if you planned an easy period.`;
   }
 
   if (change !== undefined && change >= NOTABLE_CHANGE) {
-    return "You are doing a lot more than before. Sleep and eat well so your body can recover.";
+    return "Much more weight than before — sleep and eat well.";
   }
 
-  return "Keep going. Try to add a little weight, or one more rep, to your main lifts.";
+  return "Add a little weight or 1 rep to a main exercise.";
 }
 
 /** Direction is an arrow first and a colour second — never colour alone. */

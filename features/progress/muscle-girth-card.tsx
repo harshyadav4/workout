@@ -60,13 +60,12 @@ export function MuscleGirthCard({
 
   return (
     <Panel
-      title={`${name} — measured`}
+      title="Measurements"
       caption={sites.length > 1 ? "Tape size, left and right, in cm" : "Tape size in cm"}
       note={
         <>
-          Your tape measurements next to your training. Left and right have separate lines, so you
-          can see if one side is bigger. The chart does not start at zero, because a muscle grows
-          only about a centimetre in months, and that small change must be easy to see.
+          Left and right have separate lines. The axis does not start at 0, so a 1 cm change is
+          easy to see.
         </>
       }
     >
@@ -112,10 +111,10 @@ export function MuscleGirthCard({
             Over {callout.weeks} weeks: weight lifted {callout.volumeChangePct >= 0 ? "up" : "down"}{" "}
             {Math.abs(Math.round(callout.volumeChangePct))}%, {name.toLowerCase()}{" "}
             {callout.girthChangeCm >= 0 ? "up" : "down"}{" "}
-            {Math.abs(callout.girthChangeCm).toFixed(1)}cm
+            {Math.abs(callout.girthChangeCm).toFixed(1)}cm.
           </span>{" "}
           <span className="text-muted-foreground">
-            — this shows what changed, not why. Sleep, food and genes also change your size.
+            This shows what changed, not why.
           </span>
         </p>
       ) : null}

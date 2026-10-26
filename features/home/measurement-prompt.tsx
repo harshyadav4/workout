@@ -50,10 +50,9 @@ export function MeasurementPrompt() {
 
   return (
     <div className="mt-4 rounded-xl bg-muted p-4">
-      <p className="font-display text-lg font-bold tracking-tight">Take a reading?</p>
+      <p className="font-display text-lg font-bold tracking-tight">Add your measurements</p>
       <p className="mt-1 text-sm text-muted-foreground">
-        You set this cadence yourself. Girth is the other half of every chart on Progress — fill in
-        what you have, skip the rest.
+        Fill in only the ones you have.
       </p>
 
       <div className="mt-3 space-y-2">

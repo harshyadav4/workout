@@ -26,8 +26,8 @@ import type { MuscleGroup, MuscleId } from "@/lib/types";
 const RECOVERY: Record<RecoveryState, { color: string; label: string; hint: string }> = {
   recovering: { color: "#8a5fe0", label: "Recovering", hint: "trained in the last day" },
   ready: { color: "hsl(var(--success))", label: "Ready", hint: "rested 2–7 days" },
-  due: { color: "hsl(var(--warning))", label: "Due", hint: "not trained in over a week" },
-  never: { color: MUSCLE_IDLE_COLOR, label: "Not trained", hint: "no direct work yet" }
+  due: { color: "hsl(var(--warning))", label: "Due", hint: "over 1 week" },
+  never: { color: MUSCLE_IDLE_COLOR, label: "Not trained", hint: "not yet" }
 };
 
 const ORDER: RecoveryState[] = ["ready", "recovering", "due", "never"];
@@ -83,18 +83,16 @@ export function RecoveryMapCard({
 
   return (
     <Panel
-      title="Ready to train today"
+      title="Ready today"
       caption={
         ready.length > 0
           ? `Ready: ${ready.join(" · ")}`
-          : "How rested each muscle is, from your last sessions"
+          : "How rested each muscle is"
       }
       note={
         <>
-          Each muscle is colored by the days since a lift last worked it directly. A muscle needs
-          about 48 hours to recover after hard training. Muscles that only helped in a lift (for
-          example, triceps in a bench press) do not count as trained. Tap a muscle to see its
-          details.
+          Color shows the days since an exercise last worked the muscle directly. A muscle needs
+          about 48 hours to recover. Helper muscles, like triceps in a bench press, do not count.
         </>
       }
     >
@@ -126,7 +124,7 @@ export function RecoveryMapCard({
             <span>
               <span className="font-semibold">{RECOVERY[state].label}:</span>{" "}
               {(byState.get(state) ?? []).join(" · ")}
-              <span className="text-muted-foreground"> — {RECOVERY[state].hint}</span>
+              <span className="text-muted-foreground"> ({RECOVERY[state].hint})</span>
             </span>
           </li>
         ))}
@@ -155,14 +153,12 @@ export function GrowthTimelineCard({ weeks }: { weeks: GroupWeek[] }) {
 
   return (
     <Panel
-      title="Work per muscle, week by week"
-      caption={`Sets per week, last ${weeks.length} weeks · shaded band = goal of ${WEEKLY_SET_TARGET.low}–${WEEKLY_SET_TARGET.high}`}
+      title="Sets by week"
+      caption={`Last ${weeks.length} weeks · band = goal ${WEEKLY_SET_TARGET.low}–${WEEKLY_SET_TARGET.high}`}
       note={
         <>
-          One small chart for each muscle group. Each point is the number of sets that group got in
-          one week. When the line sits in the shaded band, the group gets enough work to grow. A
-          line that climbs over the weeks means you give that muscle more work over time. Only full
-          weeks are shown, so this week appears once it ends.
+          1 small chart per muscle group. In the shaded band, the group gets enough sets to grow.
+          Only full weeks show.
         </>
       }
     >
@@ -194,7 +190,7 @@ function TimelineTile({ group, weeks, ceiling }: { group: MuscleGroup; weeks: Gr
       <div
         className="mt-1 h-12"
         role="img"
-        aria-label={`${GROUP_LABELS[group]}: about ${average.toFixed(0)} sets a week lately, ${onGoal ? "on goal" : "off goal"}`}
+        aria-label={`${GROUP_LABELS[group]}: about ${average.toFixed(0)} sets a week recently, ${onGoal ? "in goal range" : "not in goal range"}`}
       >
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={weeks} margin={{ top: 2, right: 2, bottom: 2, left: 2 }}>
@@ -231,13 +227,11 @@ export function BalanceCard({ pushPull, upperLower }: { pushPull?: BalancePair; 
   return (
     <Panel
       title="Balance"
-      caption="How your work is shared between opposite sides"
+      caption="Opposite sides compared"
       note={
         <>
-          Push lifts move weight away from you (bench press, overhead press). Pull lifts move weight
-          toward you (rows, pulldowns). When push is much bigger than pull, the shoulders can round
-          forward over time. Upper vs lower compares your arms, chest, back and shoulders with your
-          legs. Inside 45–55% counts as balanced.
+          Push moves weight away from you (bench press); pull moves it toward you (rows). Much more
+          push than pull can round your shoulders. 45–55% is balanced.
         </>
       }
     >

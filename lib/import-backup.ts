@@ -100,7 +100,7 @@ export interface ParsedBackup {
  */
 export function parseExport(raw: unknown): ParsedBackup {
   if (!isObject(raw)) {
-    throw new ImportError("That file isn't a Arise export.");
+    throw new ImportError("This file is not an Arise backup.");
   }
 
   const state: RemoteState = {
@@ -139,15 +139,15 @@ export function parseExport(raw: unknown): ParsedBackup {
 
   const counts = {
     exercises: state.templates.length,
-    sessions: state.sessionTemplates.length,
-    "scheduled days": state.scheduledSessions.length,
-    workouts: state.logs.length,
+    plans: state.sessionTemplates.length,
+    "planned days": state.scheduledSessions.length,
+    "exercise logs": state.logs.length,
     sets: state.setLogs.length,
     measurements: state.measurements.length
   };
 
   if (Object.values(counts).every((count) => count === 0) && !state.profile) {
-    throw new ImportError("That file has nothing in it we recognise.");
+    throw new ImportError("This file contains no Arise data.");
   }
 
   return { state, counts };
@@ -159,7 +159,7 @@ export function parseExportText(text: string): ParsedBackup {
   try {
     decoded = JSON.parse(text);
   } catch {
-    throw new ImportError("That file isn't valid JSON.");
+    throw new ImportError("This file is not a valid backup.");
   }
   return parseExport(decoded);
 }

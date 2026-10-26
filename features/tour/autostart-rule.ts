@@ -55,3 +55,60 @@ export function markTourSeen(): void {
     // Forgotten after this visit; the replay on the You tab still works.
   }
 }
+
+/**
+ * The quiet "Take the tour" line on Home: for the first week on this phone,
+ * until it is closed, and never over the tour itself. Days count from the
+ * first open of this phone, as date keys (YYYY-MM-DD) in the user's day.
+ */
+export const TOUR_LINK_DAYS = 7;
+
+export interface TourLinkInput {
+  /** The day this phone first opened the app; absent if storage is unreadable. */
+  firstOpen?: string;
+  today: string;
+  closed: boolean;
+  touring: boolean;
+}
+
+export function showTourLink({ firstOpen, today, closed, touring }: TourLinkInput): boolean {
+  if (!firstOpen || closed || touring) {
+    return false;
+  }
+  const days = (Date.parse(`${today}T00:00:00Z`) - Date.parse(`${firstOpen}T00:00:00Z`)) / 86_400_000;
+  return days >= 0 && days <= TOUR_LINK_DAYS;
+}
+
+export const FIRST_OPEN_KEY = "arise.first-open";
+export const TOUR_LINK_CLOSED_KEY = "arise.tour-link-closed";
+
+/** The first-open day, saved as `today` the first time it is asked for. */
+export function readFirstOpen(today: string): string | undefined {
+  try {
+    const saved = localStorage.getItem(FIRST_OPEN_KEY);
+    if (saved) {
+      return saved;
+    }
+    localStorage.setItem(FIRST_OPEN_KEY, today);
+    return today;
+  } catch {
+    // Unreadable storage: no link, rather than one that can never be closed.
+    return undefined;
+  }
+}
+
+export function readTourLinkClosed(): boolean {
+  try {
+    return localStorage.getItem(TOUR_LINK_CLOSED_KEY) === "1";
+  } catch {
+    return true;
+  }
+}
+
+export function closeTourLink(): void {
+  try {
+    localStorage.setItem(TOUR_LINK_CLOSED_KEY, "1");
+  } catch {
+    // Shown again next visit; the You tab still has the tour.
+  }
+}

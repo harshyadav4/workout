@@ -47,7 +47,7 @@ export function InstallCard({ dismissible = false }: { dismissible?: boolean }) 
       {dismissible ? (
         <button
           type="button"
-          aria-label="Hide this"
+          aria-label="Hide this message"
           onClick={dismiss}
           className="absolute right-2 top-2 flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground hover:text-foreground"
         >
@@ -59,14 +59,14 @@ export function InstallCard({ dismissible = false }: { dismissible?: boolean }) 
         <div className="min-w-0">
           <p className="font-display text-lg font-bold leading-tight tracking-tight">Install Arise</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Opens full screen from your home screen, and works with no signal in the gym.
+            Opens full screen and works offline.
           </p>
         </div>
       </div>
       {state.kind === "prompt" ? (
         <Button className="mt-4 w-full" onClick={() => void state.install()}>
           <Download className="h-4 w-4" />
-          Install the app
+          Install
         </Button>
       ) : state.kind === "android" ? (
         <ol className="mt-4 space-y-2 text-sm">
@@ -75,8 +75,8 @@ export function InstallCard({ dismissible = false }: { dismissible?: boolean }) 
               1
             </span>
             <span className="flex flex-wrap items-center gap-1">
-              Tap <EllipsisVertical className="mx-0.5 inline h-4 w-4 text-brand" aria-label="the menu" /> in your
-              browser&apos;s toolbar
+              Tap <EllipsisVertical className="mx-0.5 inline h-4 w-4 text-brand" aria-label="the menu" /> in the
+              browser
             </span>
           </li>
           <li className="flex items-center gap-3 rounded-lg bg-muted px-3 py-2.5">
@@ -96,8 +96,7 @@ export function InstallCard({ dismissible = false }: { dismissible?: boolean }) 
               1
             </span>
             <span className="flex flex-wrap items-center gap-1">
-              Tap <Share className="mx-0.5 inline h-4 w-4 text-brand" aria-label="Share" /> Share in Safari&apos;s
-              toolbar
+              Tap <Share className="mx-0.5 inline h-4 w-4 text-brand" aria-label="Share" /> Share in Safari
             </span>
           </li>
           <li className="flex items-center gap-3 rounded-lg bg-muted px-3 py-2.5">

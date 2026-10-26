@@ -4,6 +4,7 @@ import { Archive, RotateCcw } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { InfoNote } from "@/components/ui/info-note";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/features/auth/use-auth";
 import { useSyncStatus } from "@/features/workout/sync-status";
@@ -134,7 +135,7 @@ export function DeletionBanner() {
       <div className="rounded-xl border border-border bg-card p-4" role="status">
         <p className="text-sm font-semibold">Deleting your old data…</p>
         <p className="mt-1 text-sm text-muted-foreground">
-          The {DELETION_GRACE_DAYS} days to restore are over. Anything you logged since stays.
+          The {DELETION_GRACE_DAYS} days to restore it are over. Newer data stays.
         </p>
         {failure ? <p className="mt-1 text-xs text-danger">{failure}</p> : null}
       </div>
@@ -150,8 +151,8 @@ export function DeletionBanner() {
         Your old data is hidden
       </p>
       <p className="mt-1 text-sm text-muted-foreground">
-        It is deleted for good on {formatDay(deletionDate(requestedAt))}. You have {left}{" "}
-        {left === 1 ? "day" : "days"} to bring it back.
+        {left} {left === 1 ? "day" : "days"} left to restore it. It goes for good on{" "}
+        {formatDay(deletionDate(requestedAt))}.
       </p>
 
       {stage === "idle" ? (
@@ -177,10 +178,10 @@ export function DeletionBanner() {
 
       {stage === "choose" ? (
         <div className="mt-3 space-y-2">
-          <p className="text-sm font-semibold">You logged new data since. What should happen to it?</p>
+          <p className="text-sm font-semibold">You have new data. What happens to it?</p>
           <Button className="h-auto w-full flex-col items-start py-3 text-left" disabled={pending} onClick={() => void restore("merge")}>
-            <span>Keep it, and add my old data back</span>
-            <span className="text-xs font-normal opacity-80">Both together, as one history.</span>
+            <span>Keep new data</span>
+            <span className="text-xs font-normal opacity-80">Restores old data and combines both.</span>
           </Button>
           <Button
             variant="secondary"
@@ -188,10 +189,8 @@ export function DeletionBanner() {
             disabled={pending}
             onClick={() => void restore("replace")}
           >
-            <span>Remove it, and go back to my old data</span>
-            <span className="text-xs font-normal text-muted-foreground">
-              Everything logged since the request is deleted.
-            </span>
+            <span>Delete new data</span>
+            <span className="text-xs font-normal text-muted-foreground">Restores old data only.</span>
           </Button>
           <Button variant="ghost" className="w-full" disabled={pending} onClick={() => setStage("idle")}>
             Cancel
@@ -202,8 +201,8 @@ export function DeletionBanner() {
       {stage === "delete" ? (
         <div className="mt-3">
           <p className="text-sm">
-            Delete your old data now, without waiting? Anything logged since stays.{" "}
-            <span className="font-semibold">This cannot be undone.</span>
+            This deletes your old data now. Newer data stays.{" "}
+            <span className="font-semibold">You cannot undo this.</span>
           </p>
           <ConfirmWord value={typed} onChange={setTyped} />
           <div className="mt-3 flex gap-2">
@@ -248,10 +247,7 @@ export function DataDeletion() {
 
   if (requestedAt) {
     return (
-      <p className="text-sm text-muted-foreground">
-        Your old data is hidden and waiting to be deleted. Restore it or delete it now from the
-        notice at the top of the page.
-      </p>
+      <p className="text-sm text-muted-foreground">Your old data is hidden. Use the notice at the top to restore it.</p>
     );
   }
 
@@ -288,17 +284,28 @@ export function DataDeletion() {
 
   return (
     <div className="rounded-xl border border-danger/40 p-4">
-      <p className="text-sm font-semibold text-danger">Delete all your data?</p>
-      <p className="mt-2 text-sm text-muted-foreground">
-        This removes your sessions, plans, records, weigh-ins, measurements, skills and your own
-        exercises from this phone and your account. The app starts fresh, and your sign-in stays.
-      </p>
-      <p className="mt-2 text-sm">
-        Your old data is <span className="font-semibold">hidden for {DELETION_GRACE_DAYS} days</span>{" "}
-        first. In that time you can bring it back — together with anything new, or instead of it.
-        After that, it is deleted for good the next time you open the app.
-      </p>
-      <p className="mt-2 text-xs text-muted-foreground">Tip: download a backup first, in Your data above.</p>
+      <InfoNote
+        heading={<p className="text-sm font-semibold text-danger">Delete all your data?</p>}
+        note={
+          <>
+            <p>You stay signed in.</p>
+            <p>
+              During the {DELETION_GRACE_DAYS} days, you can restore your data. You can keep your new data with it,
+              or replace your new data with it.
+            </p>
+            <p>After {DELETION_GRACE_DAYS} days, the app deletes it the next time you open the app.</p>
+          </>
+        }
+      />
+      <ul className="mt-1 space-y-1 text-sm text-muted-foreground">
+        <li>Deletes workouts, plans, records, weigh-ins, measurements, skills and your exercises.</li>
+        <li>Deletes from this phone and your account.</li>
+        <li>
+          <span className="font-semibold text-foreground">You have {DELETION_GRACE_DAYS} days to restore it.</span> Then you
+          cannot undo it.
+        </li>
+      </ul>
+      <p className="mt-2 text-xs text-muted-foreground">Tip: download a backup first.</p>
       <ConfirmWord value={typed} onChange={setTyped} />
       {failure ? <p className="mt-2 text-sm text-danger">{failure}</p> : null}
       <div className="mt-3 flex gap-2">
@@ -318,6 +325,69 @@ export function DataDeletion() {
             setConfirming(false);
             setTyped("");
             setFailure(undefined);
+          }}
+        >
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * A guest's version of "Delete all my data". No week to restore: there is no
+ * account to keep an archive in, and the text says so before the word is typed.
+ */
+export function ClearThisPhone() {
+  const clearGuestData = useWorkoutStore((state) => state.clearGuestData);
+  const [confirming, setConfirming] = useState(false);
+  const [typed, setTyped] = useState("");
+  const [done, setDone] = useState(false);
+
+  if (done) {
+    return <p className="text-center text-sm text-muted-foreground" role="status">Data on this phone is deleted.</p>;
+  }
+
+  if (!confirming) {
+    return (
+      <Button
+        variant="outline"
+        className="w-full border-danger/40 text-danger"
+        onClick={() => setConfirming(true)}
+      >
+        Delete data on this phone
+      </Button>
+    );
+  }
+
+  return (
+    <div className="rounded-xl border border-danger/40 p-4">
+      <p className="text-sm font-semibold text-danger">Delete data on this phone?</p>
+      <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
+        <li>Deletes your workouts, plans, records and weigh-ins.</li>
+        <li>No other copy exists.</li>
+        <li className="font-semibold text-foreground">You cannot undo this.</li>
+      </ul>
+      <p className="mt-2 text-xs text-muted-foreground">Tip: download a backup first.</p>
+      <ConfirmWord value={typed} onChange={setTyped} />
+      <div className="mt-3 flex gap-2">
+        <Button
+          variant="danger"
+          className="flex-1"
+          disabled={!confirmedWord(typed)}
+          onClick={() => {
+            clearGuestData();
+            setDone(true);
+          }}
+        >
+          Delete
+        </Button>
+        <Button
+          variant="secondary"
+          className="flex-1"
+          onClick={() => {
+            setConfirming(false);
+            setTyped("");
           }}
         >
           Cancel

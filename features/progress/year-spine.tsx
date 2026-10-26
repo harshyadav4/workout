@@ -20,9 +20,9 @@ function cellColor(level: number, heat: readonly string[]) {
 
 /** The spine draws `view.calendar`, which is scoped — so the heading says so. */
 const SPINE_LABELS: Record<ProgressRange, string> = {
-  "4w": "Four weeks",
-  "12w": "Twelve weeks",
-  "1y": "The year",
+  "4w": "4 weeks",
+  "12w": "12 weeks",
+  "1y": "Last year",
   all: "All time",
   custom: "Picked dates"
 };
@@ -103,7 +103,7 @@ export function YearSpine({
           <div
             className="flex gap-[3px]"
             role="img"
-            aria-label={`Training calendar: ${streaks.trainedDays} sessions across ${streaks.totalDays} days. Every value is also in the table at the foot of this page.`}
+            aria-label={`Training calendar: ${streaks.trainedDays} workouts in ${streaks.totalDays} days. Values are also in Workout history.`}
           >
             {weeks.map((week) => (
               <div key={week.start} className="flex flex-col gap-[3px]">
@@ -144,7 +144,8 @@ export function YearSpine({
 function Streak({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl bg-muted px-3 py-2">
-      <p className="text-xs font-semibold text-muted-foreground">
+      {/* Two lines tall, so the values stay level when a long label wraps. */}
+      <p className="min-h-8 text-xs font-semibold text-muted-foreground">
         {label}
       </p>
       <p className="mt-1 font-display text-lg font-extrabold tabular-nums leading-none tracking-tight">{value}</p>

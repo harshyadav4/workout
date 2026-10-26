@@ -28,7 +28,7 @@ const MEDIA_LIST_LIMIT = 1000;
 
 function client() {
   if (!supabase) {
-    throw new Error("Supabase is not configured");
+    throw new Error("Sign-in is not available. Supabase is not set up.");
   }
   return supabase;
 }
@@ -36,8 +36,8 @@ function client() {
 /** A missing table means 0008 has not run — say so, rather than show a code. */
 function archiveError(error: { code?: string; message?: string }): Error {
   return isMissingTable(error)
-    ? new Error("Deletion needs a database update (migration 0008). Nothing was changed.")
-    : new Error(error.message ?? "Could not reach your account.");
+    ? new Error("Deletion needs migration 0008. Your data did not change.")
+    : new Error(error.message ?? "Could not connect to your account.");
 }
 
 /**
@@ -68,14 +68,14 @@ export async function loadArchive(userId: string): Promise<RemoteState> {
     throw archiveError(error);
   }
   if (!data) {
-    throw new Error("The archive is gone — it may already have been deleted.");
+    throw new Error("Cannot find your old data.");
   }
   try {
     // The archive is a backup file in all but name, so it goes through the
     // same validation: a damaged row drops what it cannot read, not the lot.
     return parseExportText(JSON.stringify(data.payload)).state;
   } catch (cause) {
-    throw new Error(cause instanceof ImportError ? cause.message : "The archive could not be read.");
+    throw new Error(cause instanceof ImportError ? cause.message : "Could not read your old data.");
   }
 }
 

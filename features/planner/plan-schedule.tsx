@@ -14,6 +14,7 @@ import {
   DialogTitle,
   DRAWER_CONTENT
 } from "@/components/ui/dialog";
+import { InfoNote } from "@/components/ui/info-note";
 import { Input } from "@/components/ui/input";
 import { ThemedSelect } from "@/components/ui/select";
 import { SessionPreview } from "@/features/planner/session-preview";
@@ -145,7 +146,7 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
     // scheduleSession dedupes on date + name, so a repeat add is a silent
     // no-op — say so instead of looking broken.
     if (sessionsForDay.some((session) => session.sessionName === template.name)) {
-      setConfirmation(`${template.name} is already on this day`);
+      setConfirmation(`${template.name} is already on this day.`);
       return;
     }
     scheduleSession({
@@ -201,8 +202,8 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
   // two conditions is missing, in place of the generic helper line.
   const blockedReason = !hasWorkouts
     ? mode === "weekly"
-      ? "Assign a workout to at least one weekday first."
-      : "Add at least one workout to the rotation first."
+      ? "Put a workout on a weekday first."
+      : "Add a workout to the rotation first."
     : !startDate || !endDate
       ? "Set a start and an end date."
       : !validRange
@@ -236,7 +237,7 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
     ).length;
     generateSchedule(config);
     setConfirmation(
-      `Scheduled ${workouts} workout${workouts === 1 ? "" : "s"} through ${formatDayKey(endDate)}`
+      `Added ${workouts} workout${workouts === 1 ? "" : "s"} until ${formatDayKey(endDate)}.`
     );
   };
 
@@ -256,7 +257,7 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
 
     setEndDate(next);
     generateSchedule({ ...scheduleConfig, endDate: next });
-    setConfirmation(`Schedule extended through ${formatDayKey(next)}`);
+    setConfirmation(`Schedule extended to ${formatDayKey(next)}.`);
   };
 
   if (sessionTemplates.length === 0) {
@@ -264,7 +265,7 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
       <Card>
         <CardContent className="space-y-4 py-8 text-center">
           <p className="text-sm text-muted-foreground">
-            Nothing to schedule yet. Build a session first, then plan your weeks here.
+            Build a workout first. Then plan your weeks here.
           </p>
           <Button onClick={onGoBuild}>Go to Build</Button>
         </CardContent>
@@ -283,16 +284,16 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold">
                 {daysLeft === 0
-                  ? "Your schedule has run out"
+                  ? "Your schedule has ended"
                   : `Your schedule ends in ${daysLeft} day${daysLeft === 1 ? "" : "s"}`}
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
                 {daysLeft === 0
-                  ? "There is nothing on the calendar past today. Extend it and the same plan carries on."
-                  : "After that the calendar is empty. Extending keeps the same sessions and rest days."}
+                  ? "The calendar is empty after today."
+                  : "After that, the calendar is empty."}
               </p>
               <Button variant="secondary" className="mt-3 w-full" onClick={extendHorizon}>
-                Extend {DEFAULT_WEEKS} more weeks
+                Add {DEFAULT_WEEKS} weeks
               </Button>
             </div>
           </div>
@@ -423,13 +424,13 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
               ))}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">Nothing scheduled this day.</p>
+            <p className="text-sm text-muted-foreground">No workouts this day.</p>
           )}
 
           {/* Buttons, not a <select>: this performs an action, it does not pick
               a value — the select's own first option was a no-op instruction. */}
           {isPastDay ? (
-            <p className="mt-3 text-xs text-muted-foreground">Past day: kept as your history.</p>
+            <p className="mt-3 text-xs text-muted-foreground">Past days stay as your history.</p>
           ) : adding ? (
             <div className="mt-3">
               <p className="mb-2 text-xs text-muted-foreground">
@@ -462,7 +463,7 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
           ) : sessionTemplates.length > 0 ? (
             <Button variant="ghost" className="mt-2 w-full" onClick={() => setAdding(true)}>
               <Plus className="h-4 w-4" />
-              {sessionsForDay.length > 0 ? "Add more session" : "Add session"}
+              Add workout
             </Button>
           ) : null}
           {confirmation ? (
@@ -476,8 +477,8 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
 
       {dayWorkoutIds.length > 0 ? (
         <MuscleMapCard
-          title="Muscles this day hits"
-          description={`${selectedDay.dayLabel} ${selectedDay.dayNumber}'s sessions, at a glance.`}
+          title="Muscles worked"
+          description={`From the workouts on ${selectedDay.dayLabel} ${selectedDay.dayNumber}.`}
           highlights={dayHighlights}
           selectedMuscleId={dayMuscleId}
           selectedMuscleName={dayMuscle?.name}
@@ -490,7 +491,7 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
           calendar on every visit — nine controls you touch twice a season. */}
       <Button variant="secondary" size="lg" className="w-full" onClick={() => setEditOpen(true)}>
         <SlidersHorizontal className="h-4 w-4" />
-        {scheduleConfig ? "Edit the schedule" : "Set up a schedule"}
+        {scheduleConfig ? "Edit schedule" : "Set up schedule"}
       </Button>
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
@@ -498,8 +499,7 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
           <DialogHeader>
             <DialogTitle>Your schedule</DialogTitle>
             <DialogDescription>
-              Pick the dates, then a session for each weekday, or a rotation. Generate fills the
-              calendar.
+              Choose dates, then weekdays or a rotation.
             </DialogDescription>
           </DialogHeader>
 
@@ -549,21 +549,21 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
                     mode === item ? "key" : "text-muted-foreground"
                   }`}
                 >
-                  {item === "weekly" ? "Fixed weekly" : "Rotation"}
+                  {item === "weekly" ? "Weekly" : "Rotation"}
                 </button>
               ))}
             </div>
 
             {mode === "weekly" ? (
               <div className="space-y-2">
-                <p className="text-xs text-muted-foreground">Pick a session for each day.</p>
+                <p className="text-xs text-muted-foreground">Choose a workout for each day.</p>
                 {WEEKDAY_LABELS.map((label, day) => (
                   <div key={label} className="flex items-center gap-3">
                     <span className="w-10 shrink-0 text-sm font-medium text-muted-foreground" aria-hidden="true">
                       {label}
                     </span>
                     <ThemedSelect
-                      aria-label={`Session for ${label}`}
+                      aria-label={`Workout for ${label}`}
                       value={restWeekdays.includes(day) ? "rest" : weekly[day] ?? ""}
                       onValueChange={(next) => setWeekdayAssignment(day, next)}
                       options={[
@@ -581,7 +581,7 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
             ) : (
               <div className="space-y-3">
                 <p className="text-xs text-muted-foreground">
-                  Sessions cycle in this order, one per day, looping until the end date.
+                  Workouts repeat in this order, 1 each day.
                 </p>
                 {rotationOrder.length > 0 ? (
                   <div className="space-y-2">
@@ -615,7 +615,7 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
                   </div>
                 ) : (
                   <p className="text-xs text-muted-foreground">
-                    No order set — all your sessions will cycle in their current order.
+                    All workouts repeat in their current order.
                   </p>
                 )}
                 <div className="flex flex-wrap gap-2">
@@ -665,7 +665,7 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
                 Generate schedule
               </Button>
               <p className={`mt-2 text-center text-xs ${blockedReason ? "text-warning" : "text-muted-foreground"}`}>
-                {blockedReason ?? "Replaces planned days. Finished workouts stay."}
+                {blockedReason ?? "Replaces planned days only."}
               </p>
             </div>
           </div>
@@ -676,7 +676,7 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
         <Card>
           <div className="flex items-baseline justify-between">
             <CardTitle>Upcoming</CardTitle>
-            <span className="text-xs text-muted-foreground tabular-nums">next 10 of {upcoming.length}</span>
+            <span className="text-xs text-muted-foreground tabular-nums">Next 10 of {upcoming.length}</span>
           </div>
           <CardContent className="mt-3 space-y-2">
             {upcoming.slice(0, 10).map((session) => (
@@ -719,11 +719,10 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
       >
         <DialogContent className={DRAWER_CONTENT}>
           <DialogHeader>
-            <DialogTitle>Move or remove this day?</DialogTitle>
+            <DialogTitle>Move or remove workout?</DialogTitle>
             <DialogDescription>
               &quot;{sessionToRemove?.sessionName}&quot; is on{" "}
-              {sessionToRemove ? formatDayKey(sessionToRemove.date) : ""}. Your session template is
-              not affected either way.
+              {sessionToRemove ? formatDayKey(sessionToRemove.date) : ""}.
             </DialogDescription>
           </DialogHeader>
 
@@ -731,10 +730,19 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
               now the only thing on offer was losing the session entirely. Native
               date input: it is a date picker on every phone, with no library. */}
           <div className="mt-4 rounded-xl bg-muted p-3">
-            <label className="block text-xs font-medium text-muted-foreground">
-              Move it to
+            <InfoNote
+              heading={<p className="text-xs font-medium text-muted-foreground">Move to</p>}
+              note={
+                <>
+                  <p>The old day becomes a rest day.</p>
+                  <p>If the new day has a workout, the 2 days swap.</p>
+                  <p>The workout in Build does not change.</p>
+                </>
+              }
+            />
               <Input
                 type="date"
+                aria-label="Move to"
                 className="mt-1"
                 value={moveTo}
                 min={today}
@@ -743,7 +751,6 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
                   setMoveError(null);
                 }}
               />
-            </label>
             <Button
               className="mt-2 w-full"
               disabled={!moveTo}
@@ -761,13 +768,9 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
                 }
               }}
             >
-              Move it
+              Move workout
             </Button>
             {moveError ? <p className="mt-2 text-sm text-danger">{moveError}</p> : null}
-            <p className="mt-2 text-xs text-muted-foreground">
-              The day it leaves becomes a rest day. If the day you pick already has a session, the
-              two swap.
-            </p>
           </div>
 
           <div className="mt-4 flex justify-end gap-3">
@@ -794,10 +797,8 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
           <DialogHeader>
             <DialogTitle>Replace your schedule?</DialogTitle>
             <DialogDescription>
-              {plannedCount} planned day{plannedCount === 1 ? "" : "s"} will be replaced by the new plan.
-              {keptCount > 0
-                ? ` ${keptCount} workout${keptCount === 1 ? "" : "s"} you have already started or finished stay as they are.`
-                : ""}
+              {plannedCount} planned day{plannedCount === 1 ? "" : "s"} change.
+              {keptCount > 0 ? " Started and finished workouts stay." : ""}
             </DialogDescription>
           </DialogHeader>
           <div className="mt-4 flex justify-end gap-3">
