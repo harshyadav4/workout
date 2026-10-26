@@ -97,10 +97,11 @@ npm run dev
 
 ## Supabase setup
 
-> **Run `0007_cardio_and_skills.sql` for cardio distance and Skills.** It adds
-> `set_logs.distance_km` and the `skill_goals` table. Unlike earlier migrations, the app does not
-> break without it: runs sync without their distance and skill goals stay on the device until it
-> has run — then both sync on the next save.
+> **Run `0007_cardio_and_skills.sql` for cardio distance, Skills and session times.** It adds
+> `set_logs.distance_km`, the `skill_goals` table, and `scheduled_sessions.started_at` /
+> `finished_at`. Unlike earlier migrations, the app does not break without it: runs sync without
+> their distance, sessions sync without their times, and skill goals stay on the device until it
+> has run — then all of it syncs on the next save.
 
 > **Run `0006_exercise_media.sql` before deploying "Build with AI".** Exercise templates now
 > write a `media_path` column; against a project without it, every template save fails as a sync
