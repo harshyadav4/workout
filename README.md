@@ -97,6 +97,11 @@ npm run dev
 
 ## Supabase setup
 
+> **Run `0007_cardio_and_skills.sql` for cardio distance and Skills.** It adds
+> `set_logs.distance_km` and the `skill_goals` table. Unlike earlier migrations, the app does not
+> break without it: runs sync without their distance and skill goals stay on the device until it
+> has run — then both sync on the next save.
+
 > **Run `0006_exercise_media.sql` before deploying "Build with AI".** Exercise templates now
 > write a `media_path` column; against a project without it, every template save fails as a sync
 > error. The same migration creates the `exercise-media` storage bucket and its policies.
@@ -109,7 +114,7 @@ npm run dev
 
 1. Create a Supabase project.
 2. Run the migrations in `supabase/migrations/` in order — `0001_init.sql` through
-   `0006_exercise_media.sql`.
+   `0007_cardio_and_skills.sql`.
 3. Enable the Google provider under **Authentication → Providers**.
 4. Add your local dev origin and deployed domain to the allowed redirect URLs.
 
