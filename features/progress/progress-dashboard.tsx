@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 
 import { MuscleMapCard } from "@/features/home/muscle-map-card";
 import { BodyWeightCard } from "@/features/progress/body-weight-card";
+import { CardioProgress } from "@/features/progress/cardio-cards";
 import { ConsistencyCard, RhythmCard } from "@/features/progress/consistency-cards";
 import { CumulativeCard } from "@/features/progress/cumulative-card";
 import { LoadCard } from "@/features/progress/load-card";
@@ -58,6 +59,7 @@ import {
   type DateWindow,
   type ProgressRange
 } from "@/lib/progress-metrics";
+import { cardioSessions } from "@/lib/cardio-metrics";
 import { equipmentInUse, suggestForHead } from "@/lib/suggestions";
 import { todayKey } from "@/lib/utils";
 
@@ -76,17 +78,19 @@ import {
 import type { MuscleId } from "@/lib/types";
 import { buildMuscleHeat, normalizeMuscleHeat } from "@/lib/workout-helpers";
 
-type ProgressTab = "overview" | "lifts" | "muscles";
+type ProgressTab = "overview" | "lifts" | "cardio" | "muscles";
 
 const TABS: { id: ProgressTab; label: string }[] = [
   { id: "overview", label: "Overview" },
   { id: "lifts", label: "Lifts" },
+  { id: "cardio", label: "Cardio" },
   { id: "muscles", label: "Muscles" }
 ];
 
 export function ProgressDashboard() {
   const logs = useWorkoutStore((state) => state.logs);
   const setLogs = useWorkoutStore((state) => state.setLogs);
+  const cardio = useMemo(() => cardioSessions(setLogs, logs), [setLogs, logs]);
   const measurements = useWorkoutStore((state) => state.measurements);
   const profile = useWorkoutStore((state) => state.profile);
   const activeDate = useWorkoutStore((state) => state.activeDate);
@@ -240,7 +244,7 @@ export function ProgressDashboard() {
 
   return (
     <section className="space-y-4">
-      <div className="well grid grid-cols-3 gap-1 rounded-xl p-1" role="tablist" aria-label="Progress view">
+      <div className="well grid grid-cols-4 gap-1 rounded-xl p-1" role="tablist" aria-label="Progress view">
         {TABS.map((item) => (
           <button
             key={item.id}
@@ -257,6 +261,11 @@ export function ProgressDashboard() {
         ))}
       </div>
 
+      {/* The range and lift filters are about lifting; cardio keeps its own
+          12 weeks and its own kinds. */}
+      {tab === "cardio" ? (
+        <CardioProgress sessions={cardio} today={activeDate} />
+      ) : (
       <ProgressFilters
         range={range}
         // Opening the picker seeds it with whatever range you were already on,
@@ -274,6 +283,7 @@ export function ProgressDashboard() {
         workoutId={workoutId}
         onWorkoutChange={setWorkoutId}
       />
+      )}
 
       {tab === "overview" ? (
         <>
