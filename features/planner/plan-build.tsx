@@ -21,9 +21,12 @@ import { AiImportSheet } from "@/features/planner/ai-import";
 import { ExercisePicker } from "@/features/planner/exercise-picker";
 import { MuscleSelectView } from "@/features/planner/muscle-drawer";
 import { ExerciseMediaView, templateDatasetId } from "@/features/workout/exercise-media-dialog";
+import { useDistanceUnit } from "@/features/workout/use-distance-unit";
 import { useWorkoutStore } from "@/features/workout/workout-store";
+import { formatDistance, fromUnit, isDistanceExercise, toUnit } from "@/lib/cardio";
 import { deriveEngagement, type Exercise } from "@/lib/exercises";
 import { evenTarget } from "@/lib/per-side";
+import { formatClock } from "@/lib/timer";
 import { cn } from "@/lib/utils";
 import {
   DEFAULT_INCREMENT_KG,
@@ -56,10 +59,15 @@ type BuilderExercise = {
   notes?: string;
   metric?: ExerciseMetric;
   durationSeconds?: number;
+  /** km, when metric is "distance". Shown in the device's unit. */
+  distanceKm?: number;
   perSide?: boolean;
 };
 
 const DEFAULT_HOLD_SECONDS = 45;
+/** A first run, before anything is logged: 5 km in 30 minutes. */
+const DEFAULT_RUN_KM = 5;
+const DEFAULT_RUN_SECONDS = 1800;
 
 function createEmptyExercise(): BuilderExercise {
   return {
@@ -82,8 +90,11 @@ function formatWeights(exercise: SessionTemplateExercise): string {
   return `${weights?.[0] ?? exercise.weight} kg`;
 }
 
-/** "3 × 10" for a lift, "3 × 45s" for a hold. */
+/** "3 × 10" for a lift, "3 × 45s" for a hold, "1 × 5 km" for a run. */
 function formatTarget(exercise: SessionTemplateExercise): string {
+  if (exercise.metric === "distance") {
+    return `${exercise.sets} × ${exercise.distanceKm ?? 0} km`;
+  }
   return exercise.metric === "time"
     ? `${exercise.sets} × ${exercise.durationSeconds ?? 0}s`
     : `${exercise.sets} × ${exercise.reps}`;
@@ -105,6 +116,7 @@ function toBuilderExercise(exercise: SessionTemplateExercise): BuilderExercise {
     notes: exercise.notes,
     metric: exercise.metric,
     durationSeconds: exercise.durationSeconds,
+    distanceKm: exercise.distanceKm,
     perSide: exercise.perSide
   };
 }
@@ -148,6 +160,7 @@ function normalizeName(name: string): string {
 }
 
 export function PlanBuild() {
+  const unit = useDistanceUnit();
   const muscles = useWorkoutStore((state) => state.muscles);
   const templates = useWorkoutStore((state) => state.templates);
   const sessionTemplates = useWorkoutStore((state) => state.sessionTemplates);
@@ -213,6 +226,7 @@ export function PlanBuild() {
 
   // Switching to a hold zeroes the weight: the 20kg default would otherwise put
   // a plank into peakWeight and the strength charts.
+  // A run gets one row of 5 km in 30:00 to start from, and no load or sides.
   const setMetric = (exercise: BuilderExercise, metric: ExerciseMetric) => {
     updateExercise(
       exercise.id,
@@ -223,7 +237,17 @@ export function PlanBuild() {
             weight: 0,
             weights: undefined
           }
-        : { metric }
+        : metric === "distance"
+          ? {
+              metric,
+              sets: exercise.metric === "distance" ? exercise.sets : 1,
+              distanceKm: exercise.distanceKm ?? DEFAULT_RUN_KM,
+              durationSeconds: exercise.metric === "distance" ? exercise.durationSeconds : DEFAULT_RUN_SECONDS,
+              weight: 0,
+              weights: undefined,
+              perSide: undefined
+            }
+          : { metric }
     );
   };
 
@@ -266,7 +290,11 @@ export function PlanBuild() {
       workoutId: undefined,
       category: exercise.category,
       equipment: exercise.equipment,
-      muscles: deriveEngagement(exercise)
+      muscles: deriveEngagement(exercise),
+      // A run or a bike from the library is distance + time from the start.
+      ...(isDistanceExercise(exercise.name)
+        ? { metric: "distance" as const, sets: 1, distanceKm: DEFAULT_RUN_KM, durationSeconds: DEFAULT_RUN_SECONDS, weight: 0, weights: undefined, perSide: undefined }
+        : {})
     });
     setPickerCardId(null);
   };
@@ -323,16 +351,20 @@ export function PlanBuild() {
       .filter((exercise) => exercise.name.trim())
       .map((exercise) => {
         const isTime = exercise.metric === "time";
+        const isDistance = exercise.metric === "distance";
         return {
           ...exercise,
           sets: clampNumber(exercise.sets, 1),
-          // Zero reps on a hold is deliberate — see ExerciseMetric in types.ts.
+          // Zero reps on a hold or a run is deliberate — see ExerciseMetric.
           // A unilateral target must stay even or it describes a set one
           // side could not have done. See lib/per-side.
-          reps: isTime ? 0 : evenTarget(clampNumber(exercise.reps, 1), exercise.perSide),
+          reps: isTime || isDistance ? 0 : evenTarget(clampNumber(exercise.reps, 1), exercise.perSide),
           durationSeconds: isTime
             ? clampNumber(exercise.durationSeconds ?? DEFAULT_HOLD_SECONDS, 5)
-            : undefined,
+            : isDistance
+              ? clampNumber(exercise.durationSeconds ?? DEFAULT_RUN_SECONDS, 0)
+              : undefined,
+          distanceKm: isDistance ? clampNumber(exercise.distanceKm ?? DEFAULT_RUN_KM, 0, false) : undefined,
           weight: clampNumber(exercise.weight, 0, false),
           restSeconds: clampNumber(exercise.restSeconds, 0)
         };
@@ -372,6 +404,7 @@ export function PlanBuild() {
         notes: notes ? notes : undefined,
         metric: exercise.metric,
         durationSeconds: exercise.durationSeconds,
+        distanceKm: exercise.distanceKm,
         perSide: exercise.perSide
       };
     });
@@ -584,9 +617,11 @@ export function PlanBuild() {
                           {exerciseIndex + 1}. {exercise.name.trim() || "Unnamed exercise"}
                         </span>
                         <span className="mt-0.5 block truncate text-xs text-muted-foreground tabular-nums">
-                          {exercise.metric === "time"
-                            ? `${exercise.sets} × ${exercise.durationSeconds ?? DEFAULT_HOLD_SECONDS}s`
-                            : `${exercise.sets} × ${exercise.reps} · ${exercise.weight} kg`}
+                          {exercise.metric === "distance"
+                            ? `${exercise.sets} × ${formatDistance(exercise.distanceKm ?? DEFAULT_RUN_KM, unit)} · ${formatClock(exercise.durationSeconds ?? DEFAULT_RUN_SECONDS)}`
+                            : exercise.metric === "time"
+                              ? `${exercise.sets} × ${exercise.durationSeconds ?? DEFAULT_HOLD_SECONDS}s`
+                              : `${exercise.sets} × ${exercise.reps} · ${exercise.weight} kg`}
                           {` · ${exercise.restSeconds}s rest`}
                         </span>
                       </button>
@@ -678,9 +713,10 @@ export function PlanBuild() {
                           {muscleSummary(exercise.muscles)}
                         </span>
                       </button>
-                      {/* A plank, a carry and a run are measured in seconds. */}
-                      <div className="well grid grid-cols-2 gap-1 rounded-xl p-1">
-                        {(["reps", "time"] as const).map((item) => {
+                      {/* A plank and a carry are measured in seconds; a run in
+                          distance and time. */}
+                      <div className="well grid grid-cols-3 gap-1 rounded-xl p-1">
+                        {(["reps", "time", "distance"] as const).map((item) => {
                           const active = (exercise.metric ?? "reps") === item;
                           return (
                             <button
@@ -692,7 +728,7 @@ export function PlanBuild() {
                                 active ? "key" : "text-muted-foreground"
                               }`}
                             >
-                              {item === "reps" ? "Reps" : "Hold / time"}
+                              {item === "reps" ? "Reps" : item === "time" ? "Hold / time" : "Distance"}
                             </button>
                           );
                         })}
@@ -702,7 +738,7 @@ export function PlanBuild() {
                           pre-filled, so the placeholder never rendered once. */}
                       <div className="grid grid-cols-2 gap-3">
                         <label className="text-xs text-muted-foreground">
-                          Sets
+                          {exercise.metric === "distance" ? "Rows (intervals)" : "Sets"}
                           <NumberInput
                             min={1}
                             className="mt-1"
@@ -710,7 +746,18 @@ export function PlanBuild() {
                             onValueChange={(value) => updateExercise(exercise.id, { sets: value })}
                           />
                         </label>
-                        {exercise.metric === "time" ? (
+                        {exercise.metric === "distance" ? (
+                          <label className="text-xs text-muted-foreground">
+                            Distance per row ({unit})
+                            <NumberInput
+                              min={0}
+                              step={0.1}
+                              className="mt-1"
+                              value={Math.round(toUnit(exercise.distanceKm ?? DEFAULT_RUN_KM, unit) * 100) / 100}
+                              onValueChange={(value) => updateExercise(exercise.id, { distanceKm: fromUnit(value, unit) })}
+                            />
+                          </label>
+                        ) : exercise.metric === "time" ? (
                           <label className="text-xs text-muted-foreground">
                             Hold (seconds)
                             <NumberInput
@@ -732,7 +779,19 @@ export function PlanBuild() {
                             />
                           </label>
                         )}
-                        {exercise.metric === "time" ? null : (
+                        {exercise.metric === "distance" ? (
+                          <label className="text-xs text-muted-foreground">
+                            Target time (minutes)
+                            <NumberInput
+                              min={0}
+                              step={1}
+                              className="mt-1"
+                              value={Math.round(((exercise.durationSeconds ?? DEFAULT_RUN_SECONDS) / 60) * 10) / 10}
+                              onValueChange={(value) => updateExercise(exercise.id, { durationSeconds: Math.round(value * 60) })}
+                            />
+                          </label>
+                        ) : null}
+                        {exercise.metric === "time" || exercise.metric === "distance" ? null : (
                           <label className="col-span-2 flex items-center justify-between text-xs text-muted-foreground">
                             <span>
                               Reps are the total across both sides
@@ -762,6 +821,7 @@ export function PlanBuild() {
                             </button>
                           </label>
                         )}
+                        {exercise.metric === "distance" ? null : (
                         <label className="text-xs text-muted-foreground">
                           {exercise.metric === "time" ? "Added weight (kg)" : "Weight (kg)"}
                           <NumberInput
@@ -772,6 +832,7 @@ export function PlanBuild() {
                             onValueChange={(value) => updateExercise(exercise.id, { weight: value })}
                           />
                         </label>
+                        )}
                         <label className="text-xs text-muted-foreground">
                           Rest (seconds)
                           <NumberInput
@@ -784,7 +845,7 @@ export function PlanBuild() {
                         </label>
                       </div>
 
-                      {exercise.metric !== "time" && exercise.sets > 1 ? (
+                      {exercise.metric !== "time" && exercise.metric !== "distance" && exercise.sets > 1 ? (
                         <details className="group rounded-lg bg-card px-3">
                           <summary className="flex cursor-pointer list-none items-center justify-between py-3 text-sm text-muted-foreground [&::-webkit-details-marker]:hidden">
                             Weight per set

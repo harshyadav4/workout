@@ -3,7 +3,10 @@
 import { useMemo } from "react";
 
 import { ExerciseDemoButton } from "@/features/workout/exercise-media-dialog";
+import { useDistanceUnit } from "@/features/workout/use-distance-unit";
 import { useWorkoutStore } from "@/features/workout/workout-store";
+import { type DistanceUnit, formatDistance, formatPace } from "@/lib/cardio";
+import { formatClock } from "@/lib/timer";
 import type { PlannedExercise, PlannedSet, ScheduledSession } from "@/lib/types";
 import { lastPerformance } from "@/lib/workout-helpers";
 
@@ -15,7 +18,12 @@ function shortDate(key: string) {
 }
 
 /** "30 kg × 5", "12 reps", "45 s" — one set in the units it is done in. */
-function setLabel(setItem: PlannedSet, exercise: PlannedExercise) {
+function setLabel(setItem: PlannedSet, exercise: PlannedExercise, unit: DistanceUnit) {
+  if (exercise.metric === "distance") {
+    const km = setItem.distanceKm ?? 0;
+    const seconds = setItem.durationSeconds ?? 0;
+    return [formatDistance(km, unit), formatClock(seconds), formatPace(seconds, km, unit)].filter(Boolean).join(" · ");
+  }
   if (exercise.metric === "time") {
     const hold = `${setItem.durationSeconds ?? 0} s`;
     return setItem.weight > 0 ? `${setItem.weight} kg · ${hold}` : hold;
@@ -34,6 +42,7 @@ function setLabel(setItem: PlannedSet, exercise: PlannedExercise) {
 export function SessionPreview({ session }: { session: ScheduledSession }) {
   const logs = useWorkoutStore((state) => state.logs);
   const setLogs = useWorkoutStore((state) => state.setLogs);
+  const unit = useDistanceUnit();
 
   const rows = useMemo(() => {
     const before = {
@@ -81,7 +90,7 @@ export function SessionPreview({ session }: { session: ScheduledSession }) {
                     className="well grid grid-cols-[1.5rem_1fr] items-center rounded-md px-2 py-1 text-xs tabular-nums"
                   >
                     <span className="font-bold text-muted-foreground">{index + 1}</span>
-                    <span className="font-semibold">{setLabel(setItem, exercise)}</span>
+                    <span className="font-semibold">{setLabel(setItem, exercise, unit)}</span>
                   </li>
                 ))}
               </ol>

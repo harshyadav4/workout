@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { setDistanceUnit, useDistanceUnit } from "@/features/workout/use-distance-unit";
 import { feedbackEnabled, haptic, setFeedbackEnabled } from "@/lib/feedback";
 import { applyTheme, isTheme, THEME_KEY, type Theme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
@@ -128,5 +129,28 @@ export function FeedbackToggle() {
         />
       </span>
     </button>
+  );
+}
+
+/** km or miles for every run on this device. Stored runs are always km. */
+export function DistanceUnitToggle() {
+  const unit = useDistanceUnit();
+  return (
+    <div>
+      <p className="text-xs font-medium text-muted-foreground">Distance</p>
+      <div className="well mt-1.5 grid grid-cols-2 gap-1 rounded-xl p-1" role="group" aria-label="Distance unit">
+        {(["km", "mi"] as const).map((option) => (
+          <button
+            key={option}
+            type="button"
+            aria-pressed={unit === option}
+            onClick={() => setDistanceUnit(option)}
+            className={cn("h-11 rounded-lg text-sm font-semibold transition-colors", unit === option ? "key" : "text-muted-foreground")}
+          >
+            {option === "km" ? "Kilometres" : "Miles"}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }

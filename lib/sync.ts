@@ -164,6 +164,7 @@ function setLogToRow(setLog: SetLog, userId: string): Row {
     reps: setLog.reps,
     weight: setLog.weight,
     duration_seconds: setLog.durationSeconds ?? null,
+    distance_km: setLog.distanceKm ?? null,
     completed_at: setLog.completedAt ?? null
   };
 }
@@ -180,6 +181,8 @@ function rowToSetLog(row: Row): SetLog {
     // Null is "not a held set", not "held for nothing" — every row written
     // before the column existed is a rep set, and 0 would read as a failed hold.
     durationSeconds: (row.duration_seconds as number) ?? undefined,
+    // Null is "not a distance set". Numeric columns come back as strings.
+    distanceKm: row.distance_km == null ? undefined : Number(row.distance_km),
     completedAt: (row.completed_at as string) ?? undefined
   };
 }
@@ -352,8 +355,9 @@ async function writeTable<T extends Identified>(
  * Columns added by migrations newer than the app's floor, which a write may
  * drop when the project lacks them. `media_path` is 0006 (stored exercise
  * GIFs): without it, saving any exercise template used to fail outright.
+ * `distance_km` is 0007 (cardio): a run still syncs its time without it.
  */
-const OPTIONAL_COLUMNS = ["media_path"];
+const OPTIONAL_COLUMNS = ["media_path", "distance_km"];
 
 function isMissingOptionalColumn(error: { code?: string; message?: string }): boolean {
   // 42703 from Postgres, PGRST204 from PostgREST's schema cache.

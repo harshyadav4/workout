@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/features/auth/use-auth";
-import { FeedbackToggle, ThemeToggle } from "@/features/profile/theme-toggle";
+import { DistanceUnitToggle, FeedbackToggle, ThemeToggle } from "@/features/profile/theme-toggle";
 import { InstallCard } from "@/features/pwa/install-card";
 import { retrySync, useSyncStatus } from "@/features/workout/sync-status";
 import { useWorkoutStore, useWorkoutStoreApi } from "@/features/workout/workout-store";
@@ -179,6 +179,8 @@ export function ProfileDetails() {
         <SyncStatus />
 
         <ThemeToggle />
+
+        <DistanceUnitToggle />
 
         <FeedbackToggle />
 

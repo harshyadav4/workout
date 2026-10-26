@@ -4,6 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { Check, Minus, Plus, Trash2 } from "lucide-react";
 
 import { LiveTimerControl } from "@/features/home/live-timer";
+import { useDistanceUnit } from "@/features/workout/use-distance-unit";
+import { formatDistance, formatPace, fromUnit, toUnit } from "@/lib/cardio";
+import { formatClock } from "@/lib/timer";
 import { ManaBurst, ManaCharge, ManaVial } from "@/features/home/mana-vial";
 import { formatRest } from "@/features/home/rest-timer";
 import {
@@ -27,6 +30,11 @@ const MIN_DURATION = 5;
 const MAX_WEIGHT = 500;
 const MAX_REPS = 100;
 const MAX_DURATION = 3600;
+/** A long run or ride; a typo past this is a typo. */
+const MAX_RUN_SECONDS = 3600 * 6;
+/** A tenth of a km (or mile) a tap; type for anything bigger. */
+const DISTANCE_STEP = 0.1;
+const MAX_DISTANCE = 300;
 
 /**
  * What you lifted here last time, or an honest blank.
@@ -275,6 +283,8 @@ export function ExerciseLedger({
   );
   const hasMedia = Boolean(datasetId || gifUrl);
   const isTime = exercise.metric === "time";
+  const isDistance = exercise.metric === "distance";
+  const unit = useDistanceUnit();
 
   // Only when the open set arrives from *another* exercise — that is the move
   // that puts the Log set button somewhere you have to go and find, in a session
@@ -317,9 +327,11 @@ export function ExerciseLedger({
   const first = exercise.sets[0];
   const planLine =
     doneCount === 0 && first
-      ? isTime
-        ? `${exercise.sets.length} × ${first.durationSeconds ?? 0}s`
-        : `${exercise.sets.length} × ${first.reps} · ${first.weight} kg`
+      ? isDistance
+        ? `${exercise.sets.length} × ${formatDistance(first.distanceKm ?? 0, unit)}`
+        : isTime
+          ? `${exercise.sets.length} × ${first.durationSeconds ?? 0}s`
+          : `${exercise.sets.length} × ${first.reps} · ${first.weight} kg`
       : `${doneCount} of ${exercise.sets.length} sets`;
   const restLine = exercise.restSeconds ? ` · ${formatRest(exercise.restSeconds)} rest` : "";
 
@@ -413,11 +425,50 @@ export function ExerciseLedger({
                 <span className="text-muted-foreground"> of {exercise.sets.length}</span>
               </p>
               <p className="truncate text-xs text-muted-foreground tabular-nums">
-                {isTime ? <>target {openSet.durationSeconds ?? 0}s</> : lastSetLabel(openSet)}
+                {isDistance ? (
+                  <>target {formatClock(openSet.durationSeconds ?? 0)}</>
+                ) : isTime ? (
+                  <>target {openSet.durationSeconds ?? 0}s</>
+                ) : (
+                  lastSetLabel(openSet)
+                )}
               </p>
             </div>
           </div>
 
+          {/* A run: how far and how long. The weight drum would only invite a 0. */}
+          {isDistance ? (
+            <>
+              <div className="mt-3 grid grid-cols-2 gap-2.5">
+                <Drum
+                  label="Distance"
+                  suffix={unit}
+                  value={Math.round(toUnit(openSet.distanceKm ?? 0, unit) * 100) / 100}
+                  step={DISTANCE_STEP}
+                  min={0}
+                  max={MAX_DISTANCE}
+                  decimal
+                  onChange={(value) => onPatchSet(openSet.id, { distanceKm: fromUnit(value, unit) })}
+                />
+                <Drum
+                  label="Time"
+                  suffix="min"
+                  value={Math.round(((openSet.durationSeconds ?? 0) / 60) * 10) / 10}
+                  step={1}
+                  min={0}
+                  max={MAX_RUN_SECONDS / 60}
+                  decimal
+                  onChange={(minutes) => onPatchSet(openSet.id, { durationSeconds: Math.round(minutes * 60) })}
+                />
+              </div>
+              <p className="mt-2 text-center text-xs text-muted-foreground tabular-nums">
+                {formatClock(openSet.durationSeconds ?? 0)}
+                {formatPace(openSet.durationSeconds ?? 0, openSet.distanceKm ?? 0, unit)
+                  ? ` · ${formatPace(openSet.durationSeconds ?? 0, openSet.distanceKm ?? 0, unit)}`
+                  : ""}
+              </p>
+            </>
+          ) : (
           <div className="mt-3 grid grid-cols-2 gap-2.5">
             <Drum
               label="Weight"
@@ -453,12 +504,14 @@ export function ExerciseLedger({
               />
             )}
           </div>
-          {/* A hold is timed, not typed: Start, hold, Finish fills the seconds. */}
-          {isTime && timer ? (
+          )}
+          {/* A hold or a run is timed, not typed: Start, go, Finish fills the
+              seconds. A hold aims at its target; a run just counts. */}
+          {(isTime || isDistance) && timer ? (
             <LiveTimerControl
               running={timer.setId === openSet.id}
               elapsed={timer.elapsed}
-              targetSeconds={openSet.durationSeconds}
+              targetSeconds={isTime ? openSet.durationSeconds : undefined}
               onStart={() => timer.onStart(openSet.id)}
               onFinish={timer.onFinish}
               onCancel={timer.onCancel}
@@ -480,7 +533,9 @@ export function ExerciseLedger({
               {openSet.completed ? "Update set" : "Log set"}
             </button>
             {/* A warm-up is logged so the ledger is honest about what happened,
-                then kept out of every total. Off by default: most sets are work. */}
+                then kept out of every total. Off by default: most sets are work.
+                Not on a run: an easy first km is just a slower row. */}
+            {isDistance ? null : (
             <button
               type="button"
               role="switch"
@@ -501,6 +556,7 @@ export function ExerciseLedger({
             >
               W
             </button>
+            )}
             <button
               type="button"
               onClick={onAddSet}

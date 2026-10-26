@@ -283,7 +283,8 @@ export function buildLogFromSession(
       // The rollup above deliberately stays blind to this: a hold moves no
       // volume and no reps (see `ExerciseMetric`). The seconds live at the
       // grain, which is the only place they were ever true.
-      durationSeconds: setItem.durationSeconds
+      durationSeconds: setItem.durationSeconds,
+      distanceKm: setItem.distanceKm
     }))
   );
 
@@ -396,6 +397,7 @@ export interface CarriedSet {
   weight: number;
   reps: number;
   durationSeconds?: number;
+  distanceKm?: number;
 }
 
 /**
@@ -418,7 +420,8 @@ function loggedSessions(workoutId: string, setLogs: SetLog[]): SetLog[][] {
 const carry = (row: SetLog): CarriedSet => ({
   weight: row.weight,
   reps: row.reps,
-  durationSeconds: row.durationSeconds
+  durationSeconds: row.durationSeconds,
+  distanceKm: row.distanceKm
 });
 
 /** How many sets the latest session that did this lift logged; 0 if none ever did. */
@@ -477,7 +480,9 @@ export function plannedExercisesFromTemplate(
   history: PerformanceHistory = { logs: [], setLogs: [] }
 ): PlannedExercise[] {
   return template.exercises.map((exercise) => {
-    const isTime = exercise.metric === "time";
+    // A hold and a run both carry seconds and no reps; only a run has distance.
+    const isTimed = exercise.metric === "time" || exercise.metric === "distance";
+    const isDistance = exercise.metric === "distance";
     const last = lastPerformance(exercise.workoutId, history.logs, history.setLogs);
 
     // Per-exercise beats per-session, and the whole thing is optional — a
@@ -497,7 +502,7 @@ export function plannedExercisesFromTemplate(
     const target = nextTarget({
       settings,
       plannedWeight: plannedTop,
-      plannedReps: isTime ? 0 : exercise.reps,
+      plannedReps: isTimed ? 0 : exercise.reps,
       plannedDurationSeconds: exercise.durationSeconds,
       setLogs: history.setLogs,
       workoutId: exercise.workoutId
@@ -534,9 +539,10 @@ export function plannedExercisesFromTemplate(
         if (from) {
           return {
             id: crypto.randomUUID(),
-            reps: isTime ? 0 : from.reps,
+            reps: isTimed ? 0 : from.reps,
             weight: from.weight,
-            durationSeconds: isTime ? from.durationSeconds ?? exercise.durationSeconds ?? 0 : undefined,
+            durationSeconds: isTimed ? from.durationSeconds ?? exercise.durationSeconds ?? 0 : undefined,
+            distanceKm: isDistance ? from.distanceKm ?? exercise.distanceKm ?? 0 : undefined,
             previousReps: last?.reps,
             previousWeight: last?.weight,
             type: "normal" as const
@@ -550,13 +556,14 @@ export function plannedExercisesFromTemplate(
           // progression adds one, which on a per-side lift is half a rep on one
           // side — a set that cannot be performed. Rounded here, at the seam
           // that knows both facts, rather than teaching either lib the other.
-          reps: isTime ? 0 : evenTarget(target.reps, exercise.perSide),
+          reps: isTimed ? 0 : evenTarget(target.reps, exercise.perSide),
           weight: Math.max(0, plannedWeights[index] + shift),
           // The rule's hold when one ran, the template's otherwise — the same
           // fallback `shift` gives the weight when no rule touched it.
-          durationSeconds: isTime
+          durationSeconds: isTimed
             ? target.durationSeconds ?? exercise.durationSeconds ?? 0
             : undefined,
+          distanceKm: isDistance ? exercise.distanceKm ?? 0 : undefined,
           previousReps: last?.reps,
           previousWeight: last?.weight,
           type: "normal" as const

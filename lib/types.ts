@@ -99,15 +99,21 @@ export interface WorkoutTemplate {
  * plank scores zero volume, zero `totalReps` and zero `peakWeight` through
  * every existing sum without a single guard downstream.
  */
-export type ExerciseMetric = "reps" | "time";
+export type ExerciseMetric = "reps" | "time" | "distance";
 
 export interface PlannedSet {
   id: string;
   /** Always present. Zero for a `time` set — see ExerciseMetric. */
   reps: number;
   weight: number;
-  /** Seconds held or run, when the parent exercise is `metric: "time"`. */
+  /** Seconds held or run, when the parent exercise is `metric: "time"` or `"distance"`. */
   durationSeconds?: number;
+  /**
+   * Kilometres covered, when the parent exercise is `metric: "distance"`.
+   * Always km — miles are a view (lib/cardio). Reps are 0 on such a set, for
+   * the same reason as a hold: volume stays zero with no guard downstream.
+   */
+  distanceKm?: number;
   /**
    * A warm-up is not working volume. It must never reach the weekly set count
    * the 10–20 band compares against, or the volume charts.
@@ -169,6 +175,8 @@ export interface SetLog {
   weight: number;
   /** How long the set was held. Absent on a rep set, which lasted no time in particular. */
   durationSeconds?: number;
+  /** Kilometres covered, on a distance set. Absent on everything else. */
+  distanceKm?: number;
   completedAt?: string;
 }
 
@@ -191,7 +199,8 @@ export interface SessionTemplateExercise {
   restSeconds: number;
   notes?: string;
   metric?: ExerciseMetric;
-  durationSeconds?: number; // seconds per set, when metric is "time"
+  durationSeconds?: number; // seconds per set, when metric is "time" or "distance"
+  distanceKm?: number; // km per set, when metric is "distance"
   /** Overrides the session's rule for this lift alone. */
   progression?: ProgressionSettings;
   /**

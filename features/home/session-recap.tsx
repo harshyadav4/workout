@@ -4,12 +4,21 @@ import { ArrowDownRight, ArrowUpRight, Info, Trophy } from "lucide-react";
 
 import { QuestScroll } from "@/features/home/artifacts";
 import { ExerciseDemoButton } from "@/features/workout/exercise-media-dialog";
+import { useDistanceUnit } from "@/features/workout/use-distance-unit";
+import { type DistanceUnit, formatDistance, formatPace } from "@/lib/cardio";
 import type { SessionSummary } from "@/lib/progress-metrics";
 import type { PlannedExercise, PlannedSet, WorkoutLog } from "@/lib/types";
+import { formatClock } from "@/lib/timer";
 import { cn, formatVolume } from "@/lib/utils";
 
-/** "62.5 kg × 8", "45 s", "20 kg · 45 s" — what the set was, in the units it was done in. */
-function setLabel(setItem: PlannedSet, isTime: boolean) {
+/** "62.5 kg × 8", "45 s", "5 km · 28:30 · 5:42 /km" — the set, in the units it was done in. */
+function setLabel(setItem: PlannedSet, isTime: boolean, isDistance: boolean, unit: DistanceUnit) {
+  if (isDistance) {
+    const km = setItem.distanceKm ?? 0;
+    const seconds = setItem.durationSeconds ?? 0;
+    const pace = formatPace(seconds, km, unit);
+    return [formatDistance(km, unit), formatClock(seconds), pace].filter(Boolean).join(" · ");
+  }
   if (isTime) {
     const hold = `${setItem.durationSeconds ?? 0} s`;
     return setItem.weight > 0 ? `${setItem.weight} kg · ${hold}` : hold;
@@ -59,7 +68,10 @@ function ExerciseRecap({
 }) {
   const done = exercise.sets.filter((setItem) => setItem.completed);
   const isTime = exercise.metric === "time";
-  const top = topSetId(done);
+  const isDistance = exercise.metric === "distance";
+  const unit = useDistanceUnit();
+  // "Top set" is a lifting idea; a run's rows are read by pace, shown on each.
+  const top = isDistance ? undefined : topSetId(done);
   const skipped = exercise.sets.length - done.length;
 
   if (done.length === 0) {
@@ -96,8 +108,14 @@ function ExerciseRecap({
           ) : null}
         </div>
         <p className="shrink-0 text-right text-xs text-muted-foreground tabular-nums">
-          {working} {working === 1 ? "set" : "sets"}
-          {volume ? <> · {formatVolume(volume)} kg</> : null}
+          {isDistance ? (
+            formatDistance(done.reduce((sum, setItem) => sum + (setItem.distanceKm ?? 0), 0), unit)
+          ) : (
+            <>
+              {working} {working === 1 ? "set" : "sets"}
+              {volume ? <> · {formatVolume(volume)} kg</> : null}
+            </>
+          )}
         </p>
       </div>
 
@@ -124,7 +142,7 @@ function ExerciseRecap({
                 {isWarmup ? "W" : number}
               </span>
               <span className={cn("font-semibold", isWarmup && "text-muted-foreground")}>
-                {setLabel(setItem, isTime)}
+                {setLabel(setItem, isTime, isDistance, unit)}
               </span>
               {isTop ? (
                 <span className="text-[11px] font-bold text-brand">Top set</span>
@@ -165,6 +183,7 @@ export function SessionRecap({
   /** The logs this session just wrote — one per exercise with work in it. */
   logs: WorkoutLog[];
 }) {
+  const unit = useDistanceUnit();
   if (!summary) {
     return (
       <div className="mt-4 flex items-center gap-3 rounded-lg bg-muted px-4 py-3 text-sm">
@@ -180,6 +199,22 @@ export function SessionRecap({
   const records = new Set(summary.personalRecords.map((record) => record.workoutId));
   const volumeByWorkout = new Map(logs.map((log) => [log.workoutId, log.totalVolume]));
   const doneCount = exercises.filter((exercise) => exercise.sets.some((setItem) => setItem.completed)).length;
+  const distanceKm = exercises
+    .filter((exercise) => exercise.metric === "distance")
+    .flatMap((exercise) => exercise.sets.filter((setItem) => setItem.completed))
+    .reduce((sum, setItem) => sum + (setItem.distanceKm ?? 0), 0);
+  const lifted = summary.volume > 0 || summary.reps > 0;
+  // Only the numbers this session has: a run day is not "0 reps, 0 kg".
+  const stats = [
+    { label: "Sets", value: String(summary.sets) },
+    ...(lifted
+      ? [
+          { label: "Reps", value: String(summary.reps) },
+          { label: "kg lifted", value: formatVolume(summary.volume) }
+        ]
+      : []),
+    ...(distanceKm > 0 ? [{ label: "Distance", value: formatDistance(distanceKm, unit) }] : [])
+  ];
 
   return (
     // Part of the day card, not a box inside it: a card in a card spent the
@@ -195,12 +230,10 @@ export function SessionRecap({
         </div>
       </div>
 
-      <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-        {[
-          { label: "Sets", value: String(summary.sets) },
-          { label: "Reps", value: String(summary.reps) },
-          { label: "kg lifted", value: formatVolume(summary.volume) }
-        ].map((stat) => (
+      <div
+        className={cn("mt-3 grid gap-2 text-center", stats.length >= 4 ? "grid-cols-4" : stats.length === 3 ? "grid-cols-3" : "grid-cols-2")}
+      >
+        {stats.map((stat) => (
           <div key={stat.label} className="well rounded-lg px-2 py-2.5">
             <p className="font-display text-xl font-extrabold tabular-nums tracking-tight">{stat.value}</p>
             <p className="mt-0.5 text-[11px] font-semibold text-muted-foreground">{stat.label}</p>
@@ -208,7 +241,8 @@ export function SessionRecap({
         ))}
       </div>
 
-      {change === undefined ? null : (
+      {/* Weight lifted against last time means nothing on a day with none. */}
+      {change === undefined || !lifted ? null : (
         <p className="mt-3 flex items-center gap-1.5 text-sm">
           {change >= 0 ? (
             <ArrowUpRight className="h-4 w-4 shrink-0 text-success" aria-hidden />

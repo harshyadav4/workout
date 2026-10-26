@@ -827,7 +827,7 @@ assert.deepEqual(
 assert.equal(plannedAfter([...day3, ...day2, ...day1]).length, 3, "day 3 trimmed back to 3: plan 3");
 assert.deepEqual(
   loggedSetAt("bench", [...day3, ...day2, ...day1], 3),
-  { weight: 37.5, reps: 5, durationSeconds: undefined },
+  { weight: 37.5, reps: 5, durationSeconds: undefined, distanceKm: undefined },
   "day 4 adds a 4th set: it pulls day 2's 4th, the latest session that had one"
 );
 assert.equal(loggedSetAt("bench", [...day3, ...day2, ...day1], 10), undefined, "a set no session reached: nothing to pull");
@@ -835,3 +835,27 @@ assert.equal(loggedSetAt("bench", [...day3, ...day2, ...day1], 10), undefined, "
 const shortDay = day("short", "2026-10-07", [[35, 5], [35, 5]]);
 assert.equal(lastSessionSetCount("bench", [...shortDay, ...day3]), 2, "the last session logged 2");
 assert.equal(plannedAfter([...shortDay, ...day3]).length, 3, "but one short day never plans below the session's 3");
+
+// --- cardio: a run is distance + time, carried like any other set ---
+
+const runTemplate = {
+  ...progressionTemplate(),
+  exercises: [
+    { ...progressionTemplate().exercises[0], workoutId: "run", name: "Run", metric: "distance" as const, sets: 1, reps: 0, weight: 0, durationSeconds: 1800, distanceKm: 5 }
+  ]
+};
+const firstRun = plannedExercisesFromTemplate(runTemplate)[0].sets[0];
+assert.deepEqual(
+  [firstRun.distanceKm, firstRun.durationSeconds, firstRun.reps],
+  [5, 1800, 0],
+  "a first run opens at the plan's distance and time, with no reps"
+);
+const runRow = { ...row("r1", "2026-10-25", 0, 0, 0, "run"), distanceKm: 6.2, durationSeconds: 1950 };
+const nextRun = plannedExercisesFromTemplate(runTemplate, { logs: [], setLogs: [runRow] })[0].sets[0];
+assert.deepEqual([nextRun.distanceKm, nextRun.durationSeconds], [6.2, 1950], "the next run opens at the last one");
+
+const runSession = session([{ name: "run", sets: [{ ...set(0, 0, true), distanceKm: 5, durationSeconds: 1710 }] }]);
+runSession.exercises[0].metric = "distance";
+const runLog = buildLogFromSession(runSession, templates);
+assert.equal(runLog.setLogs[0].distanceKm, 5, "Finish keeps the distance on the set row");
+assert.equal(runLog.logs[0].totalVolume, 0, "and a run moves no lifting volume");
