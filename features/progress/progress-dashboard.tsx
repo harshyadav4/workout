@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { MuscleMapCard } from "@/features/home/muscle-map-card";
 import { BodyWeightCard } from "@/features/progress/body-weight-card";
 import { CardioProgress } from "@/features/progress/cardio-cards";
+import { SessionTimeSection } from "@/features/progress/session-time-cards";
 import { ConsistencyCard, RhythmCard } from "@/features/progress/consistency-cards";
 import { CumulativeCard } from "@/features/progress/cumulative-card";
 import { LoadCard } from "@/features/progress/load-card";
@@ -60,6 +61,7 @@ import {
   type ProgressRange
 } from "@/lib/progress-metrics";
 import { cardioSessions } from "@/lib/cardio-metrics";
+import { timedSessions } from "@/lib/session-time";
 import { equipmentInUse, suggestForHead } from "@/lib/suggestions";
 import { todayKey } from "@/lib/utils";
 
@@ -91,6 +93,8 @@ export function ProgressDashboard() {
   const logs = useWorkoutStore((state) => state.logs);
   const setLogs = useWorkoutStore((state) => state.setLogs);
   const cardio = useMemo(() => cardioSessions(setLogs, logs), [setLogs, logs]);
+  const scheduled = useWorkoutStore((state) => state.scheduledSessions);
+  const timed = useMemo(() => timedSessions(scheduled), [scheduled]);
   const measurements = useWorkoutStore((state) => state.measurements);
   const profile = useWorkoutStore((state) => state.profile);
   const activeDate = useWorkoutStore((state) => state.activeDate);
@@ -338,6 +342,12 @@ export function ProgressDashboard() {
             milestones={lifetime.cumulative.milestones}
             total={lifetime.cumulative.total}
           />
+
+          <SectionRule label="Time" hint="how long, and when" />
+
+          {/* All timed sessions, not the selected range: a few weeks of
+              timing inside a 4W window is too thin to read. */}
+          <SessionTimeSection sessions={timed} today={activeDate} />
 
           <SectionRule label="Body" hint="weigh-ins" />
 
