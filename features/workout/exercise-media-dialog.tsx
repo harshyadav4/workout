@@ -13,11 +13,9 @@ import {
 } from "@/components/ui/dialog";
 import { useWorkoutStore } from "@/features/workout/workout-store";
 import { exerciseGifUrl, exerciseImageUrl, loadExercises, type Exercise } from "@/lib/exercises";
-import { PRESET_DATASET_IDS, mediaUrl } from "@/lib/media";
+import { datasetIdOf, mediaUrl } from "@/lib/media";
 import type { WorkoutTemplate } from "@/lib/types";
 import { cn } from "@/lib/utils";
-
-const DB_PREFIX = "db-";
 
 /**
  * Dataset id for a catalog template or a built-in one, or undefined for
@@ -30,13 +28,7 @@ export function templateDatasetId(
   if (!template) {
     return undefined;
   }
-  if (template.dbId) {
-    return template.dbId;
-  }
-  if (template.id.startsWith(DB_PREFIX)) {
-    return template.id.slice(DB_PREFIX.length);
-  }
-  return Object.hasOwn(PRESET_DATASET_IDS, template.id) ? PRESET_DATASET_IDS[template.id] : undefined;
+  return template.dbId ?? datasetIdOf(template.id);
 }
 
 /**

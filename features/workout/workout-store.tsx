@@ -21,6 +21,8 @@ import type {
   ScheduleRule,
   SessionTemplate,
   SetLog,
+  SkillGoal,
+  SkillLevel,
   WorkoutLog,
   WorkoutTemplate
 } from "@/lib/types";
@@ -34,6 +36,7 @@ import {
 import {
   buildLogFromSession,
   loggedSetAt,
+  buildSessionSummary,
   refreshUpcomingSessions,
   removeExerciseFromExercises,
   plannedExercisesFromTemplate,
@@ -53,6 +56,8 @@ interface WorkoutState {
   setLogs: SetLog[];
   profile: ProfileInfo;
   measurements: BodyMeasurement[];
+  /** Skills being climbed (lib/skills). Progress is read off setLogs, never stored. */
+  skillGoals: SkillGoal[];
   activeDate: string;
   selectedMuscleId?: string;
   selectedSessionId?: string;
@@ -107,6 +112,13 @@ interface WorkoutState {
   hydrateRemote: (payload: RemoteState) => void;
   /** Re-plan sessions not started yet from the latest logs (see refreshUpcomingSessions). */
   refreshUpcoming: () => void;
+  addSkillGoal: (goal: SkillGoal) => void;
+  removeSkillGoal: (id: string) => void;
+  /**
+   * A skill moved up a rung: put the new exercise in place of the rung(s)
+   * below it in every session that has one. Opt-in from the Skills tab.
+   */
+  applySkillLevelToPlans: (payload: { replaceWorkoutIds: string[]; level: SkillLevel; template: WorkoutTemplate }) => number;
 }
 
 // v4 adds `owner`. v3 is not migrated on purpose: an untagged blob cannot be
@@ -179,6 +191,9 @@ function createInitialState(): Omit<
   | "logMeasurement"
   | "hydrateRemote"
   | "refreshUpcoming"
+  | "addSkillGoal"
+  | "removeSkillGoal"
+  | "applySkillLevelToPlans"
 > {
   // A new account starts empty and lands in Home's `setup` state. `muscles` and
   // `presetWorkouts` are static reference data that ships with the app, not the
@@ -194,6 +209,7 @@ function createInitialState(): Omit<
     setLogs: [],
     profile: { name: "", email: "", heightCm: 0, weightKg: 0 },
     measurements: [],
+    skillGoals: [],
     activeDate: todayKey(),
     selectedMuscleId: undefined,
     selectedSessionId: undefined
@@ -217,6 +233,7 @@ function persist(state: WorkoutState) {
       setLogs: state.setLogs,
       profile: state.profile,
       measurements: state.measurements,
+      skillGoals: state.skillGoals,
       activeDate: state.activeDate,
       selectedMuscleId: state.selectedMuscleId,
       selectedSessionId: state.selectedSessionId,
@@ -723,7 +740,48 @@ function createWorkoutStore() {
       // Logs from another device can move the plan, so re-plan after merging.
       hydrateRemote: (payload) =>
         setAndPersist((state) => withFreshUpcoming({ ...state, ...reconcile(state, payload) })),
-      refreshUpcoming: () => setAndPersist((state) => withFreshUpcoming(state))
+      refreshUpcoming: () => setAndPersist((state) => withFreshUpcoming(state)),
+      addSkillGoal: (goal) =>
+        setAndPersist((state) => ({ ...state, skillGoals: [...state.skillGoals, goal] })),
+      removeSkillGoal: (id) =>
+        setAndPersist((state) => ({ ...state, skillGoals: state.skillGoals.filter((goal) => goal.id !== id) })),
+      applySkillLevelToPlans: ({ replaceWorkoutIds, level, template }) => {
+        let replaced = 0;
+        setAndPersist((state) => {
+          const templates = state.templates.some((item) => item.id === template.id)
+            ? state.templates
+            : [...state.templates, template];
+          const sessionTemplates = state.sessionTemplates.map((session) => {
+            if (!session.exercises.some((exercise) => replaceWorkoutIds.includes(exercise.workoutId))) {
+              return session;
+            }
+            const exercises = session.exercises.map((exercise) => {
+              if (!replaceWorkoutIds.includes(exercise.workoutId)) {
+                return exercise;
+              }
+              replaced += 1;
+              // The rung's bar becomes the plan: its sets and its reps or hold.
+              return {
+                ...exercise,
+                workoutId: template.id,
+                name: level.name,
+                muscles: template.muscles,
+                metric: level.metric === "time" ? ("time" as const) : undefined,
+                sets: level.sets,
+                reps: level.metric === "time" ? 0 : level.target,
+                durationSeconds: level.metric === "time" ? level.target : undefined,
+                weight: 0,
+                weights: undefined
+              };
+            });
+            const next = { ...session, exercises, workoutIds: [...new Set(exercises.map((exercise) => exercise.workoutId))] };
+            return { ...next, summary: buildSessionSummary(next) };
+          });
+          // Sessions not started yet pick the new exercise up straight away.
+          return withFreshUpcoming({ ...state, templates, sessionTemplates });
+        });
+        return replaced;
+      }
     };
   });
 }

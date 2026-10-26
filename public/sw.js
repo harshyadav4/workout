@@ -14,13 +14,13 @@
  *
  * Bump VERSION to drop every old cache on the next visit.
  */
-const VERSION = "v3";
+const VERSION = "v4";
 const SHELL = `gymflow-shell-${VERSION}`;
 const STATIC = `gymflow-static-${VERSION}`;
 // Not versioned: the files are immutable, and re-downloading every demo on each
 // release would cost the user's data for nothing.
 const DEMOS = "gymflow-demos";
-const PRECACHE = ["/", "/plan", "/progress", "/profile", "/manifest.webmanifest", "/icon-192.png"];
+const PRECACHE = ["/", "/plan", "/skills", "/progress", "/profile", "/manifest.webmanifest", "/icon-192.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

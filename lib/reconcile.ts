@@ -99,6 +99,9 @@ export function reconcile(local: SyncableState, remote: RemoteState): SyncableSt
     // this field would have re-created the replace-outright bug one table down.
     setLogs: unionById(local.setLogs, remote.setLogs).sort((a, b) => byDateAscending(b, a)),
     measurements: unionByDateAndMetric(local.measurements, remote.measurements).sort(byDateAscending),
+    // Undefined remote means the table is not there yet (0007): keep the
+    // device's goals rather than wiping them with an empty list.
+    skillGoals: remote.skillGoals ? unionById(local.skillGoals ?? [], remote.skillGoals) : local.skillGoals,
     // Both are one small object that the next push rewrites whole, so there is
     // no partial local edit to lose. The account is the authority on them.
     profile: remote.profile ?? local.profile,

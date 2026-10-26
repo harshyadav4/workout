@@ -8,6 +8,8 @@ import type {
   ScheduledSession,
   SessionTemplate,
   SetLog,
+  SkillGoal,
+  SkillLevel,
   WorkoutLog,
   WorkoutTemplate
 } from "@/lib/types";
@@ -31,7 +33,8 @@ const TABLES = [
   // After workout_logs: `log_id` references it, so a set row written first has
   // nothing to point at.
   "set_logs",
-  "body_measurements"
+  "body_measurements",
+  "skill_goals"
 ] as const;
 
 // -- mappers ---------------------------------------------------------------
@@ -206,6 +209,36 @@ function rowToMeasurement(row: Row): BodyMeasurement {
   };
 }
 
+function skillGoalToRow(goal: SkillGoal, userId: string): Row {
+  return {
+    id: goal.id,
+    user_id: userId,
+    name: goal.name,
+    template_key: goal.templateKey ?? null,
+    levels: goal.levels,
+    created_at: goal.createdAt
+  };
+}
+
+function rowToSkillGoal(row: Row): SkillGoal {
+  return {
+    id: row.id as string,
+    name: (row.name as string) ?? "",
+    templateKey: (row.template_key as string) ?? undefined,
+    levels: (row.levels as SkillLevel[]) ?? [],
+    createdAt: (row.created_at as string) ?? new Date().toISOString()
+  };
+}
+
+/**
+ * True when a table this build expects is not in the database yet — a deploy
+ * that went out before its migration ran. 42P01 from Postgres, PGRST205 from
+ * PostgREST's schema cache.
+ */
+function isMissingTable(error: { code?: string } | null | undefined): boolean {
+  return error?.code === "42P01" || error?.code === "PGRST205";
+}
+
 // -- read ------------------------------------------------------------------
 
 export interface RemoteState {
@@ -215,6 +248,8 @@ export interface RemoteState {
   logs: WorkoutLog[];
   setLogs: SetLog[];
   measurements: BodyMeasurement[];
+  /** Absent when the table is not there yet (0007): keep what is on the device. */
+  skillGoals?: SkillGoal[];
   profile?: ProfileInfo;
   scheduleConfig?: ScheduleConfig;
 }
@@ -235,7 +270,7 @@ export async function loadUserState(): Promise<RemoteState> {
     };
   }
 
-  const [templates, sessionTemplates, sessions, logs, setLogs, measurements, profile] =
+  const [templates, sessionTemplates, sessions, logs, setLogs, measurements, profile, skills] =
     await Promise.all([
     supabase.from("workout_templates").select("*"),
     supabase.from("session_templates").select("*"),
@@ -243,7 +278,8 @@ export async function loadUserState(): Promise<RemoteState> {
     supabase.from("workout_logs").select("*").order("date", { ascending: false }),
       supabase.from("set_logs").select("*").order("date", { ascending: false }),
       supabase.from("body_measurements").select("*").order("date"),
-      supabase.from("profiles").select("*").maybeSingle()
+      supabase.from("profiles").select("*").maybeSingle(),
+      supabase.from("skill_goals").select("*").order("created_at")
     ]);
 
   const failure = [
@@ -253,7 +289,10 @@ export async function loadUserState(): Promise<RemoteState> {
     logs,
     setLogs,
     measurements,
-    profile
+    profile,
+    // A missing skills table is a migration not yet run, not a failed load:
+    // everything else still comes back.
+    ...(isMissingTable(skills.error) ? [] : [skills])
   ].find(
     (result) => result.error
   );
@@ -270,6 +309,7 @@ export async function loadUserState(): Promise<RemoteState> {
     logs: (logs.data ?? []).map(rowToLog),
     setLogs: (setLogs.data ?? []).map(rowToSetLog),
     measurements: (measurements.data ?? []).map(rowToMeasurement),
+    skillGoals: skills.error ? undefined : (skills.data ?? []).map(rowToSkillGoal),
     profile: profileRow
       ? {
           name: (profileRow.name as string) ?? "",
@@ -380,6 +420,7 @@ export interface SyncableState {
   logs: WorkoutLog[];
   setLogs: SetLog[];
   measurements: BodyMeasurement[];
+  skillGoals?: SkillGoal[];
   profile: ProfileInfo;
   scheduleConfig?: ScheduleConfig;
 }
@@ -397,6 +438,7 @@ export function snapshotState(state: SyncableState): SyncableState {
     logs: state.logs,
     setLogs: state.setLogs,
     measurements: state.measurements,
+    skillGoals: state.skillGoals,
     profile: state.profile,
     scheduleConfig: state.scheduleConfig
   };
@@ -497,6 +539,17 @@ export async function pushChanges(
   await writeTable("body_measurements", previous.measurements, next.measurements, (item) =>
     measurementToRow(item, userId)
   );
+  try {
+    await writeTable("skill_goals", previous.skillGoals ?? [], next.skillGoals ?? [], (item) =>
+      skillGoalToRow(item, userId)
+    );
+  } catch (error) {
+    // Before 0007 has run the goals live on the device only; nothing else fails.
+    if (!isMissingTable(error as { code?: string })) {
+      throw error;
+    }
+    console.warn("[sync] skill_goals table missing — run migration 0007");
+  }
 
   const profileChanged =
     previous.profile !== next.profile || previous.scheduleConfig !== next.scheduleConfig;

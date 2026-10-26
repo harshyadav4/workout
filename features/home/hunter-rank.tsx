@@ -15,6 +15,7 @@ import { MeasurementOrb, RankCrest, TreasureChest } from "@/features/home/artifa
 import { useWorkoutStore } from "@/features/workout/workout-store";
 import { hunterRank, RANKS, type Rank } from "@/lib/hunter";
 import { formatDayKey } from "@/lib/progress-metrics";
+import { StatusSkillsDoor, useSkillsFound } from "@/features/skills/skill-doors";
 import { cn } from "@/lib/utils";
 
 function useHunterRank() {
@@ -33,13 +34,18 @@ function useHunterRank() {
 export function RankBadge({ name }: { name?: string }) {
   const { rank } = useHunterRank();
   const [open, setOpen] = useState(false);
+  // Until Skills is found, the crest breathes — the only hint there is one.
+  const skillsFound = useSkillsFound();
   return (
     <>
       <button
         type="button"
         onClick={() => setOpen(true)}
         aria-label={`Hunter rank ${rank}. How ranks work`}
-        className="rank-chip inline-flex h-8 shrink-0 items-center gap-2 rounded-[9px] px-3 leading-none transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className={cn(
+          "rank-chip inline-flex h-8 shrink-0 items-center gap-2 rounded-[9px] px-3 leading-none transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          !skillsFound && "skills-hint"
+        )}
       >
         <span className="rank-letter font-display text-[19px] font-extrabold">{rank}</span>
         <span className="h-3.5 w-px bg-brand/30" aria-hidden />
@@ -253,6 +259,9 @@ function RankSheet({ name }: { name?: string }) {
           ))}
         </dl>
       </div>
+
+      {/* The first of the three doors to Skills (features/skills/skill-doors). */}
+      <StatusSkillsDoor />
 
       <SheetLabel>EXP</SheetLabel>
       <div className="mt-3">

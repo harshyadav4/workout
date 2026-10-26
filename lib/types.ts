@@ -313,3 +313,33 @@ export interface ProfileInfo {
   weightCadence?: MeasurementCadence;
   measurementCadence?: MeasurementCadence;
 }
+
+/**
+ * One rung of a skill ladder: an exercise and the bar to clear on it — so many
+ * sets of so many reps, or of a hold this long.
+ */
+export interface SkillLevel {
+  /** The exercise, as logged. Library exercises are `db-<dataset id>`. */
+  workoutId: string;
+  name: string;
+  metric: "reps" | "time";
+  sets: number;
+  /** Reps per set, or seconds per set for `time`. */
+  target: number;
+}
+
+/**
+ * A skill the user is working toward — Pull-up, Handstand, or their own. The
+ * levels are copied onto the goal, so it never changes under you when the
+ * ready-made ladders are tuned later. Progress is never stored: it is read off
+ * the logged sets every time (lib/skills), so it cannot drift from the truth.
+ */
+export interface SkillGoal {
+  id: string;
+  name: string;
+  /** The ready-made skill this started from, if any. */
+  templateKey?: string;
+  levels: SkillLevel[];
+  createdAt: string;
+}
+

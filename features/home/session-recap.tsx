@@ -1,10 +1,14 @@
 "use client";
 
-import { ArrowDownRight, ArrowUpRight, Info, Trophy } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, ChevronRight, Info, Trophy } from "lucide-react";
+import Link from "next/link";
+import { useMemo } from "react";
 
-import { QuestScroll } from "@/features/home/artifacts";
+import { LevelUpGem, QuestScroll } from "@/features/home/artifacts";
 import { ExerciseDemoButton } from "@/features/workout/exercise-media-dialog";
 import { useDistanceUnit } from "@/features/workout/use-distance-unit";
+import { useWorkoutStore } from "@/features/workout/workout-store";
+import { levelTarget, levelUps } from "@/lib/skills";
 import { type DistanceUnit, formatDistance, formatPace } from "@/lib/cardio";
 import type { SessionSummary } from "@/lib/progress-metrics";
 import type { PlannedExercise, PlannedSet, WorkoutLog } from "@/lib/types";
@@ -166,6 +170,48 @@ function ExerciseRecap({
 }
 
 /**
+ * "Skill level up!": a rung this session cleared, on the card that reports the
+ * session. Judged by replaying the skills without this session's sets and with
+ * them, so it names exactly what today earned and nothing cleared before.
+ */
+function SkillLevelUps({ written }: { written: WorkoutLog[] }) {
+  const goals = useWorkoutStore((state) => state.skillGoals);
+  const setLogs = useWorkoutStore((state) => state.setLogs);
+  const ups = useMemo(() => {
+    const ids = new Set(written.map((log) => log.id));
+    return levelUps(goals, setLogs.filter((row) => !ids.has(row.logId)), setLogs);
+  }, [goals, setLogs, written]);
+
+  if (ups.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mt-3 space-y-2">
+      {ups.map((up) => (
+        <Link
+          key={up.goal.id}
+          href="/skills"
+          className="flex min-h-14 items-center gap-3 rounded-xl bg-brand/10 px-3 py-2.5 ring-1 ring-brand/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <LevelUpGem className="h-9 w-9 shrink-0" />
+          <span className="min-w-0 flex-1">
+            <span className="block font-display text-base font-extrabold leading-tight tracking-tight text-brand">
+              {up.mastered ? "Skill mastered!" : "Skill level up!"}
+            </span>
+            <span className="block truncate text-xs text-muted-foreground">
+              {up.goal.name} · Level {up.to} of {up.goal.levels.length}
+              {up.next ? ` · next: ${up.next.name} ${levelTarget(up.next)}` : ""}
+            </span>
+          </span>
+          <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+/**
  * The finish screen, in one card: what the session added up to, then every
  * set you actually did, exercise by exercise. It replaces a "Daily quest
  * cleared" banner that said nothing, over a list of pills with no numbers in it.
@@ -268,6 +314,8 @@ export function SessionRecap({
           />
         ))}
       </div>
+
+      <SkillLevelUps written={logs} />
 
       {summary.muscles.length > 0 ? (
         <div className="border-t border-border pt-3">

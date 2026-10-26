@@ -49,6 +49,19 @@ export const PRESET_DATASET_IDS: Record<string, string> = {
   "wrist-curl": "0401"
 };
 
+/**
+ * The library entry behind an exercise id, if it has one: `db-0652` is library
+ * exercise 0652, and a built-in like `cable-curl` maps through
+ * PRESET_DATASET_IDS. Custom exercises have none. Two ids with the same entry
+ * are the same movement — logging the built-in Plank counts as the library's.
+ */
+export function datasetIdOf(workoutId: string): string | undefined {
+  if (workoutId.startsWith("db-")) {
+    return workoutId.slice(3);
+  }
+  return Object.hasOwn(PRESET_DATASET_IDS, workoutId) ? PRESET_DATASET_IDS[workoutId] : undefined;
+}
+
 /** The public URL of a stored GIF, or undefined when there is no Supabase. */
 export function mediaUrl(path?: string): string | undefined {
   if (!path || !supabase) {

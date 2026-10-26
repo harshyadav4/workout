@@ -709,6 +709,31 @@ label {
    own beat (the delay is set per find), still behind the content. The outer
    span pulses; the inner svg keeps its own turn. With reduced motion they
    stay lit and still. */
+/* The rank crest, until Skills has been found (features/skills/skill-doors):
+   a slow breath of mana around the chip every few seconds, and nothing more.
+   The only hint the crest is a door. */
+.skills-hint {
+  animation: skills-hint 4.5s ease-in-out infinite;
+}
+
+@keyframes skills-hint {
+  0%,
+  70%,
+  100% {
+    box-shadow: 0 0 0 0 hsl(var(--brand) / 0);
+  }
+  85% {
+    box-shadow: 0 0 0 2px hsl(var(--brand) / 0.35), 0 0 14px hsl(var(--brand) / 0.45);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skills-hint {
+    animation: none;
+    box-shadow: 0 0 0 1px hsl(var(--brand) / 0.35);
+  }
+}
+
 .artifact-rare {
   color: hsl(var(--brand));
   animation: artifact-pulse 3s ease-in-out infinite;
