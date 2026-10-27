@@ -13,7 +13,6 @@ import { ClearThisPhone, DataDeletion } from "@/features/profile/data-deletion";
 import { useStartTour } from "@/features/tour/tour";
 import { useTour } from "@/features/tour/tour-store";
 import { DetailedTimingToggle, DistanceUnitToggle, ThemeToggle } from "@/features/profile/theme-toggle";
-import { InstallCard } from "@/features/pwa/install-card";
 import { RestAlertsToggle } from "@/features/pwa/rest-alerts";
 import { retrySync, useSyncStatus } from "@/features/workout/sync-status";
 import { useWorkoutStore, useWorkoutStoreApi } from "@/features/workout/workout-store";
@@ -424,38 +423,32 @@ export function AccountSection() {
 
   if (!user) {
     return (
-      <>
-        <InstallCard />
-        <Section title="Account">
-          <InfoNote
-            heading={<p className="text-sm text-muted-foreground">Your data is on this phone only.</p>}
-            note={
-              <>
-                <p>You use Arise without an account.</p>
-                <p>Sign in to save your data in your account. Then it shows on all your devices.</p>
-                <p>The data on this phone joins your account when you sign in.</p>
-              </>
-            }
-          />
-          <Button asChild className="w-full">
-            <Link href="/login">Sign in with Google</Link>
-          </Button>
-          <ClearThisPhone />
-        </Section>
-      </>
+      <Section title="Account">
+        <InfoNote
+          heading={<p className="text-sm text-muted-foreground">Your data is on this phone only.</p>}
+          note={
+            <>
+              <p>You use Arise without an account.</p>
+              <p>Sign in to save your data in your account. Then it shows on all your devices.</p>
+              <p>The data on this phone joins your account when you sign in.</p>
+            </>
+          }
+        />
+        <Button asChild className="w-full">
+          <Link href="/login">Sign in with Google</Link>
+        </Button>
+        <ClearThisPhone />
+      </Section>
     );
   }
 
   return (
-    <>
-      <InstallCard />
-      <Section title="Account">
-        <Button variant="outline" className="w-full" disabled={pending} onClick={() => void signOut()}>
-          {pending ? "Signing out…" : "Sign out"}
-        </Button>
-        {error ? <p className="text-center text-sm text-danger">{error}</p> : null}
-        <DataDeletion />
-      </Section>
-    </>
+    <Section title="Account">
+      <Button variant="outline" className="w-full" disabled={pending} onClick={() => void signOut()}>
+        {pending ? "Signing out…" : "Sign out"}
+      </Button>
+      {error ? <p className="text-center text-sm text-danger">{error}</p> : null}
+      <DataDeletion />
+    </Section>
   );
 }
