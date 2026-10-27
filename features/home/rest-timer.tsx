@@ -23,16 +23,21 @@ export function formatRest(seconds: number): string {
   return `${Math.floor(safe / 60)}:${String(safe % 60).padStart(2, "0")}`;
 }
 
+/**
+ * The rest as a deadline, held by the page. It changes only on start, extend
+ * and skip, so the page renders only then; the counting happens in the dial
+ * (`useCountdown`), which is the one thing on screen that needs a new number
+ * twice a second. Before this the hook ticked here and re-rendered the whole
+ * Home page — the ledger, the muscle map, every card — at every tick.
+ */
 export function useRestTimer() {
   // An absolute deadline rather than a decrementing count. Mobile browsers
   // throttle `setInterval` in a backgrounded tab — which is every tab, the
   // moment the phone locks — and a counter would lose exactly the time you
   // spent not looking at it.
   const [endsAt, setEndsAt] = useState<number | undefined>(undefined);
-  const [remaining, setRemaining] = useState(0);
   // The whole rest, so the dial can show how far the mana has refilled.
   const [total, setTotal] = useState(0);
-  const buzzedRef = useRef(false);
 
   // The deadline is also kept on the device (lib/timer), so closing the app
   // mid-rest and opening it again brings the potion back where it really is.
@@ -45,39 +50,12 @@ export function useRestTimer() {
     }
   }, []);
 
-  useEffect(() => {
-    if (endsAt === undefined) {
-      return;
-    }
-
-    const tick = () => {
-      const left = Math.ceil((endsAt - Date.now()) / 1000);
-      setRemaining(Math.max(0, left));
-
-      if (left > 0 || buzzedRef.current) {
-        return;
-      }
-      buzzedRef.current = true;
-      // Feature-detected: absent on iOS Safari, which is most of this app's
-      // traffic. There is no fallback — a sound in a gym is worse than nothing.
-      if ("vibrate" in navigator) {
-        navigator.vibrate([120, 60, 120]);
-      }
-    };
-
-    tick();
-    // Twice a second so the displayed number never sits a beat behind.
-    const id = setInterval(tick, 500);
-    return () => clearInterval(id);
-  }, [endsAt]);
-
   const start = useCallback((seconds?: number) => {
     if (!seconds || seconds <= 0) {
       setEndsAt(undefined);
       writeStorage(REST_KEY, undefined);
       return;
     }
-    buzzedRef.current = false;
     const next = Date.now() + seconds * 1000;
     setTotal(seconds);
     setEndsAt(next);
@@ -91,11 +69,7 @@ export function useRestTimer() {
       }
       // Never below now: a −15 on four seconds left means "done", not a clock
       // that owes you eleven seconds the next time you extend it.
-      const next = Math.max(Date.now(), current + deltaSeconds * 1000);
-      if (next > Date.now()) {
-        buzzedRef.current = false;
-      }
-      return next;
+      return Math.max(Date.now(), current + deltaSeconds * 1000);
     });
     // A longer rest is a longer bar, not a bar that jumps backwards.
     setTotal((current) => Math.max(1, current + deltaSeconds));
@@ -124,11 +98,49 @@ export function useRestTimer() {
     writeStorage(REST_KEY, undefined);
   }, []);
 
-  return { active: endsAt !== undefined, remaining, total, start, extend, skip };
+  return { endsAt, total, start, extend, skip };
+}
+
+/**
+ * Seconds left to a deadline, refreshed twice a second so the number never
+ * sits a beat behind, and one buzz when it reaches zero. Only a deadline that
+ * was ahead when it was set buzzes: "−15s" on four seconds left lands on now,
+ * and that is "done", not a second alarm.
+ */
+function useCountdown(endsAt: number): number {
+  const [remaining, setRemaining] = useState(() => secondsLeft(endsAt));
+  const buzzedRef = useRef(false);
+
+  useEffect(() => {
+    buzzedRef.current = endsAt <= Date.now();
+    const tick = () => {
+      const seconds = secondsLeft(endsAt);
+      setRemaining(seconds);
+      if (seconds > 0 || buzzedRef.current) {
+        return;
+      }
+      buzzedRef.current = true;
+      // Feature-detected: absent on iOS Safari, which is most of this app's
+      // traffic. There is no fallback — a sound in a gym is worse than nothing.
+      if ("vibrate" in navigator) {
+        navigator.vibrate([120, 60, 120]);
+      }
+    };
+    tick();
+    const id = setInterval(tick, 500);
+    return () => clearInterval(id);
+  }, [endsAt]);
+
+  return remaining;
+}
+
+function secondsLeft(endsAt: number): number {
+  return Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));
 }
 
 interface RestDialProps {
-  remaining: number;
+  /** The rest's deadline (ms since the epoch). */
+  endsAt: number;
   /** The whole rest in seconds; the mana bar is how much of it has passed. */
   total: number;
   onExtend: (deltaSeconds: number) => void;
@@ -142,8 +154,9 @@ interface RestDialProps {
  * dismiss itself at zero — a phone in a pocket misses the buzz, and the dial
  * is the only other signal.
  */
-export function RestDial({ remaining, total, onExtend, onSkip }: RestDialProps) {
+export function RestDial({ endsAt, total, onExtend, onSkip }: RestDialProps) {
   const [open, setOpen] = useState(false);
+  const remaining = useCountdown(endsAt);
   const done = remaining <= 0;
   const refilled = done || total <= 0 ? 1 : Math.min(1, Math.max(0, 1 - remaining / total));
 

@@ -5,9 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { BarChart3, CalendarDays, Home, UserCircle2 } from "lucide-react";
 
-import { useNavTransition } from "@/components/layout/nav-transition";
 import { isTextEntry } from "@/components/ui/use-keyboard";
-import { useTour } from "@/features/tour/tour-store";
 import { useWorkoutStore } from "@/features/workout/workout-store";
 import { isRecordingDue } from "@/lib/body-metrics";
 import { cn } from "@/lib/utils";
@@ -19,11 +17,19 @@ const items = [
   { href: "/profile", label: "You", icon: UserCircle2 }
 ];
 
+function isOn(href: string, pathname: string) {
+  return href === "/" ? pathname === "/" : pathname.startsWith(href);
+}
+
 /**
  * The dock: one plaque floating clear of the bottom edge, four keys in it.
  * The active key is tinted, not filled — a filled key is the one you press,
  * and this one you are already on. On iOS the plaque is glass instead; see
  * `.dock` in globals.css.
+ *
+ * The key lights the moment it is tapped, before the new page is in: the
+ * route can take a beat to load, and a dock that waits for it makes the tap
+ * feel missed. The page itself fades in when it lands (`.page-enter`).
  */
 export function BottomNav() {
   const pathname = usePathname();
@@ -31,12 +37,7 @@ export function BottomNav() {
   const profile = useWorkoutStore((state) => state.profile);
   const recordingDue = isRecordingDue(measurements, profile);
   const typing = useTyping();
-  const navigate = useNavTransition();
-  // The tour changes pages itself and measures them at once; no animation then.
-  const touring = useTour().active;
-  const currentIndex = items.findIndex((item) =>
-    item.href === "/" ? pathname === "/" : pathname.startsWith(item.href)
-  );
+  const pending = usePendingTab(pathname);
 
   return (
     <nav
@@ -47,9 +48,8 @@ export function BottomNav() {
       className="fixed bottom-0 left-0 right-0 z-40 px-4 pb-[calc(env(safe-area-inset-bottom)+0.875rem)]"
     >
       <div className="dock mx-auto grid max-w-md grid-cols-4 gap-1 rounded-3xl border border-border p-1.5 shadow-dock" data-tour="nav">
-        {items.map((item, index) => {
-          const active =
-            item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+        {items.map((item) => {
+          const active = pending.href ? pending.href === item.href : isOn(item.href, pathname);
           const Icon = item.icon;
           // Only the You tab carries a dot, and only for something the user
           // asked to be reminded about — a cadence they set themselves.
@@ -58,16 +58,12 @@ export function BottomNav() {
             <Link
               key={item.href}
               href={item.href}
-              aria-current={active ? "page" : undefined}
+              aria-current={isOn(item.href, pathname) ? "page" : undefined}
               // Where the tour's guide flies to before it changes page.
               data-tour={`nav-${item.href}`}
-              onNavigate={(event) => {
-                if (active) {
-                  return;
-                }
-                // Slides toward the side the tab is on.
-                if (navigate(item.href, index > currentIndex ? 1 : -1, touring)) {
-                  event.preventDefault();
+              onClick={() => {
+                if (!isOn(item.href, pathname)) {
+                  pending.set(item.href);
                 }
               }}
               className={cn(
@@ -94,6 +90,16 @@ export function BottomNav() {
       </div>
     </nav>
   );
+}
+
+/**
+ * The tab just tapped, until the URL catches up with it. Cleared the moment
+ * the path changes — to that tab or anywhere else (the tour, a back swipe).
+ */
+function usePendingTab(pathname: string) {
+  const [href, set] = useState<string | undefined>(undefined);
+  useEffect(() => set(undefined), [pathname]);
+  return { href, set };
 }
 
 /** True while a text field anywhere on the page has focus. */

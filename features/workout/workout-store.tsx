@@ -264,14 +264,50 @@ function createInitialState(): Omit<
   };
 }
 
+/**
+ * The save, scheduled rather than done: the next task after the action, so
+ * React has painted the tap before the whole state is turned into a string
+ * and written (a year of sets is about a megabyte — tens of milliseconds on
+ * a phone, and it sat inside every tap). A run of taps in one frame collapses
+ * into one write. Every read of a saved copy, and the page going away, flush
+ * it first, so nothing ever observes storage behind the screen.
+ */
+let pendingSave: { key: string; state: WorkoutState } | undefined;
+let pendingTimer: ReturnType<typeof setTimeout> | undefined;
+
 function persist(state: WorkoutState) {
   if (typeof window === "undefined") {
     return;
   }
-
   // An owner means an account's copy; no owner is the guest's.
+  const key = state.owner ? STORAGE_KEY : GUEST_STORAGE_KEY;
+  // Signing in or out mid-tick: the other copy's write lands under its own key.
+  if (pendingSave && pendingSave.key !== key) {
+    flushPersist();
+  }
+  pendingSave = { key, state };
+  if (pendingTimer === undefined) {
+    pendingTimer = setTimeout(flushPersist, 0);
+  }
+}
+
+/** Writes the save that is waiting, if any. Safe to call at any time. */
+export function flushPersist() {
+  if (pendingTimer !== undefined) {
+    clearTimeout(pendingTimer);
+    pendingTimer = undefined;
+  }
+  if (!pendingSave) {
+    return;
+  }
+  const { key, state } = pendingSave;
+  pendingSave = undefined;
+  write(key, state);
+}
+
+function write(key: string, state: WorkoutState) {
   localStorage.setItem(
-    state.owner ? STORAGE_KEY : GUEST_STORAGE_KEY,
+    key,
     JSON.stringify({
       muscles: state.muscles,
       templates: state.templates,
@@ -296,6 +332,7 @@ function readSaved(key: string): Partial<WorkoutState> | undefined {
   if (typeof window === "undefined") {
     return undefined;
   }
+  flushPersist();
   const raw = localStorage.getItem(key);
   if (!raw) {
     return undefined;
@@ -336,6 +373,7 @@ export function readGuestCopy(): RemoteState | undefined {
 /** After the guest copy has moved into an account: so it is never added twice. */
 export function clearGuestCopy() {
   if (typeof window !== "undefined") {
+    flushPersist();
     localStorage.removeItem(GUEST_STORAGE_KEY);
   }
 }
@@ -1002,6 +1040,23 @@ export function WorkoutStoreProvider({ children }: { children: React.ReactNode }
     }
     // Sessions scheduled before this rule, or before logs since, catch up.
     store?.getState().refreshUpcoming();
+  }, []);
+
+  // The save waits for the next task; the page may not get one. `pagehide` is
+  // what a phone fires when the app is swiped away, and hidden is the last
+  // thing some browsers fire at all.
+  useEffect(() => {
+    const onHide = () => {
+      if (document.visibilityState === "hidden") {
+        flushPersist();
+      }
+    };
+    window.addEventListener("pagehide", flushPersist);
+    document.addEventListener("visibilitychange", onHide);
+    return () => {
+      window.removeEventListener("pagehide", flushPersist);
+      document.removeEventListener("visibilitychange", onHide);
+    };
   }, []);
 
   return (

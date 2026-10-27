@@ -217,7 +217,8 @@ interface ExerciseLedgerProps {
   timer?: {
     /** The set the clock is running for, if any. */
     setId?: string;
-    elapsed: number;
+    /** When the running clock started (ms since the epoch). */
+    startedAt?: number;
     onStart: (setId: string) => void;
     onFinish: () => void;
     onCancel: () => void;
@@ -510,7 +511,7 @@ export function ExerciseLedger({
           {(isTime || isDistance) && timer ? (
             <LiveTimerControl
               running={timer.setId === openSet.id}
-              elapsed={timer.elapsed}
+              startedAt={timer.startedAt}
               targetSeconds={isTime ? openSet.durationSeconds : undefined}
               onStart={() => timer.onStart(openSet.id)}
               onFinish={timer.onFinish}

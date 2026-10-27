@@ -7,6 +7,7 @@ import {
   clearGuestCopy,
   createWorkoutStore,
   declineGuestFor,
+  flushPersist,
   guestDeclinedBy,
   readGuestCopy
 } from "@/features/workout/workout-store";
@@ -27,7 +28,12 @@ Object.assign(globalThis, {
 const ACCOUNT_KEY = "gymflow-state-v4";
 const weights = (store: ReturnType<typeof createWorkoutStore>) =>
   store.getState().measurements.map((row) => row.value);
-const saved = (key: string) => JSON.parse(storage.get(key) ?? "{}") as { owner?: string; measurements?: { value: number }[] };
+// The store writes on the next task; the app's own reads flush first, and so
+// does this one, which reads the stand-in directly.
+const saved = (key: string) => {
+  flushPersist();
+  return JSON.parse(storage.get(key) ?? "{}") as { owner?: string; measurements?: { value: number }[] };
+};
 
 // -- a new phone is a guest ------------------------------------------------------
 
@@ -35,6 +41,7 @@ const phone = createWorkoutStore();
 assert.equal(phone.getState().owner, undefined, "a new phone starts as a guest");
 phone.getState().logMeasurement("weight", 70, "2026-10-01");
 assert.deepEqual(saved(GUEST_STORAGE_KEY).measurements?.map((row) => row.value), [70], "guest work saves to the guest copy");
+flushPersist();
 assert.equal(storage.has(ACCOUNT_KEY), false, "and never to an account copy");
 
 // -- signing in shows the account's copy, not the guest's ---------------------------
@@ -79,6 +86,8 @@ assert.equal(phone.getState().owner, "bob");
 
 // -- a phone from before guest mode: one account copy, no marker ----------------------------
 
+// A save may still be waiting; outside the app nothing flushes it for us.
+flushPersist();
 storage.clear();
 storage.set(ACCOUNT_KEY, JSON.stringify({ owner: "carol", measurements: [{ id: "c1", date: "2026-09-01", metric: "weight", value: 60 }] }));
 const old = createWorkoutStore();
@@ -87,6 +96,7 @@ assert.deepEqual(weights(old), [60]);
 
 // -- moving the guest copy into an account, as the sync layer does at sign-in -------------
 
+flushPersist();
 storage.clear();
 const fresh = createWorkoutStore();
 fresh.getState().logMeasurement("weight", 75, "2026-10-05");

@@ -2,9 +2,8 @@
 
 import { Line, LineChart, ReferenceArea, ResponsiveContainer, YAxis } from "recharts";
 
-import BackBody from "@/features/body/back";
+import { BackBody, FrontBody } from "@/features/body/lazy";
 import { MUSCLE_IDLE_COLOR } from "@/features/body/body-map-shared";
-import FrontBody from "@/features/body/front";
 import { GROUP_COLORS, animationProps } from "@/features/progress/chart-theme";
 import { Panel } from "@/features/progress/panel";
 import type {

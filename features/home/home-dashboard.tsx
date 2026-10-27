@@ -153,8 +153,8 @@ function SessionStrip({
         <p className="mt-1 truncate text-xs text-muted-foreground tabular-nums">{detail}</p>
         <SessionClock startedAt={startedAt} />
       </div>
-      {rest.active ? (
-        <RestDial remaining={rest.remaining} total={rest.total} onExtend={rest.extend} onSkip={rest.skip} />
+      {rest.endsAt !== undefined ? (
+        <RestDial endsAt={rest.endsAt} total={rest.total} onExtend={rest.extend} onSkip={rest.skip} />
       ) : (
         <span className="w-0" aria-hidden />
       )}
@@ -590,7 +590,7 @@ export function HomeDashboard() {
                 }
                 timer={{
                   setId: live.setId,
-                  elapsed: live.elapsed,
+                  startedAt: live.startedAt,
                   onStart: live.start,
                   onFinish: finishLive,
                   onCancel: live.cancel

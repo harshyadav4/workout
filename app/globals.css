@@ -199,41 +199,23 @@ nav a {
 }
 
 /*
- * Changing tabs: a short cross-fade with a small slide (components/layout/
- * nav-transition.ts starts it). The dock has its own name, so it is cut out
- * of the page snapshot and stays still. Never under reduced motion.
+ * Changing tabs: the new page fades in over a few frames (`.page-enter` on
+ * the page's main, components/layout/mobile-shell.tsx). Opacity only, so
+ * nothing moves and code that measures the new page right after a push (the
+ * tour does) reads true positions. The old page is never held on screen —
+ * a View Transition used to freeze a snapshot of it until the new route was
+ * in, and on a slow load that read as "I tapped Plan and still see Today".
+ * Never under reduced motion.
  */
 @media (prefers-reduced-motion: no-preference) {
-  ::view-transition-old(root) {
-    animation: tab-out 200ms ease-in both;
-  }
-
-  ::view-transition-new(root) {
-    animation: tab-in 200ms ease-out both;
-  }
-
-  ::view-transition-group(dock),
-  ::view-transition-old(dock),
-  ::view-transition-new(dock) {
-    animation: none;
-  }
-
-  .dock {
-    view-transition-name: dock;
+  .page-enter {
+    animation: page-enter 160ms ease-out both;
   }
 }
 
-@keyframes tab-out {
-  to {
-    opacity: 0;
-    transform: translateX(var(--tab-slide-out, -8px));
-  }
-}
-
-@keyframes tab-in {
+@keyframes page-enter {
   from {
     opacity: 0;
-    transform: translateX(var(--tab-slide-in, 8px));
   }
 }
 
@@ -755,33 +737,15 @@ label {
 /* The many: faint, in the accent like the finds, so the whole wallpaper is
    one blue set. Each glows and dims in place on its own beat. Opacity only:
    cheap enough for a full screen of them. */
+/*
+ * The many sit still. Twenty-eight of them glowing on their own beats was
+ * twenty-eight animations under every page, each one a little main-thread
+ * work on every frame, and at 9% nobody saw the beat anyway. The three rare
+ * ones keep it (below).
+ */
 .artifact-common {
-  --artifact-peak: 0.14;
   color: hsl(var(--brand));
-  opacity: 0;
-  animation: artifact-common 7s ease-in-out infinite;
-}
-
-:root.light .artifact-common {
-  --artifact-peak: 0.12;
-}
-
-@keyframes artifact-common {
-  0%,
-  100% {
-    opacity: 0.03;
-  }
-  35%,
-  65% {
-    opacity: var(--artifact-peak);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .artifact-common {
-    animation: none;
-    opacity: 0.09;
-  }
+  opacity: 0.09;
 }
 
 /* The rare finds: lit in the accent and alive — glow, dim, glow — each on its
@@ -791,7 +755,21 @@ label {
 /* The rank crest, until Skills has been found (features/skills/skill-doors):
    a slow breath of mana around the chip every few seconds, and nothing more.
    The only hint the crest is a door. */
+/* The glow is a layer over the chip whose opacity breathes: a box-shadow
+   that changed size was repainted on every frame, for as long as Home was
+   open. Opacity runs on the compositor and paints nothing. */
 .skills-hint {
+  position: relative;
+}
+
+.skills-hint::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: 0 0 0 2px hsl(var(--brand) / 0.35), 0 0 14px hsl(var(--brand) / 0.45);
+  opacity: 0;
   animation: skills-hint 4.5s ease-in-out infinite;
 }
 
@@ -799,22 +777,35 @@ label {
   0%,
   70%,
   100% {
-    box-shadow: 0 0 0 0 hsl(var(--brand) / 0);
+    opacity: 0;
   }
   85% {
-    box-shadow: 0 0 0 2px hsl(var(--brand) / 0.35), 0 0 14px hsl(var(--brand) / 0.45);
+    opacity: 1;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .skills-hint {
+  .skills-hint::after {
     animation: none;
+    opacity: 1;
     box-shadow: 0 0 0 1px hsl(var(--brand) / 0.35);
   }
 }
 
+/*
+ * The glow is one fixed drop-shadow; only opacity and scale move. Both run on
+ * the compositor, so the pulse costs no paint. Animating the shadow itself
+ * (it used to grow from 2px to 14px) re-rasterised three blurred glyphs on
+ * every frame, forever, under every page — and on iPhone the glass dock
+ * blurred that again. That was most of the app's idle cost.
+ *
+ * The keyframes hold plain numbers on purpose: a `var()` inside a keyframe
+ * takes the animation off the compositor and back onto the main thread
+ * (measured: it doubled Home's idle cost), so light mode gets its own set.
+ */
 .artifact-rare {
   color: hsl(var(--brand));
+  filter: drop-shadow(0 0 4px hsl(var(--brand) / 0.75)) drop-shadow(0 0 10px hsl(var(--brand) / 0.35));
   animation: artifact-pulse 3s ease-in-out infinite;
 }
 
@@ -823,16 +814,15 @@ label {
   100% {
     opacity: 0.12;
     transform: scale(0.92);
-    filter: drop-shadow(0 0 2px hsl(var(--brand) / 0.6));
   }
   50% {
     opacity: 0.65;
     transform: scale(1.08);
-    filter: drop-shadow(0 0 5px hsl(var(--brand) / 0.95)) drop-shadow(0 0 14px hsl(var(--brand) / 0.6));
   }
 }
 
 :root.light .artifact-rare {
+  filter: drop-shadow(0 0 4px hsl(var(--brand) / 0.6)) drop-shadow(0 0 10px hsl(var(--brand) / 0.3));
   animation-name: artifact-pulse-light;
 }
 
@@ -841,12 +831,10 @@ label {
   100% {
     opacity: 0.12;
     transform: scale(0.92);
-    filter: drop-shadow(0 0 2px hsl(var(--brand) / 0.5));
   }
   50% {
     opacity: 0.5;
     transform: scale(1.08);
-    filter: drop-shadow(0 0 4px hsl(var(--brand) / 0.8)) drop-shadow(0 0 10px hsl(var(--brand) / 0.45));
   }
 }
 

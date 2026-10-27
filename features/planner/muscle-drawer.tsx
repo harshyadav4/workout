@@ -1,9 +1,8 @@
 "use client";
 
+import { BackBody, FrontBody } from "@/features/body/lazy";
 import { useMemo, useState } from "react";
 
-import BackBody from "@/features/body/back";
-import FrontBody from "@/features/body/front";
 import { ArrowLeft } from "lucide-react";
 
 import { DialogHeader, DialogTitle } from "@/components/ui/dialog";

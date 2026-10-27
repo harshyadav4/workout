@@ -22,8 +22,10 @@ import { cn } from "@/lib/utils";
  * plank, or close the app on a run, and it is still right when you come back.
  */
 export function useLiveTimer() {
+  // Only when it started. The seconds are counted where they are shown
+  // (`LiveTimerControl`), four times a second; the page that owns this hook
+  // renders only on start, finish and cancel.
   const [live, setLive] = useState<LiveState>();
-  const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
     const saved = restoreLive(readStorage(LIVE_KEY), Date.now());
@@ -34,20 +36,9 @@ export function useLiveTimer() {
     }
   }, []);
 
-  useEffect(() => {
-    if (!live) {
-      return;
-    }
-    const tick = () => setNow(Date.now());
-    tick();
-    const id = window.setInterval(tick, 250);
-    return () => window.clearInterval(id);
-  }, [live]);
-
   const start = useCallback((setId: string) => {
     const next = { setId, startedAt: Date.now() };
     setLive(next);
-    setNow(next.startedAt);
     writeStorage(LIVE_KEY, next);
   }, []);
 
@@ -66,7 +57,7 @@ export function useLiveTimer() {
 
   return {
     setId: live?.setId,
-    elapsed: live ? elapsedSeconds(live.startedAt, now) : 0,
+    startedAt: live?.startedAt,
     start,
     stop,
     cancel
@@ -74,6 +65,25 @@ export function useLiveTimer() {
 }
 
 export type LiveTimer = ReturnType<typeof useLiveTimer>;
+
+/** Whole seconds since `startedAt`, refreshed four times a second; 0 with no start. */
+function useElapsed(startedAt?: number): number {
+  const read = () => (startedAt === undefined ? 0 : elapsedSeconds(startedAt, Date.now()));
+  const [elapsed, setElapsed] = useState(read);
+
+  useEffect(() => {
+    if (startedAt === undefined) {
+      setElapsed(0);
+      return;
+    }
+    const tick = () => setElapsed(elapsedSeconds(startedAt, Date.now()));
+    tick();
+    const id = window.setInterval(tick, 250);
+    return () => window.clearInterval(id);
+  }, [startedAt]);
+
+  return elapsed;
+}
 
 /**
  * The control under a timed set. Idle, it is one Start key. Running, it counts
@@ -84,20 +94,22 @@ export type LiveTimer = ReturnType<typeof useLiveTimer>;
  */
 export function LiveTimerControl({
   running,
-  elapsed,
+  startedAt,
   targetSeconds,
   onStart,
   onFinish,
   onCancel
 }: {
   running: boolean;
-  elapsed: number;
+  /** When the clock started (ms since the epoch); read only while running. */
+  startedAt?: number;
   /** The set's planned seconds. Absent or 0 on an open-ended effort. */
   targetSeconds?: number;
   onStart: () => void;
   onFinish: () => void;
   onCancel: () => void;
 }) {
+  const elapsed = useElapsed(running ? startedAt : undefined);
   const hasTarget = Boolean(targetSeconds && targetSeconds > 0);
   const reached = hasTarget && elapsed >= (targetSeconds ?? 0);
 

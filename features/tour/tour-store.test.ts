@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 
 import { afterTour, endTour, isTouring, setTourStep, startTour, withSample } from "@/features/tour/tour-store";
-import { createWorkoutStore } from "@/features/workout/workout-store";
+import { createWorkoutStore, flushPersist } from "@/features/workout/workout-store";
 import { buildDemoState } from "@/lib/demo-data";
 
 // The store saves to localStorage when `window` exists — checked when it
@@ -53,6 +53,7 @@ const demo = buildDemoState(today);
 {
   const store = createWorkoutStore();
   store.getState().logMeasurement("weight", 90, "2026-10-20");
+  flushPersist();
   const saved = [...storage.values()][0];
   assert.ok(saved?.includes('"value":90'), "a real change is saved");
 
@@ -91,6 +92,7 @@ const demo = buildDemoState(today);
 
   // After the tour, saving works again.
   store.getState().logMeasurement("weight", 89, "2026-10-21");
+  flushPersist();
   assert.ok(writes > writesBefore, "saving resumes after the tour");
   assert.ok([...storage.values()][0]?.includes('"value":89'));
 

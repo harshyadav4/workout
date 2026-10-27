@@ -1,12 +1,11 @@
 "use client";
 
-import BackBody from "@/features/body/back";
+import { BackBody, FrontBody } from "@/features/body/lazy";
 import {
   MUSCLE_HEAT_STEPS,
   MUSCLE_IDLE_COLOR,
   type BodyMuscleHighlight
 } from "@/features/body/body-map-shared";
-import FrontBody from "@/features/body/front";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { MuscleId } from "@/lib/types";
 
