@@ -124,10 +124,13 @@ function Switch({
  */
 export function AiImportSheet({
   open,
-  onOpenChange
+  onOpenChange,
+  initialText
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Text that arrived with the sheet (Android share sheet): checked like a paste. */
+  initialText?: string;
 }) {
   const store = useWorkoutStoreApi();
   const sessionTemplates = useWorkoutStore((state) => state.sessionTemplates);
@@ -167,7 +170,17 @@ export function AiImportSheet({
     loadExercises()
       .then(setLibrary)
       .catch(() => setLibraryError(true));
-  }, [open]);
+    if (initialText) {
+      // Straight to the check: a good plan lands on Review; a bad paste shows
+      // the box with the text and the reason, as it does after Paste.
+      setPasted(initialText);
+      setShowBox(true);
+      setView("paste");
+      checkText(initialText);
+    }
+    // `checkText` is a plain closure over setters; the text and the open flag are the triggers.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initialText]);
 
   const reset = () => {
     setView("start");

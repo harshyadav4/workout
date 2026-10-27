@@ -7,7 +7,7 @@ import { AppProviders } from "@/components/layout/app-providers";
 import { TapFeedback } from "@/components/layout/tap-feedback";
 import { RegisterServiceWorker } from "@/features/pwa/register-sw";
 import { SITE_DESCRIPTION, SITE_KEYWORDS, SITE_NAME, SITE_TAGLINE, SITE_URL } from "@/lib/site";
-import { THEME_BOOTSTRAP } from "@/lib/theme";
+import { THEME_BOOTSTRAP, THEME_COLORS } from "@/lib/theme";
 import { SPLASH_IMAGES } from "@/lib/splash";
 
 // Everything you read is set in this. Numbers get `tabular-nums` so a stepper
@@ -78,7 +78,12 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0E0F12",
+  // One per palette: the browser picks by system setting; `applyTheme`
+  // rewrites both when the user picks Dark or Light by hand.
+  themeColor: [
+    { media: "(prefers-color-scheme: dark)", color: THEME_COLORS.dark },
+    { media: "(prefers-color-scheme: light)", color: THEME_COLORS.light }
+  ],
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",

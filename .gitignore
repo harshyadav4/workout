@@ -16,3 +16,6 @@ yarn-error.log*
 
 .vercel
 .claude/settings.local.json
+
+# Supabase CLI link state
+supabase/.temp/

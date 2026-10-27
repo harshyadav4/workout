@@ -6,6 +6,7 @@ import { useStore } from "zustand";
 import { createStore } from "zustand/vanilla";
 
 import { RecoveryPotion } from "@/features/home/recovery-potion";
+import { cancelRestPush, scheduleRestPush } from "@/features/pwa/push";
 import { scheduleRestAlert, subscribeRestAlerts } from "@/features/pwa/rest-alerts";
 import { isTouring, subscribeTour } from "@/features/tour/tour-store";
 import { REST_KEY, extendRest, readStorage, restoreRest, writeStorage } from "@/lib/timer";
@@ -79,6 +80,7 @@ export function extendRestBy(deltaSeconds: number) {
 
 export function skipRest() {
   rest.setState({ endsAt: undefined });
+  void cancelRestPush();
 }
 
 if (typeof window !== "undefined") {
@@ -100,6 +102,37 @@ if (typeof window !== "undefined") {
   // The switch on the You page flipped mid-rest: arm (or drop) the alert now,
   // not at the next rest.
   subscribeRestAlerts(() => arm(rest.getState().endsAt));
+
+  // The keys on the notification (public/sw.js) arrive as messages from the
+  // worker. With no window open, "+15s" opens one on `/?rest=extend`: a fresh
+  // fifteen when nothing is running, fifteen more when something is.
+  const onRestAction = (action: unknown) => {
+    // A saved rest first, or "+15s" would start fresh over a rest still running.
+    restoreOnce();
+    if (action === "skip") {
+      skipRest();
+    } else if (action === "extend") {
+      if (rest.getState().endsAt === undefined) {
+        startRest(15);
+      } else {
+        extendRestBy(15);
+      }
+    }
+  };
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.addEventListener("message", (event: MessageEvent) => {
+      if (event.data && event.data.type === "rest") {
+        onRestAction(event.data.action);
+      }
+    });
+  }
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("rest") === "extend") {
+    onRestAction("extend");
+    params.delete("rest");
+    const query = params.toString();
+    window.history.replaceState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}`);
+  }
 
   // The tour swaps the sample in and out of the workout store; the rest it
   // started must go with it, and the real rest must come back untouched.
@@ -131,13 +164,24 @@ function arm(endsAt?: number) {
     return;
   }
   const cancelAlert = scheduleRestAlert(endsAt);
+  // Signed in with push on: the server sends at the end time as well — the one
+  // layer a locked phone still receives. Not during the tour: the sample's
+  // rest must not reach the account.
+  if (!isTouring()) {
+    void scheduleRestPush(endsAt);
+  }
   const buzz = window.setTimeout(() => {
     // On screen the dial says done and the phone buzzes; hidden, the alert
     // above speaks instead. Feature-detected: absent on iOS Safari, which is
     // most of this app's traffic. There is no fallback — a sound in a gym is
     // worse than nothing.
-    if (document.visibilityState !== "hidden" && "vibrate" in navigator) {
-      navigator.vibrate([120, 60, 120]);
+    if (document.visibilityState !== "hidden") {
+      // The dial said it; the server need not. The sender runs every few
+      // seconds, so this usually lands before it does.
+      void cancelRestPush();
+      if ("vibrate" in navigator) {
+        navigator.vibrate([120, 60, 120]);
+      }
     }
   }, endsAt - Date.now());
   disarm = () => {

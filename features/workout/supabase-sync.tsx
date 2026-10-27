@@ -55,6 +55,22 @@ const NOTHING_KNOWN_REMOTE: SyncableState = {
   profile: EMPTY_PROFILE
 };
 
+/** Background Sync tag the worker answers with a "retry-sync" message. */
+const SYNC_TAG = "push-changes";
+
+async function requestBackgroundSync() {
+  try {
+    if (!("serviceWorker" in navigator)) {
+      return;
+    }
+    const registration = await navigator.serviceWorker.ready;
+    const sync = (registration as ServiceWorkerRegistration & { sync?: { register: (tag: string) => Promise<void> } }).sync;
+    await sync?.register(SYNC_TAG);
+  } catch {
+    // Not supported, or refused: the `online` event and the next change still retry.
+  }
+}
+
 export function SupabaseSync() {
   const { user, loading } = useAuth();
   const store = useWorkoutStoreApi();
@@ -140,6 +156,11 @@ export function SupabaseSync() {
           if (!cancelled) {
             setSyncStatus({ error: { stage: "push", message: syncErrorMessage(error) } });
           }
+          // Android Chrome: the worker wakes when the network is back and asks
+          // this window to flush (public/sw.js "sync"), even if the page was
+          // frozen in the background meanwhile. Absent elsewhere; the `online`
+          // listener below covers those.
+          void requestBackgroundSync();
         });
     };
 
@@ -161,6 +182,14 @@ export function SupabaseSync() {
       flush();
     };
     window.addEventListener("pagehide", flushNow);
+    // The signal came back: send what failed now, not at the next set.
+    window.addEventListener("online", flushNow);
+    const onWorkerMessage = (event: MessageEvent) => {
+      if (event.data && event.data.type === "retry-sync") {
+        flushNow();
+      }
+    };
+    navigator.serviceWorker?.addEventListener("message", onWorkerMessage);
 
     void loadUserState()
       .then((remote) => {
@@ -231,6 +260,8 @@ export function SupabaseSync() {
       cancelled = true;
       clearTimeout(timer);
       window.removeEventListener("pagehide", flushNow);
+      window.removeEventListener("online", flushNow);
+      navigator.serviceWorker?.removeEventListener("message", onWorkerMessage);
       unsubscribe();
     };
   }, [attempt, loading, store, userId]);

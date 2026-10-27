@@ -2,17 +2,19 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 
+import { useAuth } from "@/features/auth/use-auth";
+import { pushSubscribed, pushSupported, subscribePush, unsubscribePush } from "@/features/pwa/push";
 import { cn } from "@/lib/utils";
 
 /*
  * "Rest alerts": a notification when a rest ends while the app is not on the
  * screen. Per device, off by default, stored like Detailed timing.
  *
- * Honest limits: this is a timer in the page. A phone freezes or throttles the
- * timers of a page that is not on screen — iPhone especially, often within
- * seconds of locking — so the alert can come late, or not until the app is
- * opened again. An alert that is sure to arrive on time needs Web Push sent
- * from a server at the end time. That is not done here.
+ * Two layers. A timer in the page, for every device: a phone freezes or
+ * throttles the timers of a page that is not on screen — iPhone especially,
+ * often within seconds of locking — so this one can come late, or not until the
+ * app is opened again. And, signed in, Web Push from the server at the end
+ * time (features/pwa/push.ts), which a locked phone still receives.
  */
 
 const KEY = "arise.rest-alerts";
@@ -65,7 +67,15 @@ async function showRestAlert() {
     // No worker in development (sw.js is production only): plain Notification.
     const registration = "serviceWorker" in navigator ? await navigator.serviceWorker.getRegistration() : undefined;
     if (registration) {
-      await registration.showNotification(title, options);
+      // The same two keys the push layer shows (public/sw.js). Android shows
+      // them; the type omits `actions` because a plain Notification has none.
+      await registration.showNotification(title, {
+        ...options,
+        actions: [
+          { action: "extend", title: "+15s" },
+          { action: "skip", title: "Skip" }
+        ]
+      } as NotificationOptions);
       return;
     }
     new Notification(title, options);
@@ -95,12 +105,15 @@ export function scheduleRestAlert(endsAt: number): () => void {
 /** The switch on the You page, in the style of Detailed timing. */
 export function RestAlertsToggle() {
   const on = useRestAlerts();
+  const { user } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [blocked, setBlocked] = useState(false);
+  const [pushed, setPushed] = useState(false);
 
   useEffect(() => {
     setMounted(true);
     setBlocked(supported() && Notification.permission === "denied");
+    setPushed(pushSubscribed());
   }, []);
 
   // iPhone Safari has notifications only in the installed app.
@@ -109,11 +122,17 @@ export function RestAlertsToggle() {
     ? "Install the app to get rest alerts."
     : blocked
       ? "Blocked. Allow notifications in browser settings."
-      : "A notification when rest ends.";
+      : on && pushed
+        ? "A notification when rest ends, even with the phone locked."
+        : on && user && pushSupported()
+          ? "A notification when rest ends while the app is open."
+          : "A notification when rest ends.";
 
   const toggle = async () => {
     if (on) {
       write(false);
+      setPushed(false);
+      void unsubscribePush();
       return;
     }
     try {
@@ -121,6 +140,11 @@ export function RestAlertsToggle() {
         Notification.permission === "granted" ? "granted" : await Notification.requestPermission();
       setBlocked(permission === "denied");
       write(permission === "granted");
+      // Signed in: the server can send it too, and that one reaches a locked
+      // phone. Guests keep the page timer; there is no account to hold the address.
+      if (permission === "granted" && user) {
+        setPushed(await subscribePush());
+      }
     } catch {
       write(false);
     }

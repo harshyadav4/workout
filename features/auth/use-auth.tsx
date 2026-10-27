@@ -5,10 +5,13 @@ import { createContext, useContext, useEffect, useState } from "react";
 
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 
+/** The two doors. Apple is the native one on iPhone; Google is everywhere. */
+export type SignInProvider = "google" | "apple";
+
 interface AuthContextValue {
   user: User | null;
   loading: boolean;
-  signIn: () => Promise<void>;
+  signIn: (provider?: SignInProvider) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -42,14 +45,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value: AuthContextValue = {
     user,
     loading,
-    signIn: async () => {
+    signIn: async (provider = "google") => {
       if (!supabase) {
         throw new Error("Sign-in is not available. Supabase is not set up.");
       }
       // Redirect rather than popup: popups are blocked by default on mobile
       // browsers, which is where this app is used.
       const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
+        provider,
         options: { redirectTo: `${window.location.origin}/` }
       });
       if (error) {

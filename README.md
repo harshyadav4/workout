@@ -49,6 +49,30 @@ The look is a set of tokens and three materials, all in `app/globals.css`:
 - The store writes `localStorage` synchronously, so the UI never waits on the network;
   Supabase sync runs behind it, debounced
 
+## On the phone
+
+Arise is a web app installed from the browser; there is no store build. What each platform
+gets, once the app is on the home screen (`public/manifest.webmanifest`, `public/sw.js`,
+`features/pwa/`):
+
+| | iPhone / iPad | Android |
+|---|---|---|
+| Install | Share › Add to Home Screen (no prompt event exists; the You page shows the steps) | Chrome's install prompt, via the card on You |
+| Offline | app shell and code from the worker; data already on the device | same |
+| Rest alert, app open | page timer + buzz on the dial (no vibration API) | page timer + vibration |
+| Rest alert, phone locked | Web Push, installed app only, iOS 16.4+ | Web Push, tab or installed |
+| Notification keys (+15s / Skip) | not shown | shown |
+| Badge on the icon | installed app, iOS 16.4+ | installed app |
+| Share an AI answer into Plan | — | share sheet › Arise (`share_target`) |
+| Retry a failed sync | when the browser fires `online` | `online`, plus Background Sync wakes the worker |
+| Sign in | Google, Apple (native sheet with Face ID) | Google, Apple |
+| Status bar colour | follows the theme | follows the theme |
+
+iPhone limits that shape the design: a page's timers stop within seconds of the screen
+locking, so anything that must happen then goes through Web Push; notifications, push and the
+badge exist only in the installed app; there is no vibration. The server side of push is under
+**Rest alerts on a locked phone** below.
+
 ## Project structure
 
 - `app/` — routes: `/` (Home), `/plan`, `/progress`, `/profile`, `/login`
@@ -121,12 +145,65 @@ npm run dev
 
 1. Create a Supabase project.
 2. Run the migrations in `supabase/migrations/` in order — `0001_init.sql` through
-   `0008_data_deletion.sql`.
+   `0010_push.sql`. `0009` makes template ids per user (older projects collide on shared
+   ids like `db-0025`); `0010` adds the two Web Push tables.
 3. Enable the Google provider under **Authentication → Providers**.
 4. Add your local dev origin and deployed domain to the allowed redirect URLs.
+5. **Sign in with Apple** (the second button on the login page). In the Apple Developer portal:
+   an App ID with the *Sign in with Apple* capability, a **Services ID** (this is the client ID)
+   with your Supabase callback URL `https://<project>.supabase.co/auth/v1/callback` as a return
+   URL, and a *Sign in with Apple* **key**. Then in Supabase **Authentication → Providers →
+   Apple** enter the Services ID and the client secret generated from the key (Supabase's docs
+   have the generator). The secret is a JWT that Apple caps at six months — put a reminder in the
+   calendar to regenerate it. Until this is done the Apple button returns Supabase's provider
+   error, shown under the buttons.
 
 `0001_init.sql` also installs a `security definer` trigger that seeds a `profiles` row on
 signup, so the app never has to branch on "profile missing".
+
+### Rest alerts on a locked phone (Web Push)
+
+Rest alerts have two layers: a timer in the page, and — signed in — a push from the server at
+the end time, which a locked phone still receives. The push layer needs `0010_push.sql`, one
+Edge Function, and a cron job. Without it the switch still works with the page timer alone.
+
+1. Make a key pair and keep the output:
+
+   ```sh
+   npm run vapid
+   ```
+
+2. Put the **public** key in the app's env (`.env`, and the Vercel project) as
+   `NEXT_PUBLIC_VAPID_PUBLIC_KEY`.
+3. Give the function its secrets (the private key never goes in the app):
+
+   ```sh
+   supabase secrets set VAPID_PUBLIC_KEY=... VAPID_PRIVATE_KEY=... \
+     VAPID_SUBJECT=mailto:you@example.com CRON_SECRET=$(openssl rand -hex 24)
+   supabase functions deploy send-rest-alerts --no-verify-jwt
+   ```
+
+4. Schedule it from Postgres (SQL editor; replace the project ref and the secret):
+
+   ```sql
+   create extension if not exists pg_cron;
+   create extension if not exists pg_net;
+   select cron.schedule(
+     'send-rest-alerts',
+     '5 seconds',
+     $$ select net.http_post(
+          url     := 'https://<project-ref>.supabase.co/functions/v1/send-rest-alerts',
+          headers := '{"Content-Type": "application/json", "x-cron-secret": "<CRON_SECRET>"}'::jsonb,
+          body    := '{}'::jsonb
+        ) $$
+   );
+   ```
+
+   `'5 seconds'` needs pg_cron 1.5 or later, which current Supabase projects have. If yours
+   rejects it, use `'* * * * *'` and accept up to a minute's delay.
+
+On iPhone the push layer is available only in the app added to the Home Screen (iOS 16.4+).
+On Android the browser tab can subscribe too. The switch is on the You page.
 
 ## Build with AI
 

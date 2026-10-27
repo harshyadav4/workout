@@ -4,7 +4,7 @@ import { CalendarDays, PersonStanding, TrendingUp } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import ironArt from "@/features/auth/login-iron.webp";
@@ -29,6 +29,21 @@ function GoogleMark() {
   );
 }
 
+/** Apple's mark, in the current text colour, as Apple's button guidelines ask. */
+function AppleMark() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden fill="currentColor">
+      <path d="M16.37 12.64c-.02-2.2 1.8-3.26 1.88-3.31-1.03-1.5-2.62-1.71-3.19-1.73-1.36-.14-2.65.8-3.34.8-.69 0-1.75-.78-2.88-.76-1.48.02-2.85.86-3.61 2.19-1.54 2.67-.39 6.62 1.11 8.79.73 1.06 1.6 2.25 2.75 2.21 1.1-.04 1.52-.71 2.85-.71 1.33 0 1.7.71 2.87.69 1.19-.02 1.94-1.08 2.66-2.14.84-1.23 1.19-2.42 1.21-2.48-.03-.01-2.32-.89-2.31-3.55zM14.18 6.17c.61-.74 1.02-1.76.91-2.78-.88.04-1.94.58-2.57 1.32-.56.65-1.06 1.7-.93 2.7.98.08 1.98-.5 2.59-1.24z" />
+    </svg>
+  );
+}
+
+/** iPhone and iPad (iPadOS reports itself as a Mac; touch points give it away). */
+function isApplePhone() {
+  const ua = navigator.userAgent;
+  return /iPhone|iPad|iPod/.test(ua) || (ua.includes("Macintosh") && navigator.maxTouchPoints > 1);
+}
+
 /**
  * Sign in — a door, no longer the only one. The app works without an account
  * (guest mode); this page is where the account is added, from the You tab or
@@ -51,12 +66,50 @@ function GoogleMark() {
 export default function LoginPage() {
   const router = useRouter();
   const { user, signIn } = useAuth();
+  // Apple first on Apple devices, as Apple's guidelines ask when both are
+  // offered. Read after mount: the server does not know the device.
+  const [appleFirst, setAppleFirst] = useState(false);
+  const [error, setError] = useState<string>();
 
   useEffect(() => {
     if (user) {
       router.replace("/");
     }
   }, [router, user]);
+
+  useEffect(() => setAppleFirst(isApplePhone()), []);
+
+  const open = (provider: "google" | "apple") => {
+    setError(undefined);
+    signIn(provider).catch((cause: unknown) => {
+      setError(cause instanceof Error ? cause.message : "Could not open sign-in.");
+    });
+  };
+
+  const google = (
+    <Button
+      key="google"
+      size="lg"
+      variant="secondary"
+      className="h-14 w-full text-base font-semibold"
+      onClick={() => open("google")}
+    >
+      <GoogleMark />
+      Sign in with Google
+    </Button>
+  );
+  const apple = (
+    <Button
+      key="apple"
+      size="lg"
+      variant="secondary"
+      className="h-14 w-full text-base font-semibold"
+      onClick={() => open("apple")}
+    >
+      <AppleMark />
+      Sign in with Apple
+    </Button>
+  );
 
   return (
     <main className="login-night relative flex min-h-[100dvh] items-stretch justify-center overflow-hidden sm:items-center sm:px-4">
@@ -102,15 +155,12 @@ export default function LoginPage() {
         </div>
 
         <div>
-          <Button
-            size="lg"
-            variant="secondary"
-            className="h-14 w-full text-base font-semibold"
-            onClick={() => void signIn()}
-          >
-            <GoogleMark />
-            Sign in with Google
-          </Button>
+          <div className="space-y-2">{appleFirst ? [apple, google] : [google, apple]}</div>
+          {error ? (
+            <p className="mt-2 text-center text-xs text-danger" role="alert">
+              {error}
+            </p>
+          ) : null}
           <p className="mt-3 text-center text-xs text-muted-foreground">
             Your data is private and works on any phone.
           </p>

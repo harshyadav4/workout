@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 
 import { PlanBuild } from "@/features/planner/plan-build";
 import { PlanSchedule } from "@/features/planner/plan-schedule";
@@ -17,7 +18,22 @@ export function PlanDashboard() {
   // needs to land on Build, and back/forward should step between the two.
   const router = useRouter();
   const params = useSearchParams();
-  const mode: PlanMode = params.get("mode") === "build" ? "build" : "schedule";
+  // Android's share sheet (manifest `share_target`) lands here with the shared
+  // text in the URL. It is lifted into state and the URL cleaned at once, so a
+  // reload or a back swipe does not offer the same import twice.
+  const [sharedText, setSharedText] = useState<string>();
+  const incoming = params.get("text") ?? params.get("url");
+  useEffect(() => {
+    if (incoming === null) {
+      return;
+    }
+    const text = [params.get("text"), params.get("url")].filter(Boolean).join("\n");
+    setSharedText(text);
+    router.replace("/plan?mode=build", { scroll: false });
+    // The params object changes identity on every navigation; the text is the trigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [incoming]);
+  const mode: PlanMode = params.get("mode") === "build" || incoming !== null ? "build" : "schedule";
 
   const setMode = (next: PlanMode) => {
     router.replace(next === "build" ? "/plan?mode=build" : "/plan", { scroll: false });
@@ -42,7 +58,7 @@ export function PlanDashboard() {
         ))}
       </div>
 
-      {mode === "build" ? <PlanBuild /> : <PlanSchedule onGoBuild={() => setMode("build")} />}
+      {mode === "build" ? <PlanBuild sharedText={sharedText} /> : <PlanSchedule onGoBuild={() => setMode("build")} />}
     </section>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronDown, Dumbbell, Pencil, PlayCircle, Plus, Sparkles, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -160,7 +160,12 @@ function normalizeName(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-export function PlanBuild() {
+export function PlanBuild({
+  sharedText
+}: {
+  /** Text shared into the app from Android's share sheet: an AI answer to import. */
+  sharedText?: string;
+} = {}) {
   const unit = useDistanceUnit();
   const muscles = useWorkoutStore((state) => state.muscles);
   const templates = useWorkoutStore((state) => state.templates);
@@ -172,6 +177,12 @@ export function PlanBuild() {
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
+  // Shared text opens the AI sheet straight away, with the text in it.
+  useEffect(() => {
+    if (sharedText) {
+      setAiOpen(true);
+    }
+  }, [sharedText]);
   const [sessionName, setSessionName] = useState("");
   // ponytail: session-level only. The model also honours a per-exercise
   // override (see SessionTemplateExercise.progression) — expose it when
@@ -928,7 +939,7 @@ export function PlanBuild() {
             <Sparkles className="h-4 w-4 text-brand" />
             Build with AI
           </Button>
-          <AiImportSheet open={aiOpen} onOpenChange={setAiOpen} />
+          <AiImportSheet open={aiOpen} onOpenChange={setAiOpen} initialText={sharedText} />
         </div>
       </Card>
 
