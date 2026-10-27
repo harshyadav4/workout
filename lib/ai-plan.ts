@@ -41,8 +41,10 @@ export interface AiExercise {
   sets: number;
   /** Absent on a held set, which uses `seconds`. */
   reps?: number;
-  /** Present on a held set: plank, carry, wall sit. */
+  /** Present on a held set: plank, carry, wall sit. On a run, the time to cover `distanceKm`. */
   seconds?: number;
+  /** Present on a run, ride or row: kilometres per set, with `seconds` for the time. Never with `reps`. */
+  distanceKm?: number;
   weightKg?: number;
   /** Per-set weights, when they ramp. Length should equal `sets`. */
   weightsKg?: number[];
@@ -123,6 +125,21 @@ function positive(value: unknown, path: string, { whole = true, allowZero = fals
   return whole ? Math.round(number) : Math.round(number * 4) / 4;
 }
 
+/**
+ * Kilometres on a run: a positive decimal, two places, at most 100. Not
+ * `positive()`, which rounds to a quarter — a 0.4 km interval must stay 0.4.
+ */
+function parseDistance(value: unknown, path: string): number | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+  const number = typeof value === "string" ? Number(value) : value;
+  if (typeof number !== "number" || !Number.isFinite(number) || number <= 0) {
+    throw new AiPlanError(`${path} must be a positive number of kilometres.`);
+  }
+  return Math.min(Math.round(number * 100) / 100, 100);
+}
+
 function optionalText(value: unknown, path: string): string | undefined {
   if (value === undefined || value === null || value === "") {
     return undefined;
@@ -148,6 +165,10 @@ function parseExercise(raw: unknown, path: string): AiExercise {
   const sets = positive(raw.sets, `${label}.sets`);
   const seconds = raw.seconds === undefined || raw.seconds === null ? undefined : positive(raw.seconds, `${label}.seconds`);
   const reps = raw.reps === undefined || raw.reps === null ? undefined : positive(raw.reps, `${label}.reps`);
+  const distanceKm = parseDistance(raw.distanceKm, `${label}.distanceKm`);
+  if (distanceKm !== undefined && seconds === undefined) {
+    throw new AiPlanError(`${label} has distanceKm, so it also needs seconds: the time for that distance.`);
+  }
   if (seconds === undefined && reps === undefined) {
     throw new AiPlanError(`${label} needs either reps or seconds.`);
   }
@@ -165,7 +186,8 @@ function parseExercise(raw: unknown, path: string): AiExercise {
     target: optionalText(raw.target, `${label}.target`)?.toLowerCase(),
     sets: Math.min(sets, 20),
     reps: seconds === undefined ? Math.min(reps ?? 1, 100) : undefined,
-    seconds: seconds === undefined ? undefined : Math.min(seconds, 3600),
+    seconds: seconds === undefined ? undefined : Math.min(seconds, distanceKm === undefined ? 3600 : 6 * 3600),
+    distanceKm,
     weightKg:
       raw.weightKg === undefined || raw.weightKg === null
         ? undefined
@@ -546,6 +568,8 @@ export function buildPlanImport(plan: AiPlan, options: ImportOptions): PlanImpor
       const key = choiceKey(sessionIndex, exerciseIndex);
       const chosen = key in choices ? choices[key].exercise : matchExercise(item, library).exercise;
       const template = resolve(item, chosen);
+      // A run carries distance and seconds; a hold only seconds. Both have no reps.
+      const isDistance = item.distanceKm !== undefined;
       const isTime = item.seconds !== undefined;
       const weights =
         item.weightsKg && item.weightsKg.some((value) => value !== item.weightsKg?.[0])
@@ -564,8 +588,9 @@ export function buildPlanImport(plan: AiPlan, options: ImportOptions): PlanImpor
         weights,
         restSeconds: item.restSeconds ?? DEFAULT_REST,
         notes: item.notes,
-        metric: isTime ? "time" : undefined,
+        metric: isDistance ? "distance" : isTime ? "time" : undefined,
         durationSeconds: isTime ? item.seconds : undefined,
+        distanceKm: isDistance ? item.distanceKm : undefined,
         perSide: item.perSide
       };
     });

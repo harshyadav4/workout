@@ -12,13 +12,16 @@
  * Pure, so its content and size are tested.
  */
 import { AI_PLAN_VERSION } from "@/lib/ai-plan";
+import { formatPace } from "@/lib/cardio";
 import type { Exercise } from "@/lib/exercises";
-import type { ProfileInfo, SessionTemplate, WorkoutLog } from "@/lib/types";
+import type { ProfileInfo, SessionTemplate, SetLog, WorkoutLog } from "@/lib/types";
 
 export interface PromptInput {
   library: Exercise[];
   sessions: SessionTemplate[];
   logs: WorkoutLog[];
+  /** Per-set logs: the only record of how far and how long a run was. */
+  setLogs?: SetLog[];
   profile: Pick<ProfileInfo, "heightCm" | "weightKg" | "goalWeightKg">;
   today: string;
 }
@@ -52,6 +55,45 @@ function recentLifts(logs: WorkoutLog[], today: string): string[] {
     );
 }
 
+function clock(seconds: number): string {
+  const whole = Math.round(seconds);
+  const minutes = Math.floor(whole / 60);
+  const rest = String(whole % 60).padStart(2, "0");
+  return minutes >= 60 ? `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, "0")}:${rest}` : `${minutes}:${rest}`;
+}
+
+/** "treadmill run: 5 km in 28:10 (5:38 /km), 6 sessions" for the runs done most. */
+function recentRuns(setLogs: SetLog[], logs: WorkoutLog[], today: string): string[] {
+  const since = shiftKey(today, -RECENT_DAYS);
+  const names = new Map(logs.map((log) => [log.workoutId, log.name]));
+  const byRun = new Map<string, { name: string; km: number; seconds: number; days: Set<string> }>();
+  setLogs
+    .filter((set) => set.date >= since && set.date <= today && (set.distanceKm ?? 0) > 0)
+    .forEach((set) => {
+      const entry = byRun.get(set.workoutId) ?? {
+        name: names.get(set.workoutId) ?? set.workoutId,
+        km: 0,
+        seconds: 0,
+        days: new Set<string>()
+      };
+      // The longest set is the one to plan from; its time gives the pace.
+      if ((set.distanceKm ?? 0) > entry.km) {
+        entry.km = set.distanceKm ?? 0;
+        entry.seconds = set.durationSeconds ?? 0;
+      }
+      entry.days.add(set.date);
+      byRun.set(set.workoutId, entry);
+    });
+  return [...byRun.values()]
+    .sort((a, b) => b.days.size - a.days.size || b.km - a.km)
+    .slice(0, MAX_LIFTS)
+    .map((run) => {
+      const pace = formatPace(run.seconds, run.km, "km");
+      const time = run.seconds > 0 ? ` in ${clock(run.seconds)}${pace ? ` (${pace})` : ""}` : "";
+      return `- ${run.name}: ${run.km} km${time}, ${run.days.size} session${run.days.size === 1 ? "" : "s"}`;
+    });
+}
+
 function trainingDaysPerWeek(logs: WorkoutLog[], today: string): number {
   const since = shiftKey(today, -RECENT_DAYS);
   const days = new Set(logs.filter((log) => log.date >= since && log.date <= today).map((log) => log.date));
@@ -62,9 +104,11 @@ function existingSessions(sessions: SessionTemplate[]): string[] {
   return sessions.map((session) => {
     const lines = session.exercises.map((exercise) => {
       const target =
-        exercise.metric === "time"
-          ? `${exercise.sets} x ${exercise.durationSeconds ?? 0}s`
-          : `${exercise.sets} x ${exercise.reps}`;
+        exercise.metric === "distance"
+          ? `${exercise.sets} x ${exercise.distanceKm ?? 0} km in ${exercise.durationSeconds ?? 0}s`
+          : exercise.metric === "time"
+            ? `${exercise.sets} x ${exercise.durationSeconds ?? 0}s`
+            : `${exercise.sets} x ${exercise.reps}`;
       const load = exercise.weight > 0 ? ` @ ${exercise.weight} kg` : "";
       return `    - ${exercise.name}: ${target}${load}`;
     });
@@ -107,7 +151,16 @@ const EXAMPLE = `{
           "sets": 3, "seconds": 40, "restSeconds": 60, "notes": "Ribs down, squeeze glutes." }
       ]
     },
-    { "name": "Lower A", "progression": "double", "exercises": [ ... ] }
+    { "name": "Lower A", "progression": "double", "exercises": [ ... ] },
+    {
+      "name": "Cardio",
+      "progression": "off",
+      "exercises": [
+        { "name": "run", "equipment": "body weight", "target": "cardiovascular system",
+          "sets": 1, "distanceKm": 5, "seconds": 1800, "restSeconds": 0,
+          "notes": "Easy pace, conversational. Zone 2." }
+      ]
+    }
   ],
   "schedule": {
     "startDate": "YYYY-MM-DD",
@@ -117,8 +170,9 @@ const EXAMPLE = `{
 }`;
 
 export function buildAiPrompt(input: PromptInput): string {
-  const { library, sessions, logs, profile, today } = input;
+  const { library, sessions, logs, setLogs = [], profile, today } = input;
   const lifts = recentLifts(logs, today);
+  const runs = recentRuns(setLogs, logs, today);
   const perWeek = trainingDaysPerWeek(logs, today);
 
   const known: string[] = [];
@@ -150,6 +204,9 @@ ${known.length ? known.join("\n") : "- Nothing yet: a new account."}
 Recent lifts (last 8 weeks, most frequent first):
 ${lifts.length ? lifts.join("\n") : "- None logged yet."}
 
+Recent runs, rides and rows (last 8 weeks, longest distance and its time):
+${runs.length ? runs.join("\n") : "- None logged yet."}
+
 Sessions I have already built (do not duplicate these by accident; reuse a name only if you mean to replace that session, and tell me so):
 ${sessions.length ? existingSessions(sessions).join("\n") : "- None yet."}`,
 
@@ -169,6 +226,7 @@ Then give exactly ONE JSON object in ONE \`\`\`json code block, and nothing afte
 - "equipment" must be one of: ${distinct(library, "equipment")}.
 - "target" must be one of: ${distinct(library, "target")}.
 - A rep exercise has "reps"; a timed hold has "seconds" instead (plank, carry, wall sit). Never both.
+- A run, ride, row or swim has "distanceKm" (kilometres, decimals allowed) and "seconds" (the time for that distance), and no "reps". Use "sets" for intervals: 6 x 0.4 km is "sets": 6, "distanceKm": 0.4. Steady cardio is "sets": 1.
 - Use one fixed number for "reps" (the bottom of the range) and put the range and RIR in "notes", e.g. "8-12 reps, RIR 2".
 - "weightKg" is the starting load; use my recent lifts above to pick it, or a conservative guess. 0 for bodyweight. Optional "weightsKg": one number per set when the load ramps.
 - "restSeconds" between sets. "perSide": true when reps are the total for both sides (lunges, single-arm rows).
@@ -179,7 +237,7 @@ Then give exactly ONE JSON object in ONE \`\`\`json code block, and nothing afte
 
 Before you send the JSON, check every point and fix any that fails:
 1. Every exercise "name" is copied character for character from the library, or it has "equipment" and "target" from the lists and is genuinely missing from the library.
-2. Each exercise has "sets" and exactly one of "reps" or "seconds".
+2. Each exercise has "sets" and exactly one of "reps" or "seconds"; a run has "distanceKm" together with "seconds".
 3. Every session name in "schedule" exists in "sessions", and no two sessions share a name.
 4. Dates are YYYY-MM-DD and "endDate" is after "startDate".
 5. Any "gifUrl" ends in .gif and starts with https://.

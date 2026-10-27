@@ -190,6 +190,7 @@ export function AiImportSheet({
       library,
       sessions: state.sessionTemplates,
       logs: state.logs,
+      setLogs: state.setLogs,
       profile: state.profile,
       today: todayKey()
     });

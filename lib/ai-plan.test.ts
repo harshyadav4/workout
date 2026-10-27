@@ -65,6 +65,26 @@ assert.equal(
 
 throwsWith(() => parseAiPlan('{"sessions": []}'), /no sessions/);
 throwsWith(() => parseAiPlan('{"sessions": [{"name": "A", "exercises": [{"name": "x", "sets": 3}]}]}'), /reps or seconds/);
+
+// A run: distance and the time for it, no reps. Distance keeps two decimals
+// (a 0.4 km interval is not 0.5), and a run without a time is refused.
+{
+  const run = parseAiPlan(
+    '{"sessions": [{"name": "Cardio", "exercises": [{"name": "run", "sets": 6, "distanceKm": 0.4, "seconds": 120}]}]}'
+  );
+  const item = run.sessions[0].exercises[0];
+  assert.equal(item.distanceKm, 0.4);
+  assert.equal(item.seconds, 120);
+  assert.equal(item.reps, undefined, "a run carries distance and seconds, not reps");
+}
+throwsWith(
+  () => parseAiPlan('{"sessions": [{"name": "A", "exercises": [{"name": "run", "sets": 1, "distanceKm": 5}]}]}'),
+  /needs seconds/
+);
+throwsWith(
+  () => parseAiPlan('{"sessions": [{"name": "A", "exercises": [{"name": "run", "sets": 1, "distanceKm": -5, "seconds": 60}]}]}'),
+  /distanceKm/
+);
 throwsWith(() => parseAiPlan('{"sessions": [{"name": "A", "exercises": [{"name": "x", "sets": 0, "reps": 5}]}]}'), /sets must be a positive number/);
 throwsWith(
   () => parseAiPlan('{"sessions": [{"name": "A", "exercises": [{"name": "x", "sets": 3, "reps": 5}]}, {"name": "a", "exercises": [{"name": "y", "sets": 3, "reps": 5}]}]}'),
@@ -113,6 +133,20 @@ assert.ok(bench.muscles.length > 0, "and carries the library's muscles");
 assert.equal(built.sessions[0].template.exercises[1].metric, "time");
 assert.equal(built.sessions[0].template.exercises[1].durationSeconds, 45);
 assert.equal(built.sessions[0].template.exercises[1].reps, 0);
+
+// A run becomes a distance row: km and seconds on the template, zero reps,
+// exactly the shape Build saves for a run made by hand.
+{
+  const cardio = parseAiPlan(
+    '{"sessions": [{"name": "Cardio", "exercises": [{"name": "run", "sets": 1, "distanceKm": 5, "seconds": 1800}]}]}'
+  );
+  const run = buildPlanImport(cardio, { library, existingTemplates, existingSessions, today: "2026-11-01" })
+    .sessions[0].template.exercises[0];
+  assert.equal(run.metric, "distance");
+  assert.equal(run.distanceKm, 5);
+  assert.equal(run.durationSeconds, 1800);
+  assert.equal(run.reps, 0);
+}
 
 const landmine = built.sessions[0].template.exercises[2];
 assert.equal(landmine.reps, 10, "an odd per-side target is evened up");
