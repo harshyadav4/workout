@@ -11,6 +11,13 @@ import ironArt from "@/features/auth/login-iron.webp";
 import { useAuth } from "@/features/auth/use-auth";
 import { isSupabaseConfigured } from "@/lib/supabase";
 
+/**
+ * Sign in with Apple is wired (features/auth/use-auth.tsx, README) but off
+ * until the Apple Services ID and key are set up in Supabase — a button that
+ * answers with a provider error is worse than no button. Flip to true then.
+ */
+const APPLE_SIGN_IN = false;
+
 const points = [
   { icon: CalendarDays, label: "Plan your week" },
   { icon: TrendingUp, label: "Track your records" },
@@ -155,7 +162,9 @@ export default function LoginPage() {
         </div>
 
         <div>
-          <div className="space-y-2">{appleFirst ? [apple, google] : [google, apple]}</div>
+          <div className="space-y-2">
+            {!APPLE_SIGN_IN ? google : appleFirst ? [apple, google] : [google, apple]}
+          </div>
           {error ? (
             <p className="mt-2 text-center text-xs text-danger" role="alert">
               {error}
