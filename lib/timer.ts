@@ -41,6 +41,25 @@ function parse(raw: string | null): unknown {
   }
 }
 
+/**
+ * The rest after "+15s" / "−15s" at `now`.
+ *
+ * Never below now: −15 on four seconds left means "done", not a clock that
+ * owes you eleven seconds next time. And +15 on a rest that has already run
+ * out starts a fresh 15: the same clamp used to pin that at now too, so once a
+ * rest was more than 15 s overdue the key did nothing at all.
+ */
+export function extendRest(state: RestState, deltaSeconds: number, now: number): RestState {
+  if (deltaSeconds > 0 && state.endsAt <= now) {
+    return { endsAt: now + deltaSeconds * 1000, total: deltaSeconds };
+  }
+  return {
+    endsAt: Math.max(now, state.endsAt + deltaSeconds * 1000),
+    // A longer rest is a longer bar, not a bar that jumps backwards.
+    total: Math.max(1, state.total + deltaSeconds)
+  };
+}
+
 /** A rest still running at `now`, or nothing — a finished rest is not restored. */
 export function restoreRest(raw: string | null, now: number): RestState | undefined {
   const value = parse(raw) as Partial<RestState> | undefined;

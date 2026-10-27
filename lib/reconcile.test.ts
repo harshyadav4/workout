@@ -94,6 +94,31 @@ const emptyRemote = (over: Partial<RemoteState> = {}): RemoteState => ({
   assert.equal(other.scheduledSessions[0].status, "completed", "and the same holds in reverse");
 }
 
+// 3b. Same status on both sides: the copy with more sets logged is further
+//     along. Started online, five sets logged offline, killed before Finish —
+//     the account's copy is `active` with nothing in it and must not win.
+{
+  const set = (done: boolean) => ({ id: `set-${done}`, reps: 5, weight: 60, type: "normal" as const, completed: done });
+  const withSets = (id: string, done: number): ScheduledSession => ({
+    ...session(id, "active"),
+    exercises: [{ id: "e", workoutId: "bench", templateName: "Bench", sets: [set(done > 0), set(done > 1)] }]
+  });
+  const merged = reconcile(
+    emptyLocal({ scheduledSessions: [withSets("s1", 2)] }),
+    emptyRemote({ scheduledSessions: [withSets("s1", 0)] })
+  );
+  assert.equal(
+    merged.scheduledSessions[0].exercises[0].sets.filter((item) => item.completed).length,
+    2,
+    "sets logged offline inside an active session survive the read"
+  );
+  const tie = reconcile(
+    emptyLocal({ scheduledSessions: [withSets("s1", 1)] }),
+    emptyRemote({ scheduledSessions: [{ ...withSets("s1", 1), sessionName: "Theirs" }] })
+  );
+  assert.equal(tie.scheduledSessions[0].sessionName, "Theirs", "a tie goes to the account");
+}
+
 // 4. Presets survive. They ship with the app and are never stored, so a remote
 //    list that legitimately lacks them must not delete them locally.
 {

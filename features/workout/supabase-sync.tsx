@@ -14,8 +14,10 @@ import {
 } from "@/features/workout/workout-store";
 import { countCopy, decideGuestMerge, describeCounts, guestAsIncoming } from "@/lib/guest-merge";
 import {
+  EMPTY_PROFILE,
   loadUserState,
   pushChanges,
+  remoteBaseline,
   snapshotState,
   syncErrorMessage,
   type SyncableState
@@ -50,7 +52,7 @@ const NOTHING_KNOWN_REMOTE: SyncableState = {
   logs: [],
   setLogs: [],
   measurements: [],
-  profile: { name: "", email: "", heightCm: 0, weightKg: 0 }
+  profile: EMPTY_PROFILE
 };
 
 export function SupabaseSync() {
@@ -68,6 +70,9 @@ export function SupabaseSync() {
   // Distinguishes "the read failed" from "the read has not landed yet". Both
   // leave `syncedRef` undefined, and only the first may push from an empty base.
   const loadFailedRef = useRef(false);
+  // The load's own message, put back after a push succeeds while it stands: a
+  // push from an empty base proves nothing about what the account holds.
+  const loadErrorRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     if (!supabase || !userId) {
@@ -88,6 +93,7 @@ export function SupabaseSync() {
     store.getState().switchToAccount(userId);
 
     loadFailedRef.current = false;
+    loadErrorRef.current = undefined;
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
 
@@ -113,6 +119,16 @@ export function SupabaseSync() {
             return;
           }
           syncedRef.current = next;
+          if (loadFailedRef.current) {
+            // Not "synced": the device has never read this account. Clearing
+            // the load error here let the deletion banner treat an unread
+            // account as read, and the stale profile it pushed re-stamped a
+            // deletion another device had already restored.
+            setSyncStatus({
+              error: { stage: "load", message: loadErrorRef.current ?? "Could not read your account." }
+            });
+            return;
+          }
           setSyncStatus({ lastSyncedAt: Date.now(), error: undefined });
         })
         .catch((error: unknown) => {
@@ -137,8 +153,9 @@ export function SupabaseSync() {
 
     // The debounce loses the last set if the tab closes inside it. `pagehide`
     // is the one teardown event iOS Safari reliably fires — `beforeunload` does
-    // not fire there at all. Best-effort: an interrupted push is recovered by
-    // the reconcile on next launch, which is why this can stay a plain call.
+    // not fire there at all. Best-effort: an interrupted push leaves the rows
+    // on the device, and the first push after the next read sends them (the
+    // baseline below is what the account holds, not the merged store).
     const flushNow = () => {
       clearTimeout(timer);
       flush();
@@ -168,8 +185,14 @@ export function SupabaseSync() {
           }
 
           store.getState().hydrateRemote(remote);
-          syncedRef.current = snapshotState(store.getState());
+          // What the account holds — not the merged store, which would count
+          // every row this device alone has as already synced.
+          syncedRef.current = remoteBaseline(remote);
           setSyncStatus({ lastSyncedAt: Date.now(), error: undefined });
+          // Rows the device kept through an offline session or a failed push
+          // are the diff now; send them without waiting for the next action.
+          clearTimeout(timer);
+          timer = setTimeout(flush, DEBOUNCE_MS);
 
           // Then the guest copy — after the baseline above, so moving it in is
           // a change, and the next push sends it to the account.
@@ -181,7 +204,9 @@ export function SupabaseSync() {
           });
           if (guest && decision === "move") {
             // An empty account: nothing to mix with, so no question.
-            store.getState().hydrateRemote(guestAsIncoming(guest, store.getState().profile));
+            store
+              .getState()
+              .hydrateRemote(guestAsIncoming(guest, store.getState().profile, store.getState().scheduleConfig));
             clearGuestCopy();
           } else if (guest && decision === "ask") {
             askGuestMerge(userId, describeCounts(countCopy(guest)));
@@ -196,6 +221,7 @@ export function SupabaseSync() {
           // fields do not serialise, so logging it whole printed `{}`.
           console.error(`[supabase-sync] load failed: ${syncErrorMessage(error)}`, error);
         loadFailedRef.current = true;
+        loadErrorRef.current = syncErrorMessage(error);
         if (!cancelled) {
           setSyncStatus({ error: { stage: "load", message: syncErrorMessage(error) } });
         }

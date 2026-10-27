@@ -11,6 +11,7 @@
  * so every rule here is testable without React or a network.
  */
 import { deriveEngagement, type Exercise } from "@/lib/exercises";
+import { REST_SLOT } from "@/lib/schedule";
 import { addDays, dateKey } from "@/lib/utils";
 import type {
   MuscleId,
@@ -122,7 +123,12 @@ function positive(value: unknown, path: string, { whole = true, allowZero = fals
   if (typeof number !== "number" || !Number.isFinite(number) || number < 0 || (!allowZero && number === 0)) {
     throw new AiPlanError(`${path} must be a ${allowZero ? "" : "positive "}number.`);
   }
-  return whole ? Math.round(number) : Math.round(number * 4) / 4;
+  const rounded = whole ? Math.round(number) : Math.round(number * 4) / 4;
+  // Checked after rounding: 0.4 sets passed the check above and became 0.
+  if (!allowZero && rounded === 0) {
+    throw new AiPlanError(`${path} must be a positive number.`);
+  }
+  return rounded;
 }
 
 /**
@@ -253,8 +259,10 @@ function parseSchedule(raw: unknown, sessionNames: Set<string>): AiSchedule | un
       days[parseWeekday(key, `schedule.days.${key}`)] = known(value, `schedule.days.${key}`);
     }
   }
+  // "rest" stays in: a 3-on-1-off split is ["Push", "Pull", "Legs", "rest"],
+  // and dropping the slot put a workout on every calendar day.
   const rotation = Array.isArray(raw.rotation)
-    ? raw.rotation.map((item, index) => known(item, `schedule.rotation[${index}]`)).filter((item) => item !== "rest")
+    ? raw.rotation.map((item, index) => known(item, `schedule.rotation[${index}]`))
     : undefined;
   const restDays = Array.isArray(raw.restDays)
     ? raw.restDays.map((item, index) => parseWeekday(item, `schedule.restDays[${index}]`))
@@ -269,7 +277,7 @@ function parseSchedule(raw: unknown, sessionNames: Set<string>): AiSchedule | un
   if (mode === "weekly" && (!days || !Object.values(days).some((item) => item !== "rest"))) {
     throw new AiPlanError("schedule.days must put at least one session on a weekday.");
   }
-  if (mode === "rotation" && !rotation?.length) {
+  if (mode === "rotation" && !rotation?.some((item) => item !== "rest")) {
     throw new AiPlanError("schedule.rotation must list at least one session.");
   }
 
@@ -560,6 +568,17 @@ export function buildPlanImport(plan: AiPlan, options: ImportOptions): PlanImpor
 
   const sessionNames = new Map(existingSessions.map((session) => [normalize(session.name), session]));
   const taken = new Set(existingSessions.map((session) => normalize(session.name)));
+  // Ids too: "Push" imported, renamed in Build (the id stays), "Push" imported
+  // again at the same index would land on the same id as the renamed one.
+  const takenIds = new Set(existingSessions.map((session) => session.id));
+  const freeId = (base: string) => {
+    let id = base;
+    for (let n = 2; takenIds.has(id); n += 1) {
+      id = `${base}-${n}`;
+    }
+    takenIds.add(id);
+    return id;
+  };
   const nameInApp = new Map<string, string>();
   const idInApp = new Map<string, string>();
 
@@ -603,7 +622,7 @@ export function buildPlanImport(plan: AiPlan, options: ImportOptions): PlanImpor
     const progression: ProgressionSettings | undefined =
       session.progression && session.progression !== "off" ? { rule: session.progression } : undefined;
     const draft: SessionTemplate = {
-      id: replaces ?? `session-ai-${slug(name)}-${sessionIndex}`,
+      id: replaces ?? freeId(`session-ai-${slug(name)}-${sessionIndex}`),
       name,
       workoutIds: exercises.map((exercise) => exercise.workoutId),
       exercises,
@@ -642,7 +661,9 @@ export function buildPlanImport(plan: AiPlan, options: ImportOptions): PlanImpor
       weekly: schedule.mode === "rotation" ? {} : weekly,
       rotationOrder:
         schedule.mode === "rotation"
-          ? (schedule.rotation ?? []).map((name) => idInApp.get(name)).filter((id): id is string => Boolean(id))
+          ? (schedule.rotation ?? [])
+              .map((name) => (name === "rest" ? REST_SLOT : idInApp.get(name)))
+              .filter((id): id is string => Boolean(id))
           : [],
       restWeekdays: [...restWeekdays].sort()
     };

@@ -21,7 +21,7 @@ import { SessionPreview } from "@/features/planner/session-preview";
 import { MuscleMapCard } from "@/features/home/muscle-map-card";
 import { useExercisesFromSessionTemplate, useWorkoutStore } from "@/features/workout/workout-store";
 import { formatDayKey } from "@/lib/progress-metrics";
-import { buildScheduleSessions, daysOfScheduleLeft } from "@/lib/schedule";
+import { REST_SLOT, buildScheduleSessions, daysOfScheduleLeft, maxScheduleEnd } from "@/lib/schedule";
 import { muscles } from "@/lib/seed-data";
 import type { MuscleId, ScheduleConfig, ScheduleMode, ScheduledSession } from "@/lib/types";
 import { addDays, buildWeekDates, dateKey, todayKey } from "@/lib/utils";
@@ -526,6 +526,9 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
                   type="date"
                   value={endDate}
                   min={startDate}
+                  // The generator fills at most 400 days; past that the
+                  // calendar went empty while "days left" counted on.
+                  max={startDate ? maxScheduleEnd(startDate) : undefined}
                   onChange={(event) => {
                     setEndDate(event.target.value);
                     setConfirmation(null);
@@ -587,9 +590,11 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
                   <div className="space-y-2">
                     {rotationOrder.map((id, index) => {
                       const template = sessionTemplates.find((item) => item.id === id);
-                      if (!template) {
+                      // A rest slot (from an AI plan's 3-on-1-off split) has no template.
+                      if (!template && id !== REST_SLOT) {
                         return null;
                       }
+                      const name = template?.name ?? "Rest";
                       return (
                         <div
                           key={id}
@@ -599,11 +604,11 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
                             <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand/15 text-xs font-bold text-brand">
                               {index + 1}
                             </span>
-                            {template.name}
+                            {name}
                           </span>
                           <button
                             type="button"
-                            aria-label={`Remove ${template.name}`}
+                            aria-label={`Remove ${name}`}
                             className="flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground active:bg-secondary"
                             onClick={() => toggleRotation(id)}
                           >

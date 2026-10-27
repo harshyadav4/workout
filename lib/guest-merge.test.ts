@@ -71,4 +71,24 @@ const kept = guestAsIncoming(withPreset, { ...accountProfile, heightCm: 170, goa
 assert.equal(kept?.heightCm, 170, "the account's own height wins");
 assert.equal(kept?.goalWeightKg, 70);
 
+const guestSchedule = {
+  startDate: "2026-01-01",
+  endDate: "2026-12-31",
+  mode: "weekly" as const,
+  weekly: { 1: "session-guest" },
+  rotationOrder: [],
+  restWeekdays: []
+};
+const accountSchedule = { ...guestSchedule, weekly: { 2: "session-account" } };
+assert.equal(
+  guestAsIncoming({ ...withPreset, scheduleConfig: guestSchedule }, accountProfile, accountSchedule).scheduleConfig,
+  accountSchedule,
+  "the account's schedule wins when it has one"
+);
+assert.equal(
+  guestAsIncoming({ ...withPreset, scheduleConfig: guestSchedule }, accountProfile).scheduleConfig,
+  guestSchedule,
+  "an account without a schedule takes the guest's"
+);
+
 console.log("guest merge checks passed");

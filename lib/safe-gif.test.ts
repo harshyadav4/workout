@@ -23,6 +23,13 @@ assert.equal(isPrivateAddress("172.20.1.1"), true);
 assert.equal(isPrivateAddress("172.32.1.1"), false);
 assert.equal(isPrivateAddress("100.100.1.1"), true, "CGNAT");
 assert.equal(isPrivateAddress("::ffff:127.0.0.1"), true, "v4-mapped loopback");
+assert.equal(isPrivateAddress("::ffff:7f00:1"), true, "v4-mapped loopback, as the URL parser spells it");
+assert.equal(isPrivateAddress("[::ffff:a9fe:a9fe]"), true, "v4-mapped link-local (the metadata address)");
+assert.equal(isPrivateAddress("::ffff:a00:1"), true, "v4-mapped 10.x");
+assert.equal(isPrivateAddress("::ffff:808:808"), false, "v4-mapped 8.8.8.8 is public");
+assert.equal(isPrivateAddress("64:ff9b::7f00:1"), true, "NAT64 prefix");
+rejects("https://[::ffff:7f00:1]/a.gif");
+rejects("https://[::ffff:169.254.169.254]/a.gif");
 assert.equal(isPrivateAddress("fd00::1"), true);
 assert.equal(isPrivateAddress("2606:4700::1111"), false);
 

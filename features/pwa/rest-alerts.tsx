@@ -30,6 +30,11 @@ function read(): boolean {
   }
 }
 
+/** Called when the switch flips, here or in another tab. */
+export function subscribeRestAlerts(listener: () => void) {
+  return subscribe(listener);
+}
+
 function subscribe(listener: () => void) {
   listeners.add(listener);
   window.addEventListener("storage", listener);

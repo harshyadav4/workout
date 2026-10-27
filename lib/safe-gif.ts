@@ -47,7 +47,17 @@ function isIpLiteral(host: string) {
 /** True for loopback, private, link-local, CGNAT, multicast and reserved ranges. */
 export function isPrivateAddress(address: string): boolean {
   const ip = address.replace(/^\[|\]$/g, "").toLowerCase();
-  const v4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(ip.replace(/^::ffff:/, ""));
+  // The URL parser rewrites `::ffff:127.0.0.1` to `::ffff:7f00:1`, which the
+  // dotted check below did not see — and an IP literal skips the DNS lookup
+  // where the address is checked again. Back to dotted form first.
+  const hex = /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(ip);
+  const dotted = hex
+    ? [hex[1], hex[2]]
+        .map((part) => parseInt(part, 16))
+        .flatMap((value) => [value >> 8, value & 0xff])
+        .join(".")
+    : ip.replace(/^::ffff:/, "");
+  const v4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(dotted);
   if (v4) {
     const [a, b] = [Number(v4[1]), Number(v4[2])];
     return (
@@ -67,6 +77,8 @@ export function isPrivateAddress(address: string): boolean {
     return (
       ip === "::" ||
       ip === "::1" ||
+      // NAT64: an IPv4 address behind an IPv6 prefix, private or not.
+      ip.startsWith("64:ff9b:") ||
       ip.startsWith("fc") ||
       ip.startsWith("fd") ||
       ip.startsWith("fe8") ||

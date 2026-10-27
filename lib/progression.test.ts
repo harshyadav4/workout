@@ -85,6 +85,14 @@ const custom = nextTarget({
 });
 assert.equal(custom.weight, 65, "the increment is the calibration knob");
 
+const microplate = nextTarget({
+  ...base,
+  settings: { rule: "linear", incrementKg: 1.25 },
+  setLogs: [set("2026-01-08", 40, 8)]
+});
+assert.equal(microplate.weight, 41.25, "a 1.25 kg increment is a 1.25 kg jump, not 1.5");
+assert.match(microplate.reason, /41\.25kg/);
+
 // --- stalls and deload -----------------------------------------------------
 
 const oneMiss = nextTarget({

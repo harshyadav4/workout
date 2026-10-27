@@ -22,7 +22,10 @@ import { MAX_GIF_BYTES, MediaError, checkUrl, isGif, isPrivateAddress } from "@/
 export const runtime = "nodejs";
 
 const BUCKET = "exercise-media";
+/** Socket idle timeout: a host that stops sending. */
 const TIMEOUT_MS = 8000;
+/** The whole download. The idle timeout alone let a host that drips one byte every few seconds hold the function for as long as it liked. */
+const DEADLINE_MS = 20000;
 const MAX_REDIRECTS = 3;
 
 /**
@@ -54,7 +57,8 @@ function safeLookup(
 }
 
 function download(url: URL, redirectsLeft: number): Promise<Uint8Array> {
-  return new Promise((resolve, reject) => {
+  let deadline: ReturnType<typeof setTimeout> | undefined;
+  const result = new Promise<Uint8Array>((resolve, reject) => {
     const request = https.get(
       url,
       {
@@ -107,7 +111,9 @@ function download(url: URL, redirectsLeft: number): Promise<Uint8Array> {
     );
     request.on("timeout", () => request.destroy(new MediaError("The link took too long.")));
     request.on("error", reject);
+    deadline = setTimeout(() => request.destroy(new MediaError("The link took too long.")), DEADLINE_MS);
   });
+  return result.finally(() => clearTimeout(deadline));
 }
 
 export async function POST(request: Request) {

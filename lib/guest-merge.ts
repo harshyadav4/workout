@@ -1,5 +1,5 @@
 import type { RemoteState } from "@/lib/sync";
-import type { ProfileInfo } from "@/lib/types";
+import type { ProfileInfo, ScheduleConfig } from "@/lib/types";
 
 /**
  * What to do, at sign-in, with the training a guest did on this phone.
@@ -80,7 +80,8 @@ export function describeCounts(counts: GuestCounts): string {
  */
 export function guestAsIncoming(
   guest: RemoteState,
-  accountProfile?: ProfileInfo
+  accountProfile?: ProfileInfo,
+  accountScheduleConfig?: ScheduleConfig
 ): RemoteState {
   const gp = guest.profile;
   const profile =
@@ -104,7 +105,9 @@ export function guestAsIncoming(
     measurements: guest.measurements,
     skillGoals: guest.skillGoals,
     profile,
-    // The account's schedule wins when it has one (reconcile: remote ?? local).
-    scheduleConfig: guest.scheduleConfig
+    // The account's schedule wins when it has one. The guest copy goes in as
+    // the "remote" side of `reconcile`, which takes remote ?? local — so the
+    // guest's config used to replace the account's plan and be pushed up.
+    scheduleConfig: accountScheduleConfig ?? guest.scheduleConfig
   };
 }

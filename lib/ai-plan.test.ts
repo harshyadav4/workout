@@ -165,6 +165,42 @@ assert.equal(built.scheduleConfig?.weekly[1], built.sessions[0].template.id);
 assert.equal(built.scheduleConfig?.weekly[3], built.sessions[1].template.id);
 assert.deepEqual(built.scheduleConfig?.restWeekdays, [0]);
 
+// A rotation keeps its rest slots: a 3-on-1-off split dropped to three-on-forever
+// put a workout on every calendar day.
+{
+  const rotated = JSON.parse(good) as { schedule: unknown };
+  rotated.schedule = { startDate: "2026-11-02", endDate: "2026-12-28", rotation: ["Push", "Pull", "rest"] };
+  const parsed = parseAiPlan(JSON.stringify(rotated));
+  assert.deepEqual(parsed.schedule?.rotation, ["Push", "Pull", "rest"]);
+  const out = buildPlanImport(parsed, { library, existingTemplates, existingSessions, today: "2026-11-01" });
+  assert.equal(out.scheduleConfig?.rotationOrder.length, 3, "the rest slot is in the cycle");
+  assert.equal(out.scheduleConfig?.rotationOrder[2], "rest");
+  rotated.schedule = { startDate: "2026-11-02", endDate: "2026-12-28", rotation: ["rest"] };
+  throwsWith(() => parseAiPlan(JSON.stringify(rotated)), /at least one session/);
+}
+
+// A count that rounds to zero is zero.
+{
+  const tiny = JSON.parse(good) as { sessions: { exercises: { sets: number }[] }[] };
+  tiny.sessions[1].exercises[0].sets = 0.4;
+  throwsWith(() => parseAiPlan(JSON.stringify(tiny)), /sets must be a positive number/);
+}
+
+// A session id already in the app (a renamed import) is not reused.
+{
+  const renamed = buildPlanImport(plan, {
+    library,
+    existingTemplates,
+    existingSessions: [
+      { id: "session-ai-pull-1", name: "Back day", workoutIds: [], exercises: [], summary: { totalSets: 0, totalReps: 0, totalWeight: 0 } }
+    ],
+    today: "2026-11-01"
+  });
+  const ids = renamed.sessions.map((item) => item.template.id);
+  assert.equal(ids.includes("session-ai-pull-1"), false, "the renamed template keeps its id to itself");
+  assert.equal(new Set(ids).size, ids.length);
+}
+
 // A start date in the past starts today instead.
 const late = buildPlanImport(parseAiPlan(good.replace("2026-11-02", "2025-01-01")), {
   library,

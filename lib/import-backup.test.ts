@@ -13,6 +13,7 @@ const good = {
   logs: [{ id: "l1", date: "2026-08-27", workoutId: "t1", totalVolume: 480 }],
   setLogs: [{ id: "x1", logId: "l1", workoutId: "t1", date: "2026-08-27", reps: 8, weight: 60 }],
   measurements: [{ id: "m1", date: "2026-08-27", metric: "weight", value: 80 }],
+  skillGoals: [{ id: "g1", name: "Pull-up", levels: [], createdAt: "2026-08-01T00:00:00.000Z" }],
   profile: { name: "A", email: "a@b.c", heightCm: 180, weightKg: 80 }
 };
 
@@ -23,6 +24,18 @@ assert.equal(parsed.state.logs.length, 1);
 assert.equal(parsed.state.setLogs.length, 1);
 assert.equal(parsed.state.profile?.name, "A");
 assert.equal(parsed.counts.sets, 1);
+assert.equal(parsed.state.skillGoals?.length, 1, "skill goals round-trip — a restore used to drop them");
+assert.equal(parsed.counts.skills, 1);
+assert.equal(
+  parseExport({ ...good, skillGoals: undefined }).state.skillGoals,
+  undefined,
+  "an export from before skills leaves the device's goals alone"
+);
+assert.equal(
+  parseExport({ ...good, skillGoals: [{ id: "g2", name: "No ladder" }] }).state.skillGoals?.length,
+  0,
+  "a goal without levels or a creation time is dropped, not carried"
+);
 assert.equal(parseExportText(JSON.stringify(good)).state.logs.length, 1, "round-trips as text");
 
 // --- what must not get through ---------------------------------------------

@@ -1,11 +1,14 @@
 "use client";
 
 import { Minus, Plus, X } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import { useStore } from "zustand";
+import { createStore } from "zustand/vanilla";
 
 import { RecoveryPotion } from "@/features/home/recovery-potion";
-import { scheduleRestAlert } from "@/features/pwa/rest-alerts";
-import { REST_KEY, readStorage, restoreRest, writeStorage } from "@/lib/timer";
+import { scheduleRestAlert, subscribeRestAlerts } from "@/features/pwa/rest-alerts";
+import { isTouring, subscribeTour } from "@/features/tour/tour-store";
+import { REST_KEY, extendRest, readStorage, restoreRest, writeStorage } from "@/lib/timer";
 import { cn } from "@/lib/utils";
 
 /**
@@ -24,108 +27,138 @@ export function formatRest(seconds: number): string {
 }
 
 /**
- * The rest as a deadline, held by the page. It changes only on start, extend
- * and skip, so the page renders only then; the counting happens in the dial
- * (`useCountdown`), which is the one thing on screen that needs a new number
- * twice a second. Before this the hook ticked here and re-rendered the whole
- * Home page — the ledger, the muscle map, every card — at every tick.
+ * The rest as a deadline. An absolute moment rather than a decrementing
+ * count: mobile browsers throttle `setInterval` in a backgrounded tab — which
+ * is every tab, the moment the phone locks — and a counter would lose exactly
+ * the time you spent not looking at it. It changes only on start, extend and
+ * skip; the counting happens in the dial (`useCountdown`), the one thing on
+ * screen that needs a new number twice a second.
+ *
+ * One store for the whole app, not state inside Home. The end-of-rest buzz
+ * and the "Rest alerts" notification are armed from here, so they fire
+ * whichever tab is open: held by Home, they were cancelled by the very tab
+ * change (to Progress, to lock the phone) the notification exists for.
  */
-export function useRestTimer() {
-  // An absolute deadline rather than a decrementing count. Mobile browsers
-  // throttle `setInterval` in a backgrounded tab — which is every tab, the
-  // moment the phone locks — and a counter would lose exactly the time you
-  // spent not looking at it.
-  const [endsAt, setEndsAt] = useState<number | undefined>(undefined);
-  // The whole rest, so the dial can show how far the mana has refilled.
-  const [total, setTotal] = useState(0);
+interface RestStore {
+  endsAt?: number;
+  /** The whole rest, so the dial can show how far the mana has refilled. */
+  total: number;
+}
 
-  // The deadline is also kept on the device (lib/timer), so closing the app
-  // mid-rest and opening it again brings the potion back where it really is.
-  // Read once, after mount: the server has no storage to render from.
-  useEffect(() => {
-    const saved = restoreRest(readStorage(REST_KEY), Date.now());
-    if (saved) {
-      setTotal(saved.total);
-      setEndsAt(saved.endsAt);
+const rest = createStore<RestStore>(() => ({ endsAt: undefined, total: 0 }));
+
+/** True once the saved rest has been read. The server has no storage to render from. */
+let restored = false;
+
+function restoreOnce() {
+  if (restored || typeof window === "undefined") {
+    return;
+  }
+  restored = true;
+  const saved = restoreRest(readStorage(REST_KEY), Date.now());
+  if (saved) {
+    rest.setState(saved);
+  }
+}
+
+export function startRest(seconds?: number) {
+  if (!seconds || seconds <= 0) {
+    rest.setState({ endsAt: undefined });
+    return;
+  }
+  rest.setState({ endsAt: Date.now() + seconds * 1000, total: seconds });
+}
+
+export function extendRestBy(deltaSeconds: number) {
+  const { endsAt, total } = rest.getState();
+  if (endsAt === undefined) {
+    return;
+  }
+  rest.setState(extendRest({ endsAt, total }, deltaSeconds, Date.now()));
+}
+
+export function skipRest() {
+  rest.setState({ endsAt: undefined });
+}
+
+if (typeof window !== "undefined") {
+  // Saved on every change — not while the tour's sample is on screen, so the
+  // real session never finds Alex's rest counting down. A rest that has run
+  // out is dropped, so it is not restored.
+  rest.subscribe((state) => {
+    if (!isTouring()) {
+      writeStorage(
+        REST_KEY,
+        state.endsAt !== undefined && state.endsAt > Date.now() && state.total > 0
+          ? { endsAt: state.endsAt, total: state.total }
+          : undefined
+      );
     }
-  }, []);
+    arm(state.endsAt);
+  });
 
-  const start = useCallback((seconds?: number) => {
-    if (!seconds || seconds <= 0) {
-      setEndsAt(undefined);
-      writeStorage(REST_KEY, undefined);
-      return;
+  // The switch on the You page flipped mid-rest: arm (or drop) the alert now,
+  // not at the next rest.
+  subscribeRestAlerts(() => arm(rest.getState().endsAt));
+
+  // The tour swaps the sample in and out of the workout store; the rest it
+  // started must go with it, and the real rest must come back untouched.
+  let keptRest: RestStore | undefined;
+  subscribeTour((state, previous) => {
+    if (state.active && !previous.active) {
+      keptRest = rest.getState();
+      rest.setState({ endsAt: undefined, total: 0 });
+    } else if (!state.active && previous.active) {
+      rest.setState(keptRest ?? { endsAt: undefined, total: 0 });
+      keptRest = undefined;
     }
-    const next = Date.now() + seconds * 1000;
-    setTotal(seconds);
-    setEndsAt(next);
-    writeStorage(REST_KEY, { endsAt: next, total: seconds });
-  }, []);
-
-  const extend = useCallback((deltaSeconds: number) => {
-    setEndsAt((current) => {
-      if (current === undefined) {
-        return current;
-      }
-      // Never below now: a −15 on four seconds left means "done", not a clock
-      // that owes you eleven seconds the next time you extend it.
-      return Math.max(Date.now(), current + deltaSeconds * 1000);
-    });
-    // A longer rest is a longer bar, not a bar that jumps backwards.
-    setTotal((current) => Math.max(1, current + deltaSeconds));
-  }, []);
-
-  // "Rest alerts" (You page): a notification at the end time if the app is
-  // hidden then. Re-armed whenever the end moves; cancelled on skip. The
-  // phone may freeze this timer in the background — see features/pwa/rest-alerts.
-  useEffect(() => {
-    if (endsAt === undefined) {
-      return;
-    }
-    return scheduleRestAlert(endsAt);
-  }, [endsAt]);
-
-  // Saved after the fact rather than inside the setters above, which React may
-  // run twice. A rest that has run out is dropped, so it is not restored.
-  useEffect(() => {
-    if (endsAt !== undefined && total > 0) {
-      writeStorage(REST_KEY, endsAt > Date.now() ? { endsAt, total } : undefined);
-    }
-  }, [endsAt, total]);
-
-  const skip = useCallback(() => {
-    setEndsAt(undefined);
-    writeStorage(REST_KEY, undefined);
-  }, []);
-
-  return { endsAt, total, start, extend, skip };
+  });
 }
 
 /**
- * Seconds left to a deadline, refreshed twice a second so the number never
- * sits a beat behind, and one buzz when it reaches zero. Only a deadline that
- * was ahead when it was set buzzes: "−15s" on four seconds left lands on now,
- * and that is "done", not a second alarm.
+ * One buzz at the end, and — with "Rest alerts" on — a notification if the app
+ * is hidden then. Re-armed whenever the end moves; cancelled on skip. Only a
+ * deadline still ahead arms: "−15s" on four seconds left lands on now, and that
+ * is "done", not a second alarm. The phone may freeze these timers in the
+ * background — see features/pwa/rest-alerts.
  */
+let disarm: () => void = () => undefined;
+
+function arm(endsAt?: number) {
+  disarm();
+  disarm = () => undefined;
+  if (endsAt === undefined || endsAt <= Date.now()) {
+    return;
+  }
+  const cancelAlert = scheduleRestAlert(endsAt);
+  const buzz = window.setTimeout(() => {
+    // On screen the dial says done and the phone buzzes; hidden, the alert
+    // above speaks instead. Feature-detected: absent on iOS Safari, which is
+    // most of this app's traffic. There is no fallback — a sound in a gym is
+    // worse than nothing.
+    if (document.visibilityState !== "hidden" && "vibrate" in navigator) {
+      navigator.vibrate([120, 60, 120]);
+    }
+  }, endsAt - Date.now());
+  disarm = () => {
+    cancelAlert();
+    window.clearTimeout(buzz);
+  };
+}
+
+/** The rest for the page: the deadline and the bar, and the three things that move them. */
+export function useRestTimer() {
+  const { endsAt, total } = useStore(rest);
+  useEffect(restoreOnce, []);
+  return { endsAt, total, start: startRest, extend: extendRestBy, skip: skipRest };
+}
+
+/** Seconds left to a deadline, refreshed twice a second so the number never sits a beat behind. */
 function useCountdown(endsAt: number): number {
   const [remaining, setRemaining] = useState(() => secondsLeft(endsAt));
-  const buzzedRef = useRef(false);
 
   useEffect(() => {
-    buzzedRef.current = endsAt <= Date.now();
-    const tick = () => {
-      const seconds = secondsLeft(endsAt);
-      setRemaining(seconds);
-      if (seconds > 0 || buzzedRef.current) {
-        return;
-      }
-      buzzedRef.current = true;
-      // Feature-detected: absent on iOS Safari, which is most of this app's
-      // traffic. There is no fallback — a sound in a gym is worse than nothing.
-      if ("vibrate" in navigator) {
-        navigator.vibrate([120, 60, 120]);
-      }
-    };
+    const tick = () => setRemaining(secondsLeft(endsAt));
     tick();
     const id = setInterval(tick, 500);
     return () => clearInterval(id);
@@ -133,6 +166,7 @@ function useCountdown(endsAt: number): number {
 
   return remaining;
 }
+
 
 function secondsLeft(endsAt: number): number {
   return Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));

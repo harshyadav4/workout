@@ -138,3 +138,12 @@ export function exploreSample(): void {
 export function useTour(): TourState {
   return useStore(tour);
 }
+
+/**
+ * For state that lives outside the workout store but must not mix with the
+ * sample either — the rest and live timers keep their own copy and swap it
+ * out for the tour the way `startTour` does the store's.
+ */
+export function subscribeTour(listener: (state: TourState, previous: TourState) => void): () => void {
+  return tour.subscribe(listener);
+}

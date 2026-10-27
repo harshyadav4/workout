@@ -49,7 +49,9 @@ export function GuestMergePrompt() {
   const add = () => {
     const guest = readGuestCopy();
     if (guest) {
-      store.getState().hydrateRemote(guestAsIncoming(guest, store.getState().profile));
+      store
+        .getState()
+        .hydrateRemote(guestAsIncoming(guest, store.getState().profile, store.getState().scheduleConfig));
       clearGuestCopy();
     }
     close();

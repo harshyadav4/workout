@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 
-import { buildExport, diffRows, syncErrorMessage, type SyncableState } from "@/lib/sync";
-import type { WorkoutTemplate } from "@/lib/types";
+import { reconcile } from "@/lib/reconcile";
+import { buildExport, diffRows, remoteBaseline, syncErrorMessage, type RemoteState, type SyncableState } from "@/lib/sync";
+import type { WorkoutLog, WorkoutTemplate } from "@/lib/types";
 
 // The whole sync rests on this: a missed delete resurrects a session on the
 // next device, a missed upsert loses a logged set.
@@ -103,6 +104,50 @@ const c = { id: "c", n: 1 };
   assert.equal(syncErrorMessage({ message: "Failed to fetch" }), "Failed to fetch");
   assert.equal(syncErrorMessage("a bare string"), "Unknown error");
   assert.equal(syncErrorMessage(undefined), "Unknown error", "must not throw on a nullish reject");
+}
+
+// The baseline after a read is what the account holds, not the merged store.
+// A session logged offline sits in the store but not on the server; diffing the
+// merged store against itself called it synced and it never went up.
+{
+  const log = (id: string): WorkoutLog => ({
+    id,
+    date: "2026-10-20",
+    workoutId: "bench",
+    name: "Bench press",
+    totalVolume: 100,
+    muscles: []
+  });
+  const shared = log("shared");
+  const offline = log("offline");
+  const local: SyncableState = {
+    templates: [],
+    sessionTemplates: [],
+    scheduledSessions: [],
+    logs: [offline, { ...shared }],
+    setLogs: [],
+    measurements: [],
+    profile: { name: "A", email: "a@b.co", heightCm: 172, weightKg: 72 }
+  };
+  const remote: RemoteState = {
+    templates: [],
+    sessionTemplates: [],
+    scheduledSessions: [],
+    logs: [shared],
+    setLogs: [],
+    measurements: [],
+    profile: { name: "A", email: "a@b.co", heightCm: 172, weightKg: 72 }
+  };
+  const merged = reconcile(local, remote);
+  const { upserts, deletedIds } = diffRows(remoteBaseline(remote).logs, merged.logs);
+  assert.deepEqual(upserts, [offline], "the device-only row is the diff after a read");
+  assert.deepEqual(deletedIds, [], "nothing the account holds is deleted by a read");
+  assert.equal(
+    remoteBaseline(remote).profile,
+    merged.profile,
+    "the account's own profile stays reference-equal, so it is not rewritten"
+  );
+  assert.equal(remoteBaseline({ ...remote, profile: undefined }).profile.name, "", "a new account starts from the empty profile");
 }
 
 console.log("sync diff checks passed");

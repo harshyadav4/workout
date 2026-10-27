@@ -730,7 +730,12 @@ export interface RestStats {
  * back-to-back days read as 0 — "days off between sessions", not a stride
  * length, which is the number you actually feel.
  */
-export function buildRestStats(logs: WorkoutLog[], window: DateWindow): RestStats {
+export function buildRestStats(
+  logs: WorkoutLog[],
+  window: DateWindow,
+  /** "Days since" is measured to today, not to the range's end: a custom range that ended weeks ago said "Today". */
+  today: string = window.end
+): RestStats {
   const dates = [...new Set(logs.map((log) => log.date))].sort();
   const gaps = dates.slice(1).map((date, index) => daysBetween(dates[index], date) - 1);
   const days = windowDays(window);
@@ -741,8 +746,7 @@ export function buildRestStats(logs: WorkoutLog[], window: DateWindow): RestStat
     averageGap:
       gaps.length > 0 ? gaps.reduce((sum, gap) => sum + gap, 0) / gaps.length : 0,
     longestGap: gaps.reduce((longest, gap) => Math.max(longest, gap), 0),
-    daysSinceLast:
-      dates.length > 0 ? daysBetween(dates[dates.length - 1], window.end) : undefined
+    daysSinceLast: dates.length > 0 ? Math.max(0, daysBetween(dates[dates.length - 1], today)) : undefined
   };
 }
 

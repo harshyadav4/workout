@@ -76,6 +76,27 @@ function unionByDateAndMetric(local: BodyMeasurement[], remote: BodyMeasurement[
 
 const byDateAscending = (a: { date: string }, b: { date: string }) => a.date.localeCompare(b.date);
 
+/** Sets with a log against them — how far into a session a device got. */
+function loggedSets(session: ScheduledSession): number {
+  return session.exercises.reduce(
+    (count, exercise) => count + exercise.sets.filter((set) => set.completed || set.completedAt).length,
+    0
+  );
+}
+
+/**
+ * Status first; at equal status, the copy with more sets logged. An `active`
+ * session on both sides used to take the account's copy outright, so five sets
+ * logged offline inside a session already started online were gone on the next
+ * launch. Ties go to the account, like every other collection here.
+ */
+function furtherAlong(mine: ScheduledSession, theirs: ScheduledSession): ScheduledSession {
+  if (STATUS_RANK[mine.status] !== STATUS_RANK[theirs.status]) {
+    return STATUS_RANK[mine.status] > STATUS_RANK[theirs.status] ? mine : theirs;
+  }
+  return loggedSets(mine) > loggedSets(theirs) ? mine : theirs;
+}
+
 export function reconcile(local: SyncableState, remote: RemoteState): SyncableState {
   // Presets ship with the app and are never stored, so the remote list holds
   // only what the user added. This branch was already right in `hydrateRemote`
@@ -89,9 +110,9 @@ export function reconcile(local: SyncableState, remote: RemoteState): SyncableSt
   return {
     templates: [...presets, ...added.filter((item) => !presets.some((p) => p.id === item.id))],
     sessionTemplates: unionById(local.sessionTemplates, remote.sessionTemplates),
-    scheduledSessions: unionById(local.scheduledSessions, remote.scheduledSessions, (mine, theirs) =>
-      STATUS_RANK[mine.status] > STATUS_RANK[theirs.status] ? mine : theirs
-    ).sort(byDateAscending),
+    scheduledSessions: unionById(local.scheduledSessions, remote.scheduledSessions, furtherAlong).sort(
+      byDateAscending
+    ),
     // Newest first, the order `loadUserState` asks Postgres for and the order
     // the store prepends in.
     logs: unionById(local.logs, remote.logs).sort((a, b) => byDateAscending(b, a)),

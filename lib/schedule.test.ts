@@ -6,7 +6,10 @@ import {
   type DayState,
   mergeGeneratedSessions,
   resolveDayState,
-  moveSession
+  moveSession,
+  REST_SLOT,
+  maxScheduleEnd,
+  buildScheduleSessions,
 } from "@/lib/schedule";
 import type { ScheduledSession } from "@/lib/types";
 
@@ -114,6 +117,52 @@ assert.deepEqual(mergeGeneratedSessions(existing, []), [existing[0], existing[1]
     "an expired horizon is zero days left, never negative"
   );
   assert.equal(daysOfScheduleLeft(undefined, "2026-08-25"), 0, "no schedule is no horizon");
+
+  const pushTemplate = {
+    id: "push",
+    name: "Push",
+    workoutIds: [],
+    exercises: [],
+    summary: { totalSets: 0, totalReps: 0, totalWeight: 0 }
+  };
+  // The generator stops at 400 days. "Days left" must stop there too, or the
+  // calendar empties while the warning still thinks there is a year to go.
+  const far = { ...config, startDate: "2026-10-27", endDate: "2027-12-31" };
+  assert.equal(maxScheduleEnd("2026-10-27"), "2027-11-30", "400 days from the start, inclusive");
+  assert.equal(daysOfScheduleLeft(far, "2027-11-20"), 10, "counts to the generated end, not the typed one");
+  const generatedFar = buildScheduleSessions({ ...far, weekly: { 1: "push" }, restWeekdays: [] }, [pushTemplate], () => []);
+  assert.ok(
+    generatedFar.every((session) => session.date <= maxScheduleEnd(far.startDate)),
+    "nothing is generated past the horizon the count reports"
+  );
+}
+
+// A rest slot inside a rotation is an off day in the cycle, not a dropped item.
+{
+  const pushTemplate = {
+    id: "push",
+    name: "Push",
+    workoutIds: [],
+    exercises: [],
+    summary: { totalSets: 0, totalReps: 0, totalWeight: 0 }
+  };
+  const rotation = buildScheduleSessions(
+    {
+      startDate: "2026-11-02",
+      endDate: "2026-11-05",
+      mode: "rotation",
+      weekly: {},
+      rotationOrder: ["push", REST_SLOT],
+      restWeekdays: []
+    },
+    [pushTemplate],
+    () => []
+  );
+  assert.deepEqual(
+    rotation.map((session) => session.type),
+    ["workout", "rest", "workout", "rest"],
+    "push, rest, push, rest"
+  );
 }
 
 console.log("schedule merge checks passed");
@@ -261,3 +310,17 @@ assert.equal(
   "moving to the day it is already on is a no-op, not an error"
 );
 assert.equal(moveSession(moveWeek, "nope", "2026-03-05").ok, false, "an unknown id is refused");
+
+// Into the past: the date input's `min` is only a hint. A session landed there
+// could never be moved or removed again, because Plan hides both on past days.
+assert.equal(moveSession(moveWeek, "a", "2026-02-20", "2026-03-01").ok, false, "a past day is refused");
+assert.equal(moveSession(moveWeek, "a", "2026-03-01", "2026-03-01").ok, true, "today is allowed");
+
+// Onto a day with a workout in progress: the swap would carry the half-done
+// session (and its logs' date) to another day.
+const inProgress = moveSession(
+  [moveDay("a", "2026-03-02"), moveDay("live", "2026-03-04", { status: "active", startedAt: "2026-03-04T09:00:00.000Z" })],
+  "a",
+  "2026-03-04"
+);
+assert.equal(inProgress.ok, false, "an active session is never displaced");

@@ -230,7 +230,7 @@ function ProgressDashboardView() {
       growth: buildStrengthGrowth(scoped),
       calendar: buildCalendar(scoped, window),
       rhythm: buildWeekdayRhythm(scoped),
-      rest: buildRestStats(scoped, window),
+      rest: buildRestStats(scoped, window, todayKey()),
       weeklySets: buildWeeklySetsByGroup(scoped, window),
       groups: buildMuscleGroupVolume(scoped),
       muscleVolume: buildMuscleVolume(scoped),
@@ -374,7 +374,7 @@ function ProgressDashboardView() {
         share: rank >= 0 ? view.muscleVolume[rank].share : 0,
         setsPerWeek: muscleWeeklySets(view.scoped, muscleId, view.window),
         sessions: new Set(attributed.map((log) => log.date)).size,
-        rest: buildRestStats(attributed, view.window)
+        rest: buildRestStats(attributed, view.window, todayKey())
       }
     };
   }, [selected, view]);

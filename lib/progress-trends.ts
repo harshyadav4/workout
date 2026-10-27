@@ -105,7 +105,12 @@ export function buildRollingLoad(logs: WorkoutLog[], window: DateWindow): LoadPo
     );
 
   const first = weekStartKey(dates[0]);
-  const last = weekStartKey(dates[dates.length - 1]);
+  // To the end of the range, not the last session: after a month off, a
+  // series that stopped at the last trained week captioned the break as
+  // "close to your normal week".
+  const lastTrained = weekStartKey(dates[dates.length - 1]);
+  const rangeEnd = weekStartKey(window.end);
+  const last = rangeEnd > lastTrained ? rangeEnd : lastTrained;
   const points: LoadPoint[] = [];
 
   for (let cursor = first; cursor <= last && points.length < MAX_POINTS; cursor = shiftKey(cursor, 7)) {
@@ -156,10 +161,21 @@ export interface PREntry {
  */
 export function buildPRLedger(logs: WorkoutLog[]): PREntry[] {
   const ordered = [...logs].sort((a, b) => a.date.localeCompare(b.date));
+  // One log per exercise instance, so a lift done twice in a day (or in two
+  // sessions) is two logs. Walked one by one they made two PRs for one day and
+  // two rows with the same key; the day's heaviest is the only record.
+  const byDay = new Map<string, WorkoutLog>();
+  ordered.forEach((log) => {
+    const key = `${log.date}:${log.workoutId}`;
+    const current = byDay.get(key);
+    if (!current || (log.peakWeight ?? 0) > (current.peakWeight ?? 0)) {
+      byDay.set(key, log);
+    }
+  });
   const best = new Map<string, number>();
   const entries: PREntry[] = [];
 
-  ordered.forEach((log) => {
+  byDay.forEach((log) => {
     const weight = log.peakWeight ?? 0;
 
     if (weight <= 0) {
@@ -382,17 +398,34 @@ export function buildGirthCallout(
       .filter((log) => log.date >= from && log.date <= to)
       .reduce((sum, log) => sum + log.totalVolume, 0);
 
+  // Both ends inclusive, so the late half starts the day after: a session on
+  // the midpoint day was counted in both halves.
   const early = volumeIn(first.date, midpoint);
-  const late = volumeIn(midpoint, last.date);
+  const late = volumeIn(shiftKey(midpoint, 1), last.date);
 
   if (early <= 0) {
+    return undefined;
+  }
+
+  // Per site, then averaged. A muscle with a left and a right (arms, thighs,
+  // calves) hands in both tapes; first-to-last across the mixed list compared
+  // one arm's first reading with the other arm's last, and reported the
+  // asymmetry between them as growth.
+  const bySite = new Map<string, BodyMeasurement[]>();
+  readings.forEach((reading) => {
+    bySite.set(reading.metric, [...(bySite.get(reading.metric) ?? []), reading]);
+  });
+  const changes = [...bySite.values()]
+    .filter((site) => site.length >= 2)
+    .map((site) => site[site.length - 1].value - site[0].value);
+  if (changes.length === 0) {
     return undefined;
   }
 
   return {
     weeks,
     volumeChangePct: ((late - early) / early) * 100,
-    girthChangeCm: last.value - first.value
+    girthChangeCm: changes.reduce((sum, change) => sum + change, 0) / changes.length
   };
 }
 

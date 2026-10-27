@@ -418,8 +418,20 @@ export function PlanBuild() {
       summary: { totalSets: 0, totalReps: 0, totalWeight: 0 }
     });
 
+    // Rename "Push" to "Chest" (the id stays `session-push`), then make a new
+    // "Push": the name is free but the id is taken, and two templates on one
+    // id are deleted and scheduled together.
+    const uniqueSessionId = (name: string) => {
+      const base = `session-${slug(name)}`;
+      let id = base;
+      for (let n = 2; sessionTemplates.some((item) => item.id === id); n += 1) {
+        id = `${base}-${n}`;
+      }
+      return id;
+    };
+
     const template: SessionTemplate = {
-      id: editingId ?? `session-${slug(trimmedName)}`,
+      id: editingId ?? uniqueSessionId(trimmedName),
       name: trimmedName,
       workoutIds: exercises.map((exercise) => exercise.workoutId),
       exercises,
@@ -437,7 +449,12 @@ export function PlanBuild() {
                   0
                 )
               }
-            : { ...progression, incrementKg: clampNumber(progression.incrementKg ?? DEFAULT_INCREMENT_KG, 0, false) }
+            : {
+                ...progression,
+                incrementKg: clampNumber(progression.incrementKg ?? DEFAULT_INCREMENT_KG, 0, false),
+                // 0 made `reps >= repMax` always true: the weight rose every session.
+                ...(progression.repMax !== undefined ? { repMax: clampNumber(progression.repMax, 1) } : {})
+              }
     };
 
     const saved = editingId

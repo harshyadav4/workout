@@ -41,8 +41,14 @@ export const DELOAD_FACTOR = 0.9;
 /** Nothing lands between plates. Half a kilo is the finest most racks go. */
 const WEIGHT_STEP = 0.5;
 
-function roundToStep(weight: number) {
-  return Math.round(weight / WEIGHT_STEP) * WEIGHT_STEP;
+/**
+ * Rounded to the plates in play: half a kilo, or a quarter when the increment
+ * itself is in quarters. A 1.25 kg microplate setting used to come out as
+ * 1.5 kg jumps, and the reason string reported the rounded number as the rule.
+ */
+function roundToStep(weight: number, increment = WEIGHT_STEP) {
+  const step = Number.isInteger(increment * 2) ? WEIGHT_STEP : WEIGHT_STEP / 2;
+  return Math.round(weight / step) * step;
 }
 
 export interface ProgressionTarget {
@@ -290,7 +296,7 @@ export function nextTarget({
     const repMax = settings.repMax ?? plannedReps;
 
     if (last.reps >= repMax) {
-      const next = roundToStep(last.weight + increment);
+      const next = roundToStep(last.weight + increment, increment);
       return {
         weight: next,
         reps: plannedReps,
@@ -310,7 +316,7 @@ export function nextTarget({
   }
 
   if (last.reps >= plannedReps) {
-    const next = roundToStep(last.weight + increment);
+    const next = roundToStep(last.weight + increment, increment);
     return {
       weight: next,
       reps: plannedReps,

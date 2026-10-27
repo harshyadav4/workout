@@ -360,7 +360,9 @@ async function writeTable<T extends Identified>(
   table: (typeof TABLES)[number],
   previous: T[],
   next: T[],
-  toRow: (item: T) => Row
+  toRow: (item: T) => Row,
+  /** A unique key other than the primary key to upsert on, as PostgREST takes it. */
+  onConflict?: string
 ) {
   if (!supabase) {
     return;
@@ -377,14 +379,15 @@ async function writeTable<T extends Identified>(
 
   if (upserts.length > 0) {
     const rows = upserts.map(toRow);
-    const { error } = await supabase.from(table).upsert(rows);
+    const options = onConflict ? { onConflict } : undefined;
+    const { error } = await supabase.from(table).upsert(rows, options);
     if (error && isMissingOptionalColumn(error)) {
       // A project that has not run the migration adding an optional column
       // yet. Write without it rather than fail every save: the feature that
       // column serves waits, nothing else does.
       const { error: retry } = await supabase
         .from(table)
-        .upsert(rows.map((row) => withoutOptionalColumns(row)));
+        .upsert(rows.map((row) => withoutOptionalColumns(row)), options);
       if (retry) {
         throw retry;
       }
@@ -437,6 +440,33 @@ export interface SyncableState {
   skillGoals?: SkillGoal[];
   profile: ProfileInfo;
   scheduleConfig?: ScheduleConfig;
+}
+
+/** What the account holds after a read, in the shape `pushChanges` diffs against. */
+export const EMPTY_PROFILE: ProfileInfo = { name: "", email: "", heightCm: 0, weightKg: 0 };
+
+/**
+ * The diff base right after a read: what the account is **known** to hold, and
+ * nothing else. It used to be a snapshot of the merged store, which already
+ * contained every local-only row — so a session logged while a push was failing
+ * sat in the baseline, compared equal to itself, and was never pushed again.
+ *
+ * `reconcile` keeps the remote object whenever both sides hold an id, so rows
+ * the account already has stay reference-equal and are not rewritten; only the
+ * rows this device alone holds differ from this base.
+ */
+export function remoteBaseline(remote: RemoteState): SyncableState {
+  return {
+    templates: remote.templates,
+    sessionTemplates: remote.sessionTemplates,
+    scheduledSessions: remote.scheduledSessions,
+    logs: remote.logs,
+    setLogs: remote.setLogs,
+    measurements: remote.measurements,
+    skillGoals: remote.skillGoals,
+    profile: remote.profile ?? EMPTY_PROFILE,
+    scheduleConfig: remote.scheduleConfig
+  };
 }
 
 /**
@@ -556,8 +586,16 @@ export async function pushChanges(
   await writeTable("set_logs", previous.setLogs, next.setLogs, (item) =>
     setLogToRow(item, userId)
   );
-  await writeTable("body_measurements", previous.measurements, next.measurements, (item) =>
-    measurementToRow(item, userId)
+  // On the `(user_id, date, metric)` key, not the id: a weigh-in logged on two
+  // devices the same day mints two ids for one reading, and the second device's
+  // insert hit the unique constraint on every push until it reloaded. The row
+  // takes the newer id; `reconcile` already merges measurements by that key.
+  await writeTable(
+    "body_measurements",
+    previous.measurements,
+    next.measurements,
+    (item) => measurementToRow(item, userId),
+    "user_id,date,metric"
   );
   try {
     await writeTable("skill_goals", previous.skillGoals ?? [], next.skillGoals ?? [], (item) =>

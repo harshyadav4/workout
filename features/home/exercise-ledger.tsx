@@ -85,7 +85,12 @@ function Drum({
   // `null` means "show the committed value".
   const [draft, setDraft] = useState<string | null>(null);
 
-  const clamp = (next: number) => Math.min(max, Math.max(min, next));
+  // Snapped to the step first: a per-side lift steps by 2 and must stay even
+  // (lib/per-side), and neither the minus key nor a typed 7 kept it so.
+  const clamp = (next: number) => {
+    const snapped = step > 1 ? Math.round(next / step) * step : next;
+    return Math.min(max, Math.max(min, snapped));
+  };
 
   const commitDraft = (raw: string) => {
     const parsed = Number(raw);
@@ -499,7 +504,7 @@ export function ExerciseLedger({
                 suffix={exercise.perSide ? "total" : "reps"}
                 value={openSet.reps}
                 step={stepForSide(exercise.perSide)}
-                min={MIN_REPS}
+                min={exercise.perSide ? stepForSide(true) : MIN_REPS}
                 max={MAX_REPS}
                 onChange={(reps) => onPatchSet(openSet.id, { reps })}
               />

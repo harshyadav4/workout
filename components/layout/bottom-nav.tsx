@@ -61,7 +61,10 @@ export function BottomNav() {
               aria-current={isOn(item.href, pathname) ? "page" : undefined}
               // Where the tour's guide flies to before it changes page.
               data-tour={`nav-${item.href}`}
-              onClick={() => {
+              // `onNavigate`, not `onClick`: it fires only for an in-tab client
+              // navigation. A ctrl-click opens a new tab and this pathname never
+              // changes, so an onClick left the wrong key lit until the next move.
+              onNavigate={() => {
                 if (!isOn(item.href, pathname)) {
                   pending.set(item.href);
                 }

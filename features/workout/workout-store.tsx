@@ -306,6 +306,18 @@ export function flushPersist() {
 }
 
 function write(key: string, state: WorkoutState) {
+  try {
+    writeUnchecked(key, state);
+  } catch (error) {
+    // Quota or private mode. The state on screen is still right and the sync
+    // layer still has it; what is lost is the copy for the next reload. This
+    // used to throw out of whichever action flushed it — including the
+    // account switch, which had already moved the active-copy marker.
+    console.warn("[workout-store] could not save to this device", error);
+  }
+}
+
+function writeUnchecked(key: string, state: WorkoutState) {
   localStorage.setItem(
     key,
     JSON.stringify({
@@ -333,7 +345,10 @@ function readSaved(key: string): Partial<WorkoutState> | undefined {
     return undefined;
   }
   flushPersist();
-  const raw = localStorage.getItem(key);
+  return parseSaved(localStorage.getItem(key));
+}
+
+function parseSaved(raw: string | null): Partial<WorkoutState> | undefined {
   if (!raw) {
     return undefined;
   }
@@ -357,6 +372,11 @@ export function readGuestCopy(): RemoteState | undefined {
   if (!saved || saved.owner) {
     return undefined;
   }
+  return savedAsIncoming(saved);
+}
+
+/** A saved copy in the shape `reconcile` takes in. */
+function savedAsIncoming(saved: Partial<WorkoutState>): RemoteState {
   return {
     templates: saved.templates ?? [],
     sessionTemplates: saved.sessionTemplates ?? [],
@@ -667,7 +687,7 @@ export function createWorkoutStore() {
       // tested. A refusal leaves the state exactly as it was — the caller reads
       // the reason off the same result to show it.
       moveScheduledSession: (id, toDate) => {
-        const result = moveSession(get().scheduledSessions, id, toDate);
+        const result = moveSession(get().scheduledSessions, id, toDate, todayKey());
         if (result.ok) {
           setAndPersist((state) => ({ ...state, scheduledSessions: result.sessions }));
         }
@@ -1032,14 +1052,66 @@ export function WorkoutStoreProvider({ children }: { children: React.ReactNode }
   }
 
   // activeDate is persisted; re-sync it to today on mount so Home shows today's
-  // scheduled session after the store was saved on an earlier day.
+  // scheduled session after the store was saved on an earlier day — and again
+  // every time the app comes back to the front. An installed app stays open
+  // for days: opened from the switcher the morning after, it used to keep
+  // yesterday's date, show yesterday's session as done, and write a new
+  // session's logs under yesterday.
   useEffect(() => {
-    const store = storeRef.current;
-    if (store && store.getState().activeDate !== todayKey()) {
-      store.getState().setActiveDate(todayKey());
-    }
+    const resync = () => {
+      const store = storeRef.current;
+      if (!store) {
+        return;
+      }
+      if (store.getState().activeDate !== todayKey()) {
+        store.getState().setActiveDate(todayKey());
+        // Sessions planned for the days since catch up with the latest logs.
+        store.getState().refreshUpcoming();
+      }
+    };
+    resync();
     // Sessions scheduled before this rule, or before logs since, catch up.
-    store?.getState().refreshUpcoming();
+    storeRef.current?.getState().refreshUpcoming();
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        resync();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", resync);
+    window.addEventListener("pageshow", resync);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", resync);
+      window.removeEventListener("pageshow", resync);
+    };
+  }, []);
+
+  // Another tab saved. Each tab writes its whole state under one key, so the
+  // next save here would have overwritten that tab's sets with this tab's
+  // older copy. Merge it in instead — through `reconcile`, which never drops a
+  // row — and without saving: the merged state is written by this tab's next
+  // action, and a save here would bounce the event back and forth for ever.
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      const store = storeRef.current;
+      if (!store || !event.newValue || isTouring()) {
+        return;
+      }
+      const state = store.getState();
+      if (event.key !== (state.owner ? STORAGE_KEY : GUEST_STORAGE_KEY)) {
+        return;
+      }
+      const saved = parseSaved(event.newValue);
+      // Another account's copy, or a guest copy under an account: not ours to mix in.
+      if (!saved || (saved.owner ?? undefined) !== (state.owner ?? undefined)) {
+        return;
+      }
+      store.setState((current) => ({ ...current, ...reconcile(current, savedAsIncoming(saved)) }));
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
   }, []);
 
   // The save waits for the next task; the page may not get one. `pagehide` is

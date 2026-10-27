@@ -1,7 +1,11 @@
 import type { PlannedExercise, ScheduleConfig, ScheduledSession, SessionTemplate } from "@/lib/types";
 
 const DAY_MS = 86_400_000;
-const MAX_DAYS = 400;
+/** The most days one schedule generates; see `scheduleHorizonEnd`. */
+export const MAX_DAYS = 400;
+
+/** A rest day inside `rotationOrder` — a 3-on-1-off split needs the off day in the cycle. */
+export const REST_SLOT = "rest";
 
 /**
  * What Home shows today. `open` is the state a generated schedule falls into on
@@ -105,15 +109,38 @@ function* eachDay(start: string, end: string): Generator<{ key: string; weekday:
  * returns 0, not a negative.
  */
 export function daysOfScheduleLeft(config: ScheduleConfig | undefined, from: string): number {
-  if (!config?.endDate || config.endDate < from) {
+  const endDate = config ? scheduleHorizonEnd(config) : undefined;
+  if (!endDate || endDate < from) {
     return 0;
   }
 
   const MS_PER_DAY = 24 * 60 * 60 * 1000;
-  const end = new Date(`${config.endDate}T00:00:00`).getTime();
+  const end = new Date(`${endDate}T00:00:00`).getTime();
   const start = new Date(`${from}T00:00:00`).getTime();
 
   return Math.max(0, Math.round((end - start) / MS_PER_DAY));
+}
+
+/** `key` plus `days`, in UTC like `eachDay`. */
+function addDaysKey(key: string, days: number): string {
+  const [year, month, day] = key.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day) + days * DAY_MS);
+  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
+}
+
+/** The last day a schedule starting on `startDate` can generate. */
+export function maxScheduleEnd(startDate: string): string {
+  return addDaysKey(startDate, MAX_DAYS - 1);
+}
+
+/**
+ * The last day `buildScheduleSessions` really fills: the end date, or the cap
+ * if the end date is further out. "Days left" and the running-out warning
+ * count to this, so the calendar never empties before they say so.
+ */
+export function scheduleHorizonEnd(config: Pick<ScheduleConfig, "startDate" | "endDate">): string {
+  const capped = maxScheduleEnd(config.startDate);
+  return config.endDate < capped ? config.endDate : capped;
 }
 
 /**
@@ -163,18 +190,20 @@ export function buildScheduleSessions(
   const sessions: ScheduledSession[] = [];
   let pointer = 0;
 
+  const restDay = (key: string, weekday: number): ScheduledSession => ({
+    id: crypto.randomUUID(),
+    date: key,
+    dayIndex: weekday,
+    sessionName: "Rest Day",
+    exercises: [],
+    type: "rest",
+    status: "planned",
+    source: "repeat"
+  });
+
   for (const { key, weekday } of eachDay(config.startDate, config.endDate)) {
     if (restWeekdays.has(weekday)) {
-      sessions.push({
-        id: crypto.randomUUID(),
-        date: key,
-        dayIndex: weekday,
-        sessionName: "Rest Day",
-        exercises: [],
-        type: "rest",
-        status: "planned",
-        source: "repeat"
-      });
+      sessions.push(restDay(key, weekday));
       continue;
     }
 
@@ -190,6 +219,10 @@ export function buildScheduleSessions(
       }
       templateId = config.rotationOrder[pointer % config.rotationOrder.length];
       pointer += 1;
+      if (templateId === REST_SLOT) {
+        sessions.push(restDay(key, weekday));
+        continue;
+      }
     }
 
     const template = byId.get(templateId);
@@ -247,7 +280,9 @@ export type MoveResult =
 export function moveSession(
   sessions: ScheduledSession[],
   sessionId: string,
-  toDate: string
+  toDate: string,
+  /** Today's key. A day before it is history, and Plan hides every control there. */
+  today?: string
 ): MoveResult {
   const moving = sessions.find((session) => session.id === sessionId);
 
@@ -256,6 +291,11 @@ export function moveSession(
   }
   if (moving.date === toDate) {
     return { ok: true, sessions };
+  }
+  // The date input's `min` is a hint; a desktop browser lets any date through.
+  // Landed in the past, a session could never be moved or removed again.
+  if (today && toDate < today) {
+    return { ok: false, reason: "That day has passed. Pick today or later." };
   }
   // A completed session is a record of a day that happened. Moving it would
   // rewrite history and detach it from the logs already written against its date.
@@ -269,6 +309,10 @@ export function moveSession(
 
   if (displaced?.status === "completed") {
     return { ok: false, reason: "You already did a workout on that day." };
+  }
+  // A swap would carry a half-done session to another day, and its logs with it.
+  if (displaced?.status === "active") {
+    return { ok: false, reason: "A workout is in progress on that day." };
   }
 
   const vacated: ScheduledSession = displaced

@@ -113,6 +113,17 @@ assert.equal(
   "a lift logged without a weight cannot set a record"
 );
 
+// The same lift twice in one day is one log per instance. One day, one record.
+{
+  const twice = buildPRLedger([
+    log("2026-01-05", "curl", { peakWeight: 20 }),
+    log("2026-01-12", "curl", { peakWeight: 22 }),
+    log("2026-01-12", "curl", { peakWeight: 25 })
+  ]);
+  assert.equal(twice.length, 1, "two instances on one day make one PR, not two rows with one key");
+  assert.deepEqual({ from: twice[0].from, to: twice[0].to }, { from: 20, to: 25 }, "the day's heaviest, against the day before it");
+}
+
 // -- muscle matrix ---------------------------------------------------------
 
 assert.equal(matrixBucketFor({ start: "2026-01-01", end: "2026-02-04" }), "week", "35 days");
@@ -317,6 +328,40 @@ assert.equal(
     undefined,
     "no volume in the first half means no percentage to report, rather than a division by zero"
   );
+
+  // Left and right are separate sites. Sorted by date alone, "first" could be
+  // the left arm and "last" the right, and a 1 cm asymmetry read as 1 cm of growth.
+  const left = (date: string, value: number) => ({ ...tape(date, value), id: `${date}-L`, metric: "armL" as const });
+  const steady = buildGirthCallout(
+    [session("2026-06-01", 1000), session("2026-07-15", 1000), session("2026-08-01", 1000)],
+    [left("2026-06-01", 35), tape("2026-06-01", 36), left("2026-08-03", 35), tape("2026-08-03", 36)]
+  );
+  assert.equal(steady?.girthChangeCm, 0, "two arms that did not change report no change");
+  const grew = buildGirthCallout(
+    [session("2026-06-01", 1000), session("2026-07-15", 1000), session("2026-08-01", 1000)],
+    [left("2026-06-01", 35), tape("2026-06-01", 36), left("2026-08-03", 36), tape("2026-08-03", 36.5)]
+  );
+  assert.equal(grew?.girthChangeCm.toFixed(2), "0.75", "the per-site changes, averaged");
+
+  // A session on the midpoint day belongs to one half, not both.
+  const split = buildGirthCallout(
+    [session("2026-06-01", 1000), session("2026-07-02", 1000)],
+    [tape("2026-06-01", 35), tape("2026-08-03", 36)]
+  );
+  assert.equal(split?.volumeChangePct, -100, "midpoint (02 Jul) counted once: early 2000, late 0");
+}
+
+// The load series runs to the end of the range, so a month off reads as light,
+// not as "close to normal" frozen at the last trained week.
+{
+  const points = buildRollingLoad(
+    [log("2026-08-03", "bench"), log("2026-08-10", "bench"), log("2026-08-17", "bench"), log("2026-08-24", "bench"), log("2026-08-31", "bench")],
+    { start: "2026-08-01", end: "2026-09-14" }
+  );
+  const lastPoint = points[points.length - 1];
+  assert.equal(lastPoint.key, "2026-09-14", "the series reaches the week of the range's end");
+  assert.equal(lastPoint.acute, 0, "and that week is empty");
+  assert.equal(lastPoint.ratio, 0, "so the ratio says light, not normal");
 }
 
 console.log("progress-trends: ok");

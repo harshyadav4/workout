@@ -1,3 +1,5 @@
+import { resolveMuscleIds } from "@/features/body/body-map-shared";
+import { isDistanceExercise } from "@/lib/cardio";
 import { muscles } from "@/lib/seed-data";
 import { evenTarget } from "@/lib/per-side";
 import { nextTarget } from "@/lib/progression";
@@ -297,10 +299,12 @@ export function buildMuscleHeat(logs: WorkoutLog[]) {
 
   logs.forEach((log) => {
     log.muscles.forEach((muscle) => {
-      intensity.set(
-        muscle.muscleId,
-        (intensity.get(muscle.muscleId) ?? 0) + muscle.engagement
-      );
+      // Through the alias table: a log from before the anatomical split says
+      // "chest", and summed by that raw id it lit nothing on the map while
+      // every chart still counted it.
+      resolveMuscleIds(muscle.muscleId).forEach((muscleId) => {
+        intensity.set(muscleId, (intensity.get(muscleId) ?? 0) + muscle.engagement);
+      });
     });
   });
 
@@ -577,6 +581,17 @@ export function plannedExercisesFromTemplate(
 /** When a preset carries no `defaultSets`. Conservative on purpose. */
 const FALLBACK_SETS: ExerciseSetTemplate = { sets: 3, reps: 10, weight: 20, restSeconds: 90 };
 
+/** A run with no history behind it: the same first guess Build makes. */
+const QUICK_RUN_KM = 5;
+const QUICK_RUN_SECONDS = 1800;
+
+/** The newest distance set of a workout — what the next run starts from. */
+function lastDistanceSet(workoutId: string, setLogs: SetLog[]): SetLog | undefined {
+  return setLogs
+    .filter((row) => row.workoutId === workoutId && row.distanceKm !== undefined)
+    .reduce<SetLog | undefined>((best, row) => (!best || row.date > best.date ? row : best), undefined);
+}
+
 /**
  * Exercises for a session that has no session behind it.
  *
@@ -590,6 +605,31 @@ export function plannedExercisesFromWorkouts(
 ): PlannedExercise[] {
   return workouts.map((workout) => {
     const defaults = workout.defaultSets?.[0] ?? FALLBACK_SETS;
+
+    // A run or a bike is distance + time, as Build makes it. Built as rep sets
+    // it was "3 × 10 @ 20 kg" for a run, logged as sets with no distance, and
+    // invisible to every cardio chart.
+    if (isDistanceExercise(workout.name)) {
+      const lastRun = lastDistanceSet(workout.id, history.setLogs);
+      return {
+        id: crypto.randomUUID(),
+        workoutId: workout.id,
+        templateName: workout.name,
+        restSeconds: defaults.restSeconds,
+        metric: "distance" as const,
+        sets: [
+          {
+            id: crypto.randomUUID(),
+            reps: 0,
+            weight: 0,
+            distanceKm: lastRun?.distanceKm ?? QUICK_RUN_KM,
+            durationSeconds: lastRun?.durationSeconds ?? QUICK_RUN_SECONDS,
+            type: "normal" as const
+          }
+        ]
+      };
+    }
+
     const last = lastPerformance(workout.id, history.logs, history.setLogs);
 
     return {

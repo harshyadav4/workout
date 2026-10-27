@@ -225,7 +225,10 @@ export function StrengthRatioCard({
     >
       <ul className="space-y-3">
         {ratios.map((row) => {
-          const color = GROUP_COLORS[groupOf.get(row.workoutId) ?? "chest"];
+          // A lift with no group (a template missing at finish time) is drawn
+          // quiet, as the other cards do, not as Chest.
+          const group = groupOf.get(row.workoutId);
+          const color = group ? GROUP_COLORS[group] : CHART.quiet;
           return (
             <li key={row.workoutId}>
               <div className="flex items-baseline justify-between gap-3">
@@ -252,7 +255,9 @@ export function StrengthRatioCard({
         })}
       </ul>
       <p className="mt-2 text-xs text-muted-foreground">The thin line marks 1× bodyweight.</p>
-      <GroupLegend groups={ratios.map((row) => groupOf.get(row.workoutId) ?? "chest")} />
+      <GroupLegend
+        groups={ratios.map((row) => groupOf.get(row.workoutId)).filter((group): group is MuscleGroup => Boolean(group))}
+      />
     </Panel>
   );
 }

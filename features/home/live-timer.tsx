@@ -1,9 +1,12 @@
 "use client";
 
 import { Play, Square, X } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useStore } from "zustand";
+import { createStore } from "zustand/vanilla";
 
 import { SessionRing } from "@/features/home/session-ring";
+import { isTouring, subscribeTour } from "@/features/tour/tour-store";
 import {
   LIVE_KEY,
   type LiveState,
@@ -21,46 +24,73 @@ import { cn } from "@/lib/utils";
  * started (lib/timer), on the device — lock the phone through a two-minute
  * plank, or close the app on a run, and it is still right when you come back.
  */
-export function useLiveTimer() {
-  // Only when it started. The seconds are counted where they are shown
-  // (`LiveTimerControl`), four times a second; the page that owns this hook
-  // renders only on start, finish and cancel.
-  const [live, setLive] = useState<LiveState>();
+// Only when it started. The seconds are counted where they are shown
+// (`LiveTimerControl`), four times a second; the page renders only on start,
+// finish and cancel. A module store, like the rest: the tour swaps it out and
+// back with the sample, so a timer started on Alex's plank never shows under a
+// real set — and never points at a set id that does not exist.
+const live = createStore<{ current?: LiveState }>(() => ({ current: undefined }));
 
-  useEffect(() => {
-    const saved = restoreLive(readStorage(LIVE_KEY), Date.now());
-    if (saved) {
-      setLive(saved);
-    } else {
-      writeStorage(LIVE_KEY, undefined);
+let restored = false;
+
+function restoreOnce() {
+  if (restored || typeof window === "undefined") {
+    return;
+  }
+  restored = true;
+  const saved = restoreLive(readStorage(LIVE_KEY), Date.now());
+  if (saved) {
+    live.setState({ current: saved });
+  } else {
+    writeStorage(LIVE_KEY, undefined);
+  }
+}
+
+function startLive(setId: string) {
+  live.setState({ current: { setId, startedAt: Date.now() } });
+}
+
+/** Stops the clock and hands back the seconds it ran. */
+function stopLive(): number {
+  const current = live.getState().current;
+  const seconds = current ? elapsedSeconds(current.startedAt, Date.now()) : 0;
+  live.setState({ current: undefined });
+  return seconds;
+}
+
+function cancelLive() {
+  live.setState({ current: undefined });
+}
+
+if (typeof window !== "undefined") {
+  live.subscribe((state) => {
+    if (!isTouring()) {
+      writeStorage(LIVE_KEY, state.current);
     }
-  }, []);
+  });
 
-  const start = useCallback((setId: string) => {
-    const next = { setId, startedAt: Date.now() };
-    setLive(next);
-    writeStorage(LIVE_KEY, next);
-  }, []);
+  let kept: LiveState | undefined;
+  subscribeTour((state, previous) => {
+    if (state.active && !previous.active) {
+      kept = live.getState().current;
+      live.setState({ current: undefined });
+    } else if (!state.active && previous.active) {
+      live.setState({ current: kept });
+      kept = undefined;
+    }
+  });
+}
 
-  /** Stops the clock and hands back the seconds it ran. */
-  const stop = useCallback((): number => {
-    const seconds = live ? elapsedSeconds(live.startedAt, Date.now()) : 0;
-    setLive(undefined);
-    writeStorage(LIVE_KEY, undefined);
-    return seconds;
-  }, [live]);
-
-  const cancel = useCallback(() => {
-    setLive(undefined);
-    writeStorage(LIVE_KEY, undefined);
-  }, []);
+export function useLiveTimer() {
+  const current = useStore(live, (state) => state.current);
+  useEffect(restoreOnce, []);
 
   return {
-    setId: live?.setId,
-    startedAt: live?.startedAt,
-    start,
-    stop,
-    cancel
+    setId: current?.setId,
+    startedAt: current?.startedAt,
+    start: startLive,
+    stop: stopLive,
+    cancel: cancelLive
   };
 }
 

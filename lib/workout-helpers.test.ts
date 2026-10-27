@@ -14,6 +14,7 @@ import {
   lastSessionSetCount,
   loggedSetAt,
   plannedExercisesFromTemplate,
+  plannedExercisesFromWorkouts,
   removeExerciseFromExercises,
   removeSetFromExercises,
   sessionTotals
@@ -859,3 +860,28 @@ runSession.exercises[0].metric = "distance";
 const runLog = buildLogFromSession(runSession, templates);
 assert.equal(runLog.setLogs[0].distanceKm, 5, "Finish keeps the distance on the set row");
 assert.equal(runLog.logs[0].totalVolume, 0, "and a run moves no lifting volume");
+
+// Quick start: a run from the library is distance + time, as Build makes it —
+// not three rep sets of "0 kg × 0" that no cardio chart will ever see.
+{
+  const run: WorkoutTemplate = { id: "db-0685", dbId: "0685", name: "Run", category: "cardio", muscles: [], isPreset: false };
+  const [fresh] = plannedExercisesFromWorkouts([run]);
+  assert.equal(fresh.metric, "distance");
+  assert.equal(fresh.sets.length, 1);
+  assert.equal(fresh.sets[0].distanceKm, 5, "a first run starts at the same guess as Build");
+  assert.equal(fresh.sets[0].durationSeconds, 1800);
+  assert.equal(fresh.sets[0].reps, 0, "no reps on a run");
+
+  const [again] = plannedExercisesFromWorkouts([run], {
+    logs: [],
+    setLogs: [
+      { id: "r1", logId: "l1", workoutId: "db-0685", date: "2026-09-01", setIndex: 0, reps: 0, weight: 0, distanceKm: 3, durationSeconds: 1000 },
+      { id: "r2", logId: "l2", workoutId: "db-0685", date: "2026-09-08", setIndex: 0, reps: 0, weight: 0, distanceKm: 4.2, durationSeconds: 1500 }
+    ]
+  });
+  assert.equal(again.sets[0].distanceKm, 4.2, "the newest run is where the next one starts");
+  assert.equal(again.sets[0].durationSeconds, 1500);
+
+  const [lift] = plannedExercisesFromWorkouts([{ ...run, id: "db-1", name: "Walking Lunge", category: "legs" }]);
+  assert.equal(lift.metric, undefined, "a walking lunge is reps, not distance");
+}

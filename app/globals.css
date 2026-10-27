@@ -765,7 +765,8 @@ label {
 .skills-hint::after {
   content: "";
   position: absolute;
-  inset: 0;
+  /* The chip's own 1px border: the ring hugs the border box, as the old box-shadow did. */
+  inset: -1px;
   border-radius: inherit;
   pointer-events: none;
   box-shadow: 0 0 0 2px hsl(var(--brand) / 0.35), 0 0 14px hsl(var(--brand) / 0.45);

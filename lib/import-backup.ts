@@ -4,6 +4,7 @@ import type {
   ScheduledSession,
   SessionTemplate,
   SetLog,
+  SkillGoal,
   WorkoutLog,
   WorkoutTemplate
 } from "@/lib/types";
@@ -129,6 +130,16 @@ export function parseExport(raw: unknown): ParsedBackup {
       raw.measurements,
       (row) => hasId(row) && hasDate(row) && isText(row.metric) && isNumber(row.value)
     ),
+    // Left out entirely when the file has none, so `reconcile` keeps the
+    // device's goals (an older export predates skills). Present, even empty,
+    // when the file carried the list — a restore after "delete all my data"
+    // routes through here, and the goals it archived must come back with it.
+    skillGoals: Array.isArray(raw.skillGoals)
+      ? keepValid<SkillGoal>(
+          raw.skillGoals,
+          (row) => hasId(row) && isText(row.name) && Array.isArray(row.levels) && isText(row.createdAt)
+        )
+      : undefined,
     // Optional in RemoteState, and `reconcile` already falls back to the local
     // copy — so a file with no usable profile leaves the account's own alone.
     // Every required field is checked: a half-built profile reaching the store
@@ -143,7 +154,8 @@ export function parseExport(raw: unknown): ParsedBackup {
     "planned days": state.scheduledSessions.length,
     "exercise logs": state.logs.length,
     sets: state.setLogs.length,
-    measurements: state.measurements.length
+    measurements: state.measurements.length,
+    skills: state.skillGoals?.length ?? 0
   };
 
   if (Object.values(counts).every((count) => count === 0) && !state.profile) {
