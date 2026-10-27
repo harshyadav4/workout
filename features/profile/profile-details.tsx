@@ -13,6 +13,7 @@ import { ClearThisPhone, DataDeletion } from "@/features/profile/data-deletion";
 import { useStartTour } from "@/features/tour/tour";
 import { useTour } from "@/features/tour/tour-store";
 import { DetailedTimingToggle, DistanceUnitToggle, ThemeToggle } from "@/features/profile/theme-toggle";
+import { RemindersCard } from "@/features/pwa/reminders";
 import { RestAlertsToggle } from "@/features/pwa/rest-alerts";
 import { retrySync, useSyncStatus } from "@/features/workout/sync-status";
 import { useWorkoutStore, useWorkoutStoreApi } from "@/features/workout/workout-store";
@@ -191,6 +192,7 @@ export function SettingsSection() {
       <DistanceUnitToggle />
       <DetailedTimingToggle />
       <RestAlertsToggle />
+      <RemindersCard />
     </Section>
   );
 }

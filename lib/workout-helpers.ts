@@ -58,6 +58,38 @@ export function nextPendingSetId(
 }
 
 /**
+ * What the next set is, in one line, for the end-of-rest notification:
+ * "Next: Incline press, set 3 of 4, 8 × 60 kg". A hold says its seconds, a
+ * run its distance. Nothing left says so, since Finish is the next tap.
+ * Picks the same set `nextPendingSetId` would open.
+ */
+export function nextSetSummary(session: ScheduledSession | undefined, afterSetId: string): string {
+  const nextId = nextPendingSetId(session, afterSetId);
+  const exercise = session?.exercises.find((item) => item.sets.some((setItem) => setItem.id === nextId));
+  const setItem = exercise?.sets.find((item) => item.id === nextId);
+  if (!exercise || !setItem) {
+    return "That was the last set. Finish when ready.";
+  }
+  const working = exercise.sets.filter((item) => item.type !== "warmup");
+  const position = working.indexOf(setItem);
+  const which =
+    setItem.type === "warmup"
+      ? "warm-up"
+      : position >= 0 && working.length > 1
+        ? `set ${position + 1} of ${working.length}`
+        : "";
+  const target =
+    exercise.metric === "distance"
+      ? `${setItem.distanceKm ?? 0} km`
+      : exercise.metric === "time"
+        ? `${setItem.durationSeconds ?? 0} s`
+        : setItem.weight > 0
+          ? `${setItem.reps} × ${setItem.weight} kg`
+          : `${setItem.reps} reps`;
+  return `Next: ${[exercise.templateName, which, target].filter(Boolean).join(", ")}`;
+}
+
+/**
  * Drop one set from one exercise. The last set of an exercise is never removed:
  * a zero-set exercise reads as "finished" everywhere counts are compared, so an
  * exercise you no longer want goes away as an exercise, not by emptying it.

@@ -21,6 +21,7 @@ import { SessionRecap } from "@/features/home/session-recap";
 import { SessionRing } from "@/features/home/session-ring";
 import { StreakCard } from "@/features/home/streak-card";
 import { InstallCard } from "@/features/pwa/install-card";
+import { RemindersPrompt } from "@/features/pwa/reminders-prompt";
 import {
   useSelectedTodaySession,
   useTodaySessions,
@@ -39,6 +40,7 @@ import {
   exerciseEntrySetId,
   firstPendingSetId,
   nextPendingSetId,
+  nextSetSummary,
   sessionTotals
 } from "@/lib/workout-helpers";
 
@@ -334,7 +336,9 @@ export function HomeDashboard() {
     // it would be wrong.
     if (!alreadyLogged) {
       logSetFeedback();
-      rest.start(exercise?.restSeconds);
+      // The notification at the end says what is next, from the same pick
+      // the ledger will open.
+      rest.start(exercise?.restSeconds, nextSetSummary(session, setId));
 
       const setItem = exercise?.sets.find((item) => item.id === setId);
       if (exercise && setItem && setItem.type !== "warmup") {
@@ -457,6 +461,7 @@ export function HomeDashboard() {
             there argues with it. */}
         {isRest ? null : <QuickStart />}
         <StreakCard />
+        <RemindersPrompt />
         <InstallCard dismissible />
         <MuscleMapCard
           title="Muscle map"
@@ -658,6 +663,7 @@ export function HomeDashboard() {
           not need a nudge to start. */}
       {isLogging ? null : <StreakCard />}
 
+      {isLogging ? null : <RemindersPrompt />}
       {isLogging ? null : <InstallCard dismissible />}
 
       <MuscleMapCard

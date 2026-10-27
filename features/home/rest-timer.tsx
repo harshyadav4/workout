@@ -44,9 +44,11 @@ interface RestStore {
   endsAt?: number;
   /** The whole rest, so the dial can show how far the mana has refilled. */
   total: number;
+  /** What the notification says is next ("Next: Bench press, set 3 of 4, 8 × 60 kg"). */
+  body?: string;
 }
 
-const rest = createStore<RestStore>(() => ({ endsAt: undefined, total: 0 }));
+const rest = createStore<RestStore>(() => ({ endsAt: undefined, total: 0, body: undefined }));
 
 /** True once the saved rest has been read. The server has no storage to render from. */
 let restored = false;
@@ -62,12 +64,12 @@ function restoreOnce() {
   }
 }
 
-export function startRest(seconds?: number) {
+export function startRest(seconds?: number, body?: string) {
   if (!seconds || seconds <= 0) {
-    rest.setState({ endsAt: undefined });
+    rest.setState({ endsAt: undefined, body: undefined });
     return;
   }
-  rest.setState({ endsAt: Date.now() + seconds * 1000, total: seconds });
+  rest.setState({ endsAt: Date.now() + seconds * 1000, total: seconds, body });
 }
 
 export function extendRestBy(deltaSeconds: number) {
@@ -79,7 +81,7 @@ export function extendRestBy(deltaSeconds: number) {
 }
 
 export function skipRest() {
-  rest.setState({ endsAt: undefined });
+  rest.setState({ endsAt: undefined, body: undefined });
   void cancelRestPush();
 }
 
@@ -96,12 +98,12 @@ if (typeof window !== "undefined") {
           : undefined
       );
     }
-    arm(state.endsAt);
+    arm(state.endsAt, state.body);
   });
 
   // The switch on the You page flipped mid-rest: arm (or drop) the alert now,
   // not at the next rest.
-  subscribeRestAlerts(() => arm(rest.getState().endsAt));
+  subscribeRestAlerts(() => arm(rest.getState().endsAt, rest.getState().body));
 
   // The keys on the notification (public/sw.js) arrive as messages from the
   // worker. With no window open, "+15s" opens one on `/?rest=extend`: a fresh
@@ -140,9 +142,9 @@ if (typeof window !== "undefined") {
   subscribeTour((state, previous) => {
     if (state.active && !previous.active) {
       keptRest = rest.getState();
-      rest.setState({ endsAt: undefined, total: 0 });
+      rest.setState({ endsAt: undefined, total: 0, body: undefined });
     } else if (!state.active && previous.active) {
-      rest.setState(keptRest ?? { endsAt: undefined, total: 0 });
+      rest.setState(keptRest ?? { endsAt: undefined, total: 0, body: undefined });
       keptRest = undefined;
     }
   });
@@ -157,18 +159,18 @@ if (typeof window !== "undefined") {
  */
 let disarm: () => void = () => undefined;
 
-function arm(endsAt?: number) {
+function arm(endsAt?: number, body?: string) {
   disarm();
   disarm = () => undefined;
   if (endsAt === undefined || endsAt <= Date.now()) {
     return;
   }
-  const cancelAlert = scheduleRestAlert(endsAt);
+  const cancelAlert = scheduleRestAlert(endsAt, body);
   // Signed in with push on: the server sends at the end time as well — the one
   // layer a locked phone still receives. Not during the tour: the sample's
   // rest must not reach the account.
   if (!isTouring()) {
-    void scheduleRestPush(endsAt);
+    void scheduleRestPush(endsAt, body);
   }
   const buzz = window.setTimeout(() => {
     // On screen the dial says done and the phone buzzes; hidden, the alert

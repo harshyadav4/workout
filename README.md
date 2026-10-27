@@ -205,6 +205,26 @@ Edge Function, and a cron job. Without it the switch still works with the page t
 On iPhone the push layer is available only in the app added to the Home Screen (iOS 16.4+).
 On Android the browser tab can subscribe too. The switch is on the You page.
 
+### Reminders
+
+The Reminders card on You (signed in) sends, at the lifter's local times: the morning card —
+workout today, weigh-in due, tape due, plan ending in a week and the day before, in one
+notification — and the evening card — a planned day with nothing logged, and on Sunday the
+week's sessions, volume and records. The workout reminder goes an hour before the last
+session's start time; the morning time until there is one. Weigh-in and tape come back every
+day while still due. Each card opens with the lifter's first name.
+
+The rules are pure and tested (`supabase/functions/_shared/reminders.ts`); the sender gathers
+the inputs. Setup, after the Web Push steps above:
+
+```sh
+supabase functions deploy send-daily-reminders --no-verify-jwt
+```
+
+then run `supabase/cron.sql` (it schedules both senders; the reminders job runs every minute).
+Migration `0011_reminders.sql` adds `reminder_settings`, `reminder_log` and the rest alert's
+`body` column.
+
 ## Build with AI
 
 Plan › Build › **Build with AI** copies a prompt (`lib/ai-prompt.ts`) that a user pastes into any

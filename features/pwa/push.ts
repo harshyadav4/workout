@@ -125,8 +125,8 @@ export async function unsubscribePush(): Promise<void> {
   }
 }
 
-/** Ask the server to send "Rest done" at `endsAt` (ms). Replaces any earlier one. */
-export async function scheduleRestPush(endsAt: number): Promise<void> {
+/** Ask the server to send "Rest done" at `endsAt` (ms), saying `body`. Replaces any earlier one. */
+export async function scheduleRestPush(endsAt: number, body?: string): Promise<void> {
   if (!supabase || !pushSubscribed()) {
     return;
   }
@@ -134,12 +134,127 @@ export async function scheduleRestPush(endsAt: number): Promise<void> {
   if (!user) {
     return;
   }
-  const { error } = await supabase
-    .from("rest_alerts")
-    .upsert({ user_id: user, fire_at: new Date(endsAt).toISOString() });
+  const fireAt = new Date(endsAt).toISOString();
+  const { error } = await supabase.from("rest_alerts").upsert({ user_id: user, fire_at: fireAt, body: body ?? null });
+  if (error && /body/.test(error.message)) {
+    // Before 0011 has run: the plain "Time for your next set." still goes out.
+    const { error: retry } = await supabase.from("rest_alerts").upsert({ user_id: user, fire_at: fireAt });
+    if (retry) {
+      console.warn("[push] could not schedule the rest alert", retry.message);
+    }
+    return;
+  }
   if (error) {
     console.warn("[push] could not schedule the rest alert", error.message);
   }
+}
+
+// -- daily reminders ----------------------------------------------------------
+
+/** What the server sends each day, and when (the lifter's local clock). */
+export interface ReminderSettings {
+  /** IANA zone from the device, e.g. "Asia/Kolkata". */
+  timezone: string;
+  /** "HH:MM". */
+  morningTime: string;
+  eveningTime: string;
+  workout: boolean;
+  weight: boolean;
+  measurement: boolean;
+  plan: boolean;
+  streak: boolean;
+  recap: boolean;
+  /** Nudges when away: a fresh account that never trained, or a gap after the last set. */
+  away: boolean;
+}
+
+function deviceTimezone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  } catch {
+    return "UTC";
+  }
+}
+
+export const DEFAULT_REMINDERS: ReminderSettings = {
+  timezone: "UTC",
+  morningTime: "07:30",
+  eveningTime: "20:00",
+  workout: false,
+  weight: false,
+  measurement: false,
+  plan: false,
+  streak: false,
+  recap: false,
+  away: false
+};
+
+/** "07:30:00" from Postgres → "07:30" for the input. */
+const clock = (value: unknown) => (typeof value === "string" ? value.slice(0, 5) : "");
+
+export async function loadReminderSettings(): Promise<ReminderSettings | undefined> {
+  if (!supabase) {
+    return undefined;
+  }
+  const user = await userId();
+  if (!user) {
+    return undefined;
+  }
+  const { data, error } = await supabase.from("reminder_settings").select("*").eq("user_id", user).maybeSingle();
+  if (error || !data) {
+    return undefined;
+  }
+  return {
+    timezone: (data.timezone as string) || deviceTimezone(),
+    morningTime: clock(data.morning_time) || DEFAULT_REMINDERS.morningTime,
+    eveningTime: clock(data.evening_time) || DEFAULT_REMINDERS.eveningTime,
+    workout: Boolean(data.workout),
+    weight: Boolean(data.weight),
+    measurement: Boolean(data.measurement),
+    plan: Boolean(data.plan),
+    streak: Boolean(data.streak),
+    recap: Boolean(data.recap),
+    away: Boolean(data.away)
+  };
+}
+
+/** Saves the settings with this device's timezone — the phone the reminders go to. */
+export async function saveReminderSettings(settings: ReminderSettings): Promise<boolean> {
+  if (!supabase) {
+    return false;
+  }
+  const user = await userId();
+  if (!user) {
+    return false;
+  }
+  const row = {
+    user_id: user,
+    timezone: deviceTimezone(),
+    morning_time: settings.morningTime,
+    evening_time: settings.eveningTime,
+    workout: settings.workout,
+    weight: settings.weight,
+    measurement: settings.measurement,
+    plan: settings.plan,
+    streak: settings.streak,
+    recap: settings.recap,
+    updated_at: new Date().toISOString()
+  };
+  const { error } = await supabase.from("reminder_settings").upsert({ ...row, away: settings.away });
+  if (error && /away/.test(error.message)) {
+    // Before 0012 has run: the other six still save.
+    const { error: retry } = await supabase.from("reminder_settings").upsert(row);
+    if (retry) {
+      console.warn("[push] could not save reminders", retry.message);
+      return false;
+    }
+    return true;
+  }
+  if (error) {
+    console.warn("[push] could not save reminders", error.message);
+    return false;
+  }
+  return true;
 }
 
 /** The rest was skipped, or it ended on screen: nothing to send. */

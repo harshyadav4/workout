@@ -8,6 +8,7 @@ import {
   exerciseEntrySetId,
   firstPendingSetId,
   nextPendingSetId,
+  nextSetSummary,
   refreshUpcomingSessions,
   normalizeMuscleHeat,
   lastPerformance,
@@ -884,4 +885,27 @@ assert.equal(runLog.logs[0].totalVolume, 0, "and a run moves no lifting volume")
 
   const [lift] = plannedExercisesFromWorkouts([{ ...run, id: "db-1", name: "Walking Lunge", category: "legs" }]);
   assert.equal(lift.metric, undefined, "a walking lunge is reps, not distance");
+}
+
+// The end-of-rest notification says what is next, from the same pick the
+// ledger opens — so the phone in the pocket reads "set 3 of 4, 8 × 60 kg" and
+// not "time for your next set".
+{
+  const bench = session([
+    { name: "Incline press", sets: [{ ...set(8, 60, true) }, { ...set(8, 60, true) }, set(8, 60), set(8, 60)] }
+  ]);
+  const [first, second, third, fourth] = bench.exercises[0].sets;
+  assert.equal(nextSetSummary(bench, second.id), "Next: Incline press, set 3 of 4, 8 × 60 kg");
+  assert.equal(nextSetSummary(bench, third.id), "Next: Incline press, set 4 of 4, 8 × 60 kg");
+  void first;
+  fourth.completed = true;
+  third.completed = true;
+  assert.equal(nextSetSummary(bench, third.id), "That was the last set. Finish when ready.");
+
+  const hold = session([{ name: "Plank", sets: [{ ...set(0, 0, true), durationSeconds: 45 }, { ...set(0, 0), durationSeconds: 45 }] }]);
+  hold.exercises[0].metric = "time";
+  assert.equal(nextSetSummary(hold, hold.exercises[0].sets[0].id), "Next: Plank, set 2 of 2, 45 s");
+
+  const bodyweight = session([{ name: "Pull-up", sets: [set(6, 0, true), set(6, 0)] }]);
+  assert.equal(nextSetSummary(bodyweight, bodyweight.exercises[0].sets[0].id), "Next: Pull-up, set 2 of 2, 6 reps");
 }

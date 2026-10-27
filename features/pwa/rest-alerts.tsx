@@ -60,9 +60,9 @@ export function useRestAlerts(): boolean {
 }
 
 /** Shows "Rest done". Through the service worker when there is one (Android needs it). */
-async function showRestAlert() {
+async function showRestAlert(body = "Time for your next set.") {
   const title = "Rest done";
-  const options: NotificationOptions = { body: "Time for your next set.", tag: "rest", icon: "/icon-192.png" };
+  const options: NotificationOptions = { body, tag: "rest", icon: "/icon-192.png" };
   try {
     // No worker in development (sw.js is production only): plain Notification.
     const registration = "serviceWorker" in navigator ? await navigator.serviceWorker.getRegistration() : undefined;
@@ -89,14 +89,14 @@ async function showRestAlert() {
  * is hidden at that moment — on screen, the dial is the signal. Returns the
  * cancel, for when the rest is skipped or moved.
  */
-export function scheduleRestAlert(endsAt: number): () => void {
+export function scheduleRestAlert(endsAt: number, body?: string): () => void {
   const delay = endsAt - Date.now();
   if (delay <= 0 || !read()) {
     return () => undefined;
   }
   const timer = window.setTimeout(() => {
     if (document.visibilityState === "hidden") {
-      void showRestAlert();
+      void showRestAlert(body);
     }
   }, delay);
   return () => window.clearTimeout(timer);
