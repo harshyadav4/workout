@@ -52,7 +52,7 @@ export const SelectContent = React.forwardRef<
       )}
       {...props}
     >
-      <SelectPrimitive.Viewport className="max-h-[inherit] overflow-y-auto p-1">
+      <SelectPrimitive.Viewport className="select-list max-h-[inherit] overflow-y-auto p-1">
         {children}
       </SelectPrimitive.Viewport>
     </SelectPrimitive.Content>

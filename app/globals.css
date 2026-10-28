@@ -174,7 +174,7 @@ body {
    so this changes nothing there; on a desktop the classic 12px bar was the one
    thing in the window that said "web page". The wheel, trackpad and keys still
    scroll. In a browser tab the bar stays — there it is the cue for "more
-   below". Inner lists (ScrollArea) keep their own thin bar. */
+   below". */
 @media (display-mode: standalone), (display-mode: window-controls-overlay) {
   html {
     scrollbar-width: none;
@@ -183,6 +183,23 @@ body {
   html::-webkit-scrollbar {
     display: none;
   }
+}
+
+/* Inside a sheet, never — installed or not. A sheet's body scrolls when it is
+   taller than the screen (the builder, a plan being read), and on a desktop
+   that drew a classic bar down its right edge, inside the rounded plaque. The
+   cut-off content is the cue there, as it is in a native sheet; the wheel and
+   the finger still scroll. The same for the Select's dropdown list. */
+.sheet,
+.sheet *,
+.select-list {
+  scrollbar-width: none;
+}
+
+.sheet::-webkit-scrollbar,
+.sheet *::-webkit-scrollbar,
+.select-list::-webkit-scrollbar {
+  display: none;
 }
 
 /* Installed on a desktop, the title bar is ours (manifest display_override
