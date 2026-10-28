@@ -230,7 +230,6 @@ interface ExerciseLedgerProps {
   };
 }
 
-const DISARM_MS = 3000;
 
 /**
  * "Remove from today", inside the open exercise only. Two taps, no dialog: the
@@ -240,26 +239,15 @@ const DISARM_MS = 3000;
  * X's read as a list of things to get rid of.
  */
 function RemoveExerciseButton({ name, onRemove }: { name: string; onRemove: () => void }) {
-  const [armed, setArmed] = useState(false);
-
-  useEffect(() => {
-    if (!armed) {
-      return;
-    }
-    const id = window.setTimeout(() => setArmed(false), DISARM_MS);
-    return () => window.clearTimeout(id);
-  }, [armed]);
-
+  // One tap. It used to arm and ask for a second; the Undo bar is the guard now.
   return (
     <button
       type="button"
-      onClick={armed ? onRemove : () => setArmed(true)}
-      className={cn(
-        "mx-auto mt-2 flex min-h-11 items-center justify-center rounded-lg px-4 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        armed ? "bg-danger/15 text-danger ring-1 ring-danger/50" : "text-muted-foreground"
-      )}
+      onClick={onRemove}
+      aria-label={`Remove ${name} from today`}
+      className="mx-auto mt-2 flex min-h-11 items-center justify-center rounded-lg px-4 text-xs font-semibold text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <span aria-live="polite">{armed ? `Tap again to remove ${name}` : "Remove from today"}</span>
+      Remove from today
     </button>
   );
 }

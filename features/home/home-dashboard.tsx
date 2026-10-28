@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { usePendingRemoval } from "@/components/ui/use-pending-removal";
 import { Card } from "@/components/ui/card";
 import { SignInNudge } from "@/features/auth/sign-in-nudge";
 import { LevelUpGem } from "@/features/home/artifacts";
@@ -225,6 +226,8 @@ export function HomeDashboard() {
   const addExerciseToSession = useWorkoutStore((state) => state.addExerciseToSession);
   const removeSetFromSession = useWorkoutStore((state) => state.removeSetFromSession);
   const removeExerciseFromSession = useWorkoutStore((state) => state.removeExerciseFromSession);
+  // Removals hide at once and commit after the Undo bar (components/ui/undo-bar).
+  const removal = usePendingRemoval();
   const logTodayWorkout = useWorkoutStore((state) => state.logTodayWorkout);
   const rest = useRestTimer();
   const live = useLiveTimer();
@@ -577,10 +580,12 @@ export function HomeDashboard() {
             </p>
           </div>
           <div>
-            {day.session.exercises.map((exercise) => (
+            {day.session.exercises
+              .filter((exercise) => !removal.hidden.has(exercise.id))
+              .map((exercise) => (
               <ExerciseLedger
                 key={exercise.id}
-                exercise={exercise}
+                exercise={{ ...exercise, sets: exercise.sets.filter((setItem) => !removal.hidden.has(setItem.id)) }}
                 openSetId={openSetId}
                 stampedSetId={stampedSetId}
                 interactive={isLogging}
@@ -588,10 +593,17 @@ export function HomeDashboard() {
                 onPatchSet={(setId, patch) => patchSet(exercise.id, setId, patch)}
                 onLogSet={(setId) => logSet(exercise.id, setId)}
                 onAddSet={() => addSetToSession(day.session.id, exercise.id)}
-                onRemoveSet={(setId) => removeSetFromSession(day.session.id, exercise.id, setId)}
+                onRemoveSet={(setId) =>
+                  removal.remove(setId, "Set removed", () => removeSetFromSession(day.session.id, exercise.id, setId))
+                }
                 onPick={() => setPickedSetId(exerciseEntrySetId(exercise))}
                 onRemove={
-                  day.session.exercises.length > 1 ? () => removeExercise(exercise.id) : undefined
+                  day.session.exercises.length > 1
+                    ? () =>
+                        removal.remove(exercise.id, `${exercise.templateName} removed from today`, () =>
+                          removeExercise(exercise.id)
+                        )
+                    : undefined
                 }
                 timer={{
                   setId: live.setId,

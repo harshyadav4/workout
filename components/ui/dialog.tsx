@@ -4,6 +4,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useRef,
@@ -14,6 +15,7 @@ import {
 } from "react";
 
 import { isTextEntry, useKeyboard } from "@/components/ui/use-keyboard";
+import { tick } from "@/lib/feedback";
 import { cn } from "@/lib/utils";
 
 // Pass to DialogContent for a sheet that sits flush on the bottom edge instead
@@ -108,36 +110,55 @@ const DISMISS_VELOCITY = 0.6;
 const DISMISS_MS = 180;
 
 /**
- * Swipe down on the grabber to dismiss, as a native sheet does. The grabber,
- * not the whole sheet: the body scrolls, and a drag that the browser has
- * claimed for scrolling is cancelled before it can move anything. `touch-action:
- * none` on the grabber keeps the gesture ours. The sheet follows the finger;
- * past the distance or the speed it slides off and closes, short of them it
- * springs back.
+ * Swipe down to dismiss, as a native sheet does — from the grabber, or from
+ * the body when it is already scrolled to the top. The sheet follows the
+ * finger; past the distance or the speed it slides off and closes, short of
+ * them it springs back; a tick marks the point of no return.
+ *
+ * The grabber uses pointer events with capture and `touch-action: none`. The
+ * body uses touch events, because a drag the browser has claimed for
+ * scrolling is cancelled before pointer events see it: a touch that starts at
+ * scrollTop 0 and moves down is ours (and prevented, so iOS does not
+ * rubber-band the body instead); one that moves up is a scroll and is left
+ * alone until the next touch.
  */
-function useSwipeToDismiss(sheet: React.RefObject<HTMLDivElement | null>, close: (() => void) | null) {
-  const drag = useRef<{ startY: number; dy: number; startedAt: number } | null>(null);
+function useSwipeToDismiss(close: (() => void) | null) {
+  const drag = useRef<{ startY: number; dy: number; startedAt: number; ticked: boolean } | null>(null);
+  // The sheet element, as a ref for the handlers and as state for the effect
+  // below: DialogContent's hooks run while the sheet is still closed (the
+  // consumer renders it always; Radix mounts the element only when open), so
+  // an effect keyed on the ref object alone ran once, found nothing, and never
+  // ran again. The callback ref re-runs it when the element arrives.
+  const sheet = useRef<HTMLDivElement | null>(null);
+  const [node, setNode] = useState<HTMLDivElement | null>(null);
+  const ref = useCallback((element: HTMLDivElement | null) => {
+    sheet.current = element;
+    setNode(element);
+  }, []);
 
-  const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0 || !sheet.current) {
+  const begin = (y: number) => {
+    if (!sheet.current) {
       return;
     }
-    drag.current = { startY: event.clientY, dy: 0, startedAt: performance.now() };
-    event.currentTarget.setPointerCapture(event.pointerId);
+    drag.current = { startY: y, dy: 0, startedAt: performance.now(), ticked: false };
     // No transition while the finger has it: it must track exactly.
     sheet.current.style.transition = "none";
   };
 
-  const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+  const move = (y: number) => {
     const current = drag.current;
     if (!current || !sheet.current) {
       return;
     }
-    current.dy = Math.max(0, event.clientY - current.startY);
+    current.dy = Math.max(0, y - current.startY);
     sheet.current.style.transform = `translate(-50%, ${current.dy}px)`;
+    if (!current.ticked && current.dy > DISMISS_DISTANCE) {
+      current.ticked = true;
+      tick();
+    }
   };
 
-  const onPointerUp = () => {
+  const end = () => {
     const current = drag.current;
     const element = sheet.current;
     drag.current = null;
@@ -161,7 +182,71 @@ function useSwipeToDismiss(sheet: React.RefObject<HTMLDivElement | null>, close:
     }, 220);
   };
 
-  return { onPointerDown, onPointerMove, onPointerUp, onPointerCancel: onPointerUp };
+  // The body: touch events, attached by hand so touchmove can be non-passive.
+  useEffect(() => {
+    const element = node;
+    if (!element) {
+      return;
+    }
+    let pending: { y: number; decided: boolean } | null = null;
+    const onStart = (event: TouchEvent) => {
+      const target = event.target as Element | null;
+      if (target?.closest("[data-grabber]") || element.scrollTop > 0) {
+        pending = null;
+        return;
+      }
+      pending = { y: event.touches[0].clientY, decided: false };
+    };
+    const onMove = (event: TouchEvent) => {
+      const y = event.touches[0].clientY;
+      if (drag.current) {
+        move(y);
+        event.preventDefault();
+        return;
+      }
+      if (!pending || pending.decided) {
+        return;
+      }
+      const dy = y - pending.y;
+      if (Math.abs(dy) < 8) {
+        return;
+      }
+      pending.decided = true;
+      if (dy > 0 && element.scrollTop <= 0) {
+        begin(pending.y);
+        move(y);
+        event.preventDefault();
+      }
+    };
+    const onEnd = () => {
+      pending = null;
+      if (drag.current) {
+        end();
+      }
+    };
+    element.addEventListener("touchstart", onStart, { passive: true });
+    element.addEventListener("touchmove", onMove, { passive: false });
+    element.addEventListener("touchend", onEnd);
+    element.addEventListener("touchcancel", onEnd);
+    return () => {
+      element.removeEventListener("touchstart", onStart);
+      element.removeEventListener("touchmove", onMove);
+      element.removeEventListener("touchend", onEnd);
+      element.removeEventListener("touchcancel", onEnd);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- begin/move/end read refs only
+  }, [node]);
+
+  const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) {
+      return;
+    }
+    begin(event.clientY);
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+  const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => move(event.clientY);
+
+  return { ref, grabber: { onPointerDown, onPointerMove, onPointerUp: end, onPointerCancel: end } };
 }
 
 /**
@@ -185,8 +270,7 @@ export function DialogContent({
   ...props
 }: DialogPrimitive.DialogContentProps & { hideClose?: boolean }) {
   const keyboard = useKeyboard();
-  const sheetRef = useRef<HTMLDivElement | null>(null);
-  const grabber = useSwipeToDismiss(sheetRef, useContext(SheetClose));
+  const swipe = useSwipeToDismiss(useContext(SheetClose));
 
   const lifted: CSSProperties | undefined =
     keyboard.inset > 0
@@ -214,7 +298,7 @@ export function DialogContent({
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay className="sheet-scrim fixed inset-0 z-50 bg-black/60" />
       <DialogPrimitive.Content
-        ref={sheetRef}
+        ref={swipe.ref}
         className={cn(
           "sheet plaque fixed bottom-4 left-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 overflow-y-auto overscroll-contain rounded-3xl p-5 outline-none transition-[bottom,max-height] duration-150 ease-out sm:bottom-6",
           className
@@ -233,9 +317,10 @@ export function DialogContent({
         {/* The grabber: a native sheet's handle, and the zone a swipe down
             starts from. Full width, so a thumb finds it without aiming. */}
         <div
+          data-grabber
           className="-mx-5 -mt-5 mb-1 flex h-8 cursor-grab touch-none items-center justify-center active:cursor-grabbing"
           aria-hidden
-          {...grabber}
+          {...swipe.grabber}
         >
           <div className="h-1.5 w-10 rounded-full bg-border" />
         </div>

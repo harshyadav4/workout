@@ -108,6 +108,17 @@ export function haptic(ms = 12) {
 }
 
 /**
+ * A lighter tap for a threshold crossed — a sheet swiped past its dismiss
+ * point, a row swiped past delete — once the feedback switch is on. Taps
+ * themselves already buzz through components/layout/tap-feedback.tsx.
+ */
+export function tick() {
+  if (feedbackEnabled()) {
+    haptic(8);
+  }
+}
+
+/**
  * Called on every newly logged set. Does nothing until the switch is on. The
  * haptic for that tap already came from the tap listener; this adds the sound.
  */

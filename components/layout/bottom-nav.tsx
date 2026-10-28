@@ -73,6 +73,14 @@ export function BottomNav() {
                   pending.set(item.href);
                 }
               }}
+              // The tab you are on: back to its top, as a native tab bar does.
+              onClick={(event) => {
+                if (isOn(item.href, pathname)) {
+                  event.preventDefault();
+                  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+                  window.scrollTo({ top: 0, behavior: reduce ? ("instant" as ScrollBehavior) : "smooth" });
+                }
+              }}
               className={cn(
                 "flex h-14 flex-col items-center justify-center gap-1 rounded-xl text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 active ? "dock-active" : "text-muted-foreground active:bg-secondary/70"

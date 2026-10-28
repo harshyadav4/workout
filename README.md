@@ -70,7 +70,9 @@ gets, once the app is on the home screen (`public/manifest.webmanifest`, `public
 | Back while a sheet is open | edge swipe closes the sheet, not the page | back gesture closes the sheet, not the app |
 | Tabs | each keeps its scroll position | same |
 | Keyboard return key | says Done / Search | same |
-| Sheets | slide up, a grabber, swipe down to dismiss | same |
+| Sheets | slide up, a grabber, swipe down to dismiss (from the grabber, or from the body once it is scrolled to the top) | same |
+| Deleting | immediate, with an Undo bar for five seconds (`lib/undo.ts`); list rows also swipe left to delete | same |
+| Tap the tab you are on | back to the top of that screen | same |
 | Long press on a label or a stat | nothing — text selects only in fields and on About (`select-text`) | same |
 | Zoom | none — double tap and pinch do nothing, as in a native app (installed app only on iPhone) | none |
 | Updates | a newer build loads itself the next time the app goes to the background, unless a timer or a sheet is in use; otherwise the "New version · Reload" bar | same |

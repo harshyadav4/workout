@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 
 import { ScrollMemory } from "@/components/layout/scroll-memory";
+import { UndoBar } from "@/components/ui/undo-bar";
 import { GuestMergePrompt } from "@/features/auth/guest-merge-prompt";
 import { UpdateBar } from "@/features/pwa/update-bar";
 import { TourOverlay } from "@/features/tour/tour";
@@ -29,6 +30,8 @@ export default function AppLayout({
       <GuestMergePrompt />
       {/* "New version · Reload" when a newer build is live. */}
       <UpdateBar />
+      {/* "Removed · Undo" for a few seconds after a delete. */}
+      <UndoBar />
       <Suspense>
         <TourOverlay />
         <TourAutostart />

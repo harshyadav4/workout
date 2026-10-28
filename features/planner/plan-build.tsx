@@ -5,17 +5,11 @@ import { useState, useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DRAWER_CONTENT
-} from "@/components/ui/dialog";
 import { InfoNote } from "@/components/ui/info-note";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { SwipeRow } from "@/components/ui/swipe-row";
+import { usePendingRemoval } from "@/components/ui/use-pending-removal";
 import { NumberInput } from "@/components/ui/number-input";
 import { ThemedSelect } from "@/components/ui/select";
 import { AiImportSheet } from "@/features/planner/ai-import";
@@ -23,6 +17,7 @@ import { ExercisePicker } from "@/features/planner/exercise-picker";
 import { MuscleSelectView } from "@/features/planner/muscle-drawer";
 import { ExerciseMediaView, templateDatasetId } from "@/features/workout/exercise-media-dialog";
 import { useDistanceUnit } from "@/features/workout/use-distance-unit";
+import { offerUndo } from "@/lib/undo";
 import { useWorkoutStore } from "@/features/workout/workout-store";
 import { formatDistance, fromUnit, isDistanceExercise, toUnit } from "@/lib/cardio";
 import { deriveEngagement, type Exercise } from "@/lib/exercises";
@@ -203,7 +198,16 @@ export function PlanBuild({
   // Swapped into the open drawer instead of a nested dialog — see ExercisePicker.
   const [media, setMedia] = useState<{ datasetId: string; name: string } | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [sessionToDelete, setSessionToDelete] = useState<{ id: string; name: string } | null>(null);
+  // Deleted workouts hide at once and commit after the Undo bar (components/ui/undo-bar).
+  const removal = usePendingRemoval();
+  const deleteWithUndo = (session: { id: string; name: string }) =>
+    removal.remove(session.id, `${session.name} deleted`, () => deleteSessionTemplate(session.id));
+  /** Drops a builder exercise; Undo puts the list back as it was. */
+  const removeBuilderExercise = (exerciseId: string) => {
+    const previous = builderExercises;
+    setBuilderExercises((current) => current.filter((item) => item.id !== exerciseId));
+    offerUndo({ label: "Exercise removed", undo: () => setBuilderExercises(previous), commit: () => undefined });
+  };
 
   const hasPlan = sessionTemplates.length > 0;
 
@@ -636,7 +640,14 @@ export function PlanBuild({
                 </div>
                 {builderExercises.map((exercise, exerciseIndex) => (
                   openExerciseId !== exercise.id ? (
-                    <div key={exercise.id} className="flex items-center gap-2 rounded-xl bg-muted p-2 pl-4">
+                    <SwipeRow
+                      key={exercise.id}
+                      className="rounded-xl"
+                      label="Remove"
+                      disabled={builderExercises.length === 1}
+                      onDelete={() => removeBuilderExercise(exercise.id)}
+                    >
+                    <div className="flex items-center gap-2 rounded-xl bg-muted p-2 pl-4">
                       <button
                         type="button"
                         className="min-w-0 flex-1 py-2 text-left"
@@ -667,14 +678,13 @@ export function PlanBuild({
                         type="button"
                         aria-label={`Remove exercise ${exerciseIndex + 1}`}
                         className="key-quiet flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted-foreground disabled:opacity-40"
-                        onClick={() =>
-                          setBuilderExercises((current) => current.filter((item) => item.id !== exercise.id))
-                        }
+                        onClick={() => removeBuilderExercise(exercise.id)}
                         disabled={builderExercises.length === 1}
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
+                    </SwipeRow>
                   ) : (
                   <div key={exercise.id} className="rounded-xl bg-muted p-4 ring-1 ring-brand/40">
                     <div className="mb-3 flex items-center justify-between gap-2">
@@ -952,8 +962,11 @@ export function PlanBuild({
             <CardDescription>Put them on days in Schedule.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {sessionTemplates.map((session) => (
-              <div key={session.id} className="rounded-xl bg-muted p-4">
+            {sessionTemplates
+              .filter((session) => !removal.hidden.has(session.id))
+              .map((session) => (
+              <SwipeRow key={session.id} className="rounded-xl" onDelete={() => deleteWithUndo(session)}>
+              <div className="rounded-xl bg-muted p-4">
                 {/* Name on its own line with the two keys; the numbers under it
                     in one line. The old layout put a badge and both buttons
                     beside the name, and "Upper · Heavy" wrapped onto two lines
@@ -975,7 +988,7 @@ export function PlanBuild({
                       type="button"
                       aria-label={`Delete ${session.name}`}
                       className="key-quiet flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground"
-                      onClick={() => setSessionToDelete({ id: session.id, name: session.name })}
+                      onClick={() => deleteWithUndo(session)}
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -1025,6 +1038,7 @@ export function PlanBuild({
                   </div>
                 </details>
               </div>
+              </SwipeRow>
             ))}
           </CardContent>
         </Card>
@@ -1036,37 +1050,6 @@ export function PlanBuild({
         </Card>
       )}
 
-      <Dialog open={!!sessionToDelete} onOpenChange={(open) => !open && setSessionToDelete(null)}>
-        <DialogContent className={DRAWER_CONTENT}>
-          <DialogHeader>
-            <DialogTitle>Delete workout?</DialogTitle>
-            <DialogDescription className="space-y-2 pt-2">
-              <span className="block text-sm text-foreground font-medium">
-                {sessionToDelete?.name}
-              </span>
-              <span className="block text-xs text-muted-foreground">
-                Days already on your calendar stay.
-              </span>
-            </DialogDescription>
-          </DialogHeader>
-          <div className="mt-4 flex justify-end gap-3">
-            <Button variant="secondary" onClick={() => setSessionToDelete(null)}>
-              Cancel
-            </Button>
-            <Button
-              variant="danger"
-              onClick={() => {
-                if (sessionToDelete) {
-                  deleteSessionTemplate(sessionToDelete.id);
-                  setSessionToDelete(null);
-                }
-              }}
-            >
-              Delete
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

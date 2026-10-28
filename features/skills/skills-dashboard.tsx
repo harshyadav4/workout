@@ -9,6 +9,7 @@ import { DRAWER_CONTENT, Dialog, DialogContent } from "@/components/ui/dialog";
 import { InfoNote } from "@/components/ui/info-note";
 import { Input } from "@/components/ui/input";
 import { NumberInput } from "@/components/ui/number-input";
+import { usePendingRemoval } from "@/components/ui/use-pending-removal";
 import { ExercisePicker } from "@/features/planner/exercise-picker";
 import { useMarkSkillsFound } from "@/features/skills/skill-doors";
 import { ExerciseDemoButton } from "@/features/workout/exercise-media-dialog";
@@ -59,17 +60,15 @@ async function templateForLevel(level: SkillLevel, existing: WorkoutTemplate[]):
  * One skill, Solo Leveling style: the level, the rung you are on and how close
  * your best set is to clearing it, and the whole ladder behind a tap.
  */
-function SkillCard({ goal }: { goal: SkillGoal }) {
+function SkillCard({ goal, onRemove }: { goal: SkillGoal; onRemove: () => void }) {
   const setLogs = useWorkoutStore((state) => state.setLogs);
   const sessionTemplates = useWorkoutStore((state) => state.sessionTemplates);
   const templates = useWorkoutStore((state) => state.templates);
-  const removeSkillGoal = useWorkoutStore((state) => state.removeSkillGoal);
   const applySkillLevelToPlans = useWorkoutStore((state) => state.applySkillLevelToPlans);
 
   const progress = useMemo(() => skillProgress(goal, setLogs), [goal, setLogs]);
   const results = useMemo(() => goal.levels.map((level) => evaluateLevel(level, setLogs)), [goal, setLogs]);
   const [open, setOpen] = useState(false);
-  const [armed, setArmed] = useState(false);
   const [message, setMessage] = useState<string>();
 
   // Offered when a session still has a rung below the one you are on, and not
@@ -188,14 +187,11 @@ function SkillCard({ goal }: { goal: SkillGoal }) {
 
       <button
         type="button"
-        onClick={() => (armed ? removeSkillGoal(goal.id) : setArmed(true))}
-        onBlur={() => setArmed(false)}
-        className={cn(
-          "mx-auto mt-2 flex min-h-11 items-center justify-center rounded-lg px-4 text-xs font-semibold",
-          armed ? "bg-danger/15 text-danger ring-1 ring-danger/50" : "text-muted-foreground"
-        )}
+        onClick={onRemove}
+        aria-label={`Remove goal ${goal.name}`}
+        className="mx-auto mt-2 flex min-h-11 items-center justify-center rounded-lg px-4 text-xs font-semibold text-muted-foreground"
       >
-        {armed ? `Tap again to remove ${goal.name}` : "Remove goal"}
+        Remove goal
       </button>
     </Card>
   );
@@ -372,6 +368,9 @@ function NewGoal({ onDone }: { onDone: () => void }) {
 
 export function SkillsDashboard() {
   const goals = useWorkoutStore((state) => state.skillGoals);
+  const removeSkillGoal = useWorkoutStore((state) => state.removeSkillGoal);
+  // Removals hide at once and commit after the Undo bar (components/ui/undo-bar).
+  const removal = usePendingRemoval();
   // Whichever door led here, the window is found now.
   useMarkSkillsFound();
   const [adding, setAdding] = useState(false);
@@ -393,9 +392,15 @@ export function SkillsDashboard() {
         </Card>
       ) : null}
 
-      {goals.map((goal) => (
-        <SkillCard key={goal.id} goal={goal} />
-      ))}
+      {goals
+        .filter((goal) => !removal.hidden.has(goal.id))
+        .map((goal) => (
+          <SkillCard
+            key={goal.id}
+            goal={goal}
+            onRemove={() => removal.remove(goal.id, `${goal.name} removed`, () => removeSkillGoal(goal.id))}
+          />
+        ))}
 
       {adding ? (
         <NewGoal onDone={() => setAdding(false)} />
