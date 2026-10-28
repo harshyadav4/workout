@@ -45,6 +45,7 @@ import {
 } from "@/features/progress/muscle-insight-cards";
 import { WinsCard } from "@/features/progress/wins-card";
 import { YearSpine } from "@/features/progress/year-spine";
+import { ScienceView } from "@/features/progress/science-view";
 import { RingHeader, RingNotes, ScoreRings, ViewTabs, type RingId } from "@/features/progress/score-rings";
 import { SectionColors } from "@/features/progress/chart-theme";
 import {
@@ -135,9 +136,13 @@ const MODES: { id: ProgressMode; label: string }[] = [
 
 const RING_IDS: RingId[] = ["strength", "consistency", "body"];
 
+/** A view that opens from the URL: a ring's, or Science, which has no ring. */
+type OpenView = RingId | "science";
+const VIEW_IDS: OpenView[] = [...RING_IDS, "science"];
+
 /** The open view, from the URL's `?view=`: none (or an unknown one) is the summary. */
-function viewFromQuery(value: string | null): RingId | undefined {
-  return RING_IDS.find((id) => id === value);
+function viewFromQuery(value: string | null): OpenView | undefined {
+  return VIEW_IDS.find((id) => id === value);
 }
 
 /**
@@ -178,8 +183,11 @@ function ProgressDashboardView() {
   const [mode, setMode] = useState<ProgressMode>("gym");
   const router = useRouter();
   const params = useSearchParams();
-  const ringView = viewFromQuery(params.get("view"));
-  const openRing = (id?: RingId) => {
+  const openView = viewFromQuery(params.get("view"));
+  // The ring lit up is the open view, except Science, which has no ring: it
+  // is the formulas, not a score. Indexing `rings` by it would throw.
+  const ringView = openView && openView !== "science" ? openView : undefined;
+  const openRing = (id?: OpenView) => {
     router.replace(id ? `/progress?view=${id}` : "/progress", { scroll: false });
     if (id !== "strength") {
       setWorkoutId(undefined);
@@ -417,12 +425,17 @@ function ProgressDashboardView() {
           <ScoreRings rings={rings} selected={ringView} onSelect={openRing} />
 
           <ViewTabs
-            view={ringView ?? "summary"}
+            view={openView ?? "summary"}
             onChange={(next) => openRing(next === "summary" ? undefined : next)}
           />
 
           {ringView ? (
             <RingHeader ring={rings[ringView]} />
+          ) : openView === "science" ? (
+            <p className="text-sm leading-snug text-muted-foreground">
+              Published formulas, run over your own log. Each card says what it computes and where the
+              formula comes from.
+            </p>
           ) : (
             <>
               <RingNotes rings={rings} onSelect={openRing} />
@@ -719,6 +732,23 @@ function ProgressDashboardView() {
               </p>
             </Panel>
           )}
+        </SectionColors>
+      ) : null}
+
+      {mode === "gym" && openView === "science" ? (
+        <SectionColors section="science">
+          <ScienceView
+            logs={logs}
+            setLogs={setLogs}
+            scheduled={scheduled}
+            measurements={measurements}
+            profile={profile}
+            cardio={cardio}
+            timed={timed}
+            window={view.window}
+            today={activeDate}
+            liftGroups={liftGroups}
+          />
         </SectionColors>
       ) : null}
     </section>

@@ -125,6 +125,12 @@ export interface PlannedSet {
   completed?: boolean;
   /** When Log set was first tapped for it (ISO). Kept on later corrections. */
   completedAt?: string;
+  /**
+   * Reps in reserve — how many more reps were left after the set, 0–5, as
+   * judged right after it. Absent means not asked, not "none left". An outcome
+   * of the set, never a target: it is not carried forward to the next set.
+   */
+  rir?: number;
   previousReps?: number;
   previousWeight?: number;
 }
@@ -180,6 +186,8 @@ export interface SetLog {
   /** Kilometres covered, on a distance set. Absent on everything else. */
   distanceKm?: number;
   completedAt?: string;
+  /** Reps in reserve after the set, 0–5. Absent when the lifter was not asked. */
+  rir?: number;
 }
 
 export interface ExerciseSetTemplate {
@@ -274,6 +282,7 @@ export interface ScheduleConfig {
  */
 export type BodyMetric =
   | "weight"
+  | "neck"
   | "shoulders"
   | "chest"
   | "waist"
@@ -303,6 +312,14 @@ export interface BodyMeasurement {
  */
 export type MeasurementCadence = "off" | "weekly" | "biweekly" | "monthly";
 
+/**
+ * Only read by the formulas that are sex-specific (US Navy body-fat, strength
+ * standards, DOTS, BMR). Those hide for "other" and for unset, because the
+ * published coefficients exist for two groups and inventing a third would be a
+ * guess dressed as a number.
+ */
+export type Sex = "male" | "female" | "other";
+
 export interface ProfileInfo {
   name: string;
   email: string;
@@ -316,6 +333,13 @@ export interface ProfileInfo {
    * reading. Absent means no goal, which is why it is optional rather than 0.
    */
   goalWeightKg?: number;
+  /**
+   * Year of birth, for age in the calorie formulas. A year, not a date: the
+   * formulas are not sensitive to the month, and a year is less to type and
+   * less to hold about someone.
+   */
+  birthYear?: number;
+  sex?: Sex;
   weightCadence?: MeasurementCadence;
   measurementCadence?: MeasurementCadence;
   /**

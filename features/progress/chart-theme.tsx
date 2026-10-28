@@ -179,8 +179,15 @@ export function EmptyChart({ children }: { children: React.ReactNode }) {
  *
  * Green, amber and red stay out: those are status, and the rings already use
  * them for "going well" and "needs work".
+ *
+ * Science is magenta, and not the teal it was first sketched in: every teal
+ * sat within ΔE 6 of `CHART.series[1]`, the baseline colour a two-series chart
+ * inside the section would draw next to it. Magenta is the one hue clear of
+ * all four chart series and the three section accents (all-pairs, both
+ * surfaces: its worst pair is ΔE 21 normal, 13 deutan); its ramp passes as an
+ * ordinal on both surfaces.
  */
-export type SectionId = "strength" | "consistency" | "body";
+export type SectionId = "strength" | "consistency" | "body" | "science";
 
 export interface SectionTheme {
   accent: string;
@@ -190,7 +197,8 @@ export interface SectionTheme {
 export const SECTION_THEMES: Record<SectionId, SectionTheme> = {
   strength: { accent: CHART.accent, heat: HEAT },
   consistency: { accent: "#cf6f17", heat: ["#8a4a12", "#b35e15", "#d9771a", "#f29a4a"] },
-  body: { accent: "#8a5fe0", heat: ["#5d45ab", "#7556cf", "#8f6be6", "#b195f5"] }
+  body: { accent: "#8a5fe0", heat: ["#5d45ab", "#7556cf", "#8f6be6", "#b195f5"] },
+  science: { accent: "#d14f9a", heat: ["#7f2f5c", "#a83f7c", "#d14f9a", "#e27fb8"] }
 };
 
 const SectionContext = createContext<SectionTheme>(SECTION_THEMES.strength);

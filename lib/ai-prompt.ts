@@ -22,7 +22,7 @@ export interface PromptInput {
   logs: WorkoutLog[];
   /** Per-set logs: the only record of how far and how long a run was. */
   setLogs?: SetLog[];
-  profile: Pick<ProfileInfo, "heightCm" | "weightKg" | "goalWeightKg">;
+  profile: Pick<ProfileInfo, "heightCm" | "weightKg" | "goalWeightKg" | "birthYear" | "sex">;
   today: string;
 }
 
@@ -179,6 +179,8 @@ export function buildAiPrompt(input: PromptInput): string {
   if (profile.heightCm) known.push(`- Height: ${profile.heightCm} cm`);
   if (profile.weightKg) known.push(`- Current bodyweight: ${profile.weightKg} kg`);
   if (profile.goalWeightKg) known.push(`- Goal bodyweight: ${profile.goalWeightKg} kg`);
+  if (profile.birthYear) known.push(`- Age: ${Number(today.slice(0, 4)) - profile.birthYear}`);
+  if (profile.sex && profile.sex !== "other") known.push(`- Sex: ${profile.sex}`);
   if (logs.length > 0) known.push(`- Trained on average ${perWeek} days a week over the last 8 weeks`);
 
   const sections = [

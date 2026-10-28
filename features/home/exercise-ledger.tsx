@@ -29,6 +29,8 @@ const MIN_DURATION = 5;
 // Generous rather than sport-accurate: the point is a ceiling, not a rule.
 const MAX_WEIGHT = 500;
 const MAX_REPS = 100;
+/** Reps in reserve a lifter can honestly judge: past 5 it is a guess. */
+const RIR_CHOICES = [0, 1, 2, 3, 4, 5] as const;
 const MAX_DURATION = 3600;
 /** A long run or ride; a typo past this is a typo. */
 const MAX_RUN_SECONDS = 3600 * 6;
@@ -499,6 +501,39 @@ export function ExerciseLedger({
             )}
           </div>
           )}
+          {/* Reps in reserve: how many more were left after the set. Rep sets
+              only — a hold ends at the clock and a run at the distance. Six
+              chips, not a drum: it is a judgement, and 0–5 is the whole range
+              anyone can judge. Optional, and tapping the chosen chip clears
+              it: a guess forced out of someone is worse than no answer. */}
+          {!isTime && !isDistance ? (
+            <div className="mt-2.5">
+              <p className="mb-1.5 text-xs font-medium text-muted-foreground">
+                Reps left in the tank
+                {openSet.rir === undefined ? <span className="text-muted-foreground/60"> · optional</span> : null}
+              </p>
+              <div role="group" aria-label="Reps left in the tank" className="grid grid-cols-6 gap-1.5">
+                {RIR_CHOICES.map((rir) => {
+                  const selected = openSet.rir === rir;
+                  return (
+                    <button
+                      key={rir}
+                      type="button"
+                      aria-pressed={selected}
+                      aria-label={`${rir} rep${rir === 1 ? "" : "s"} left in the tank`}
+                      onClick={() => onPatchSet(openSet.id, { rir: selected ? undefined : rir })}
+                      className={cn(
+                        "h-11 rounded-xl text-sm font-bold tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        selected ? "bg-brand/15 text-brand ring-1 ring-brand/50" : "key-quiet text-muted-foreground"
+                      )}
+                    >
+                      {rir}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
           {/* A hold or a run is timed, not typed: Start, go, Finish fills the
               seconds. A hold aims at its target; a run just counts. */}
           {(isTime || isDistance) && timer ? (

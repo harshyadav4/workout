@@ -42,7 +42,11 @@ export const DEMO_PROFILE = {
   name: "Alex Carter",
   email: "alex@example.com",
   heightCm: 178,
-  goalWeightKg: 76
+  goalWeightKg: 76,
+  // The Science tab's sex-specific cards (body fat, standards, DOTS, calories)
+  // need these; without them the tour would show a tab of "set X on You".
+  birthYear: 1994,
+  sex: "male"
 } as const;
 
 const PREFIX = "demo-";
@@ -266,6 +270,9 @@ function liftExercise(calendar: Calendar, date: string, item: Lift, done: boolea
         type: "normal" as const,
         completed: done,
         completedAt: done ? new Date(clock.at).toISOString() : undefined,
+        // Rated like a lifter who leaves a little in the tank until the last
+        // set: the effective-reps card has something to count.
+        rir: done ? (index === item.sets - 1 ? 1 : 2) : undefined,
         previousReps: reps,
         previousWeight: weight
       };
@@ -446,7 +453,9 @@ function sessionTemplates(calendar: Calendar): SessionTemplate[] {
 
 /** Monthly tape: waist slowly down, chest, shoulders and arms slowly up. Left arm a touch smaller. */
 const TAPE: { metric: BodyMetric; start: number; perWeek: number }[] = [
+  { metric: "neck", start: 39.2, perWeek: -0.02 },
   { metric: "waist", start: 88, perWeek: -0.12 },
+  { metric: "hips", start: 97, perWeek: -0.05 },
   { metric: "chest", start: 101, perWeek: 0.05 },
   { metric: "shoulders", start: 116, perWeek: 0.06 },
   { metric: "armL", start: 35.4, perWeek: 0.05 },

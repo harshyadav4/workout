@@ -2,11 +2,14 @@
 import assert from "node:assert/strict";
 
 import {
+  PROMPT_METRICS,
+  TAPE_METRICS,
   changeFor,
   dueState,
   goalDomain,
   hasAny,
   mergeSeries,
+  labelFor,
   metricsToPrompt,
   seriesFor,
   sitesForMuscle,
@@ -51,6 +54,13 @@ assert.equal(changeFor(list, "weight"), 79.4 - 81, "change is latest minus previ
 assert.equal(changeFor(list, "chest"), undefined, "no change until there are two readings");
 assert.equal(unitFor("weight"), "kg");
 assert.equal(unitFor("chest"), "cm");
+
+// 0013: the neck is a tape site like any other — in the tape list, in cm, and
+// not in the finish-screen prompt, which stays three sites.
+assert.equal(labelFor("neck"), "Neck");
+assert.equal(unitFor("neck"), "cm");
+assert.ok(TAPE_METRICS.includes("neck"), "the neck is a tape site");
+assert.ok(!PROMPT_METRICS.includes("neck"), "but not one the finish screen asks for");
 
 // -- moving average --------------------------------------------------------
 

@@ -18,6 +18,9 @@ import type {
 
 export const BODY_METRICS: { id: BodyMetric; label: string }[] = [
   { id: "weight", label: "Bodyweight" },
+  // Top-down. The neck is the one site the US Navy body-fat estimate needs
+  // that nothing else asked for.
+  { id: "neck", label: "Neck" },
   { id: "shoulders", label: "Shoulders" },
   { id: "chest", label: "Chest" },
   { id: "waist", label: "Waist" },

@@ -90,6 +90,8 @@ export function guestAsIncoming(
           ...accountProfile,
           heightCm: accountProfile.heightCm || gp.heightCm,
           goalWeightKg: accountProfile.goalWeightKg ?? gp.goalWeightKg,
+          birthYear: accountProfile.birthYear ?? gp.birthYear,
+          sex: accountProfile.sex ?? gp.sex,
           weightCadence: accountProfile.weightCadence ?? gp.weightCadence,
           measurementCadence: accountProfile.measurementCadence ?? gp.measurementCadence
         }

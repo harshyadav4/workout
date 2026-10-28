@@ -23,6 +23,20 @@ const parsed = parseExport(good);
 assert.equal(parsed.state.logs.length, 1);
 assert.equal(parsed.state.setLogs.length, 1);
 assert.equal(parsed.state.profile?.name, "A");
+
+// 0013's optional fields ride through untouched, like goalWeightKg does.
+{
+  const science = parseExport({
+    ...good,
+    setLogs: [{ ...good.setLogs[0], rir: 2 }],
+    measurements: [...good.measurements, { id: "m2", date: "2026-08-27", metric: "neck", value: 38 }],
+    profile: { ...good.profile, birthYear: 1990, sex: "male" }
+  });
+  assert.equal(science.state.setLogs[0].rir, 2, "reps in reserve survive a backup");
+  assert.equal(science.state.measurements[1].metric, "neck", "a neck reading survives a backup");
+  assert.equal(science.state.profile?.birthYear, 1990);
+  assert.equal(science.state.profile?.sex, "male");
+}
 assert.equal(parsed.counts.sets, 1);
 assert.equal(parsed.state.skillGoals?.length, 1, "skill goals round-trip — a restore used to drop them");
 assert.equal(parsed.counts.skills, 1);

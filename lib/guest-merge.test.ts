@@ -67,6 +67,20 @@ const filled = guestAsIncoming(withPreset, accountProfile).profile;
 assert.equal(filled?.name, "Alice", "the sign-in name stays");
 assert.equal(filled?.heightCm, 180, "the guest's height fills an empty one");
 assert.equal(filled?.goalWeightKg, 75, "and the goal weight");
+// 0013's fields merge like the goal weight: the account's when set, else the guest's.
+const science = guestAsIncoming(
+  { ...withPreset, profile: { ...withPreset.profile!, birthYear: 1990, sex: "male" } },
+  accountProfile
+).profile;
+assert.equal(science?.birthYear, 1990, "a guest's birth year reaches the account");
+assert.equal(science?.sex, "male", "and their sex");
+const ownScience = guestAsIncoming(
+  { ...withPreset, profile: { ...withPreset.profile!, birthYear: 1990, sex: "male" } },
+  { ...accountProfile, birthYear: 1985, sex: "female" }
+).profile;
+assert.equal(ownScience?.birthYear, 1985, "an account's own birth year wins");
+assert.equal(ownScience?.sex, "female");
+
 const kept = guestAsIncoming(withPreset, { ...accountProfile, heightCm: 170, goalWeightKg: 70 }).profile;
 assert.equal(kept?.heightCm, 170, "the account's own height wins");
 assert.equal(kept?.goalWeightKg, 70);

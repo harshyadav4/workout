@@ -1,7 +1,10 @@
 // Run with: npm run check
 import assert from "node:assert/strict";
 
+import { buildComposition } from "@/lib/body-composition";
 import { buildDemoState, DEMO_MISSED_WEEK, DEMO_PROFILE, DEMO_WEEKS } from "@/lib/demo-data";
+import { buildEffectiveReps } from "@/lib/fitness-fatigue";
+import { buildDots, buildStandards } from "@/lib/strength-science";
 import { cardioSessions } from "@/lib/cardio-metrics";
 import { buildGoalEta } from "@/lib/progress-extras";
 import { buildWeeklySetsByGroup, daysBetween, shiftKey, weekStartKey } from "@/lib/progress-metrics";
@@ -71,6 +74,19 @@ for (const today of ["2026-10-26", "2026-10-29", "2026-11-01"]) {
   const eta = buildGoalEta(demo.measurements, DEMO_PROFILE.goalWeightKg, today);
   assert.ok(eta && eta.perWeek < 0, `a goal date while losing weight ${label}`);
   assert.ok(demo.profile.weightKg > DEMO_PROFILE.goalWeightKg, `not there yet ${label}`);
+
+  // The Science tab lights up: a body-fat estimate, a DOTS score, effective reps.
+  const bodyweight = demo.profile.weightKg;
+  const composition = buildComposition(demo.measurements, { heightCm: DEMO_PROFILE.heightCm, sex: DEMO_PROFILE.sex, weightKg: bodyweight });
+  assert.ok(composition && composition.bodyFatPercent > 8 && composition.bodyFatPercent < 30, `a plausible body-fat estimate ${label}`);
+  // Standards for the squat and the bench; no DOTS, because the programme's
+  // only deadlift is a Romanian one and the tables are for the conventional
+  // lift — the classifier is right to leave it out, and the card says why.
+  const standards = buildStandards(demo.setLogs, demo.logs, bodyweight, DEMO_PROFILE.sex);
+  assert.deepEqual(standards.map((row) => row.lift), ["squat", "bench", "press"], `standards for the barbell lifts the demo has ${label}`);
+  assert.equal(buildDots(demo.setLogs, demo.logs, bodyweight, DEMO_PROFILE.sex), undefined, `no conventional deadlift, no DOTS ${label}`);
+  const effective = buildEffectiveReps(demo.setLogs, { start: first, end: today }, new Map(demo.logs.map((log) => [log.workoutId, "chest" as const])));
+  assert.ok(effective.rated > 0 && effective.rows[0]?.effective > 0, `rated sets with effective reps ${label}`);
 
   // The pull-up skill: three rungs cleared, working on chin-ups.
   const goal = demo.skillGoals?.[0];

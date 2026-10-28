@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 
 import { reconcile } from "@/lib/reconcile";
-import { buildExport, diffRows, remoteBaseline, syncErrorKind, syncErrorMessage, type RemoteState, type SyncableState } from "@/lib/sync";
+import { buildExport, diffRows, remoteBaseline, rowToSetLog, setLogToRow, syncErrorKind, syncErrorMessage, type RemoteState, type SyncableState } from "@/lib/sync";
 import type { WorkoutLog, WorkoutTemplate } from "@/lib/types";
 
 // The whole sync rests on this: a missed delete resurrects a session on the
@@ -163,6 +163,21 @@ const c = { id: "c", n: 1 };
     "the account's own profile stays reference-equal, so it is not rewritten"
   );
   assert.equal(remoteBaseline({ ...remote, profile: undefined }).profile.name, "", "a new account starts from the empty profile");
+}
+
+// --- set-log mappers: 0013's reps-in-reserve -------------------------------
+
+// 0 is "nothing left in the tank" and must survive the round trip; null is
+// "not asked" and must come back as absent, not as 0.
+{
+  const base = { id: "s1", logId: "l1", workoutId: "bench", date: "2026-10-01", setIndex: 0, reps: 8, weight: 60 };
+  assert.equal(setLogToRow({ ...base, rir: 0 }, "u").rir, 0, "an RIR of 0 is written as 0");
+  assert.equal(setLogToRow(base, "u").rir, null, "no RIR is written as null");
+  assert.equal(rowToSetLog({ ...setLogToRow({ ...base, rir: 2 }, "u") }).rir, 2);
+  assert.equal(rowToSetLog({ ...setLogToRow({ ...base, rir: 0 }, "u") }).rir, 0, "0 round-trips as 0");
+  assert.equal(rowToSetLog({ ...setLogToRow(base, "u") }).rir, undefined, "null round-trips as absent");
+  // Numeric columns can come back as strings from PostgREST.
+  assert.equal(rowToSetLog({ ...setLogToRow(base, "u"), rir: "3" }).rir, 3);
 }
 
 console.log("sync diff checks passed");

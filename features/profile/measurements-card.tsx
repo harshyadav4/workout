@@ -18,7 +18,23 @@ import {
   unitFor,
   type DueState
 } from "@/lib/body-metrics";
-import type { BodyMetric, MeasurementCadence } from "@/lib/types";
+import type { BodyMetric, MeasurementCadence, Sex } from "@/lib/types";
+
+/** The Sex control's segments. "unset" is the fourth: not answering is allowed. */
+type SexChoice = Sex | "unset";
+const SEX_OPTIONS: { id: SexChoice; label: string }[] = [
+  { id: "male", label: "Male" },
+  { id: "female", label: "Female" },
+  { id: "other", label: "Other" },
+  { id: "unset", label: "Not set" }
+];
+
+/** A plausible year of birth: four digits, not in the future, nobody over 120. */
+function parseBirthYear(raw: string | null | undefined, today = new Date()): number | undefined {
+  const value = Number(raw);
+  const thisYear = today.getFullYear();
+  return raw?.trim() && Number.isInteger(value) && value >= thisYear - 120 && value <= thisYear ? value : undefined;
+}
 
 /** "Due now" / "3 days late" / "next in 5 days" — or nothing when it is off. */
 function dueLabel(state: DueState): string | null {
@@ -74,6 +90,7 @@ export function MeasurementsCard() {
   // Null is "untouched", so the field shows the saved height as a value, not
   // as a faint placeholder that reads like an empty field.
   const [heightDraft, setHeightDraft] = useState<string | null>(null);
+  const [birthDraft, setBirthDraft] = useState<string | null>(null);
   const [savedCount, setSavedCount] = useState(0);
 
   const weightState = dueState(measurements, ["weight"], profile.weightCadence);
@@ -111,13 +128,22 @@ export function MeasurementsCard() {
     if (height !== undefined) {
       setProfile({ heightCm: height });
     }
+    const birthYear = parseBirthYear(birthDraft);
+    if (birthYear !== undefined) {
+      setProfile({ birthYear });
+    }
     setDraft({});
     setHeightDraft(null);
+    setBirthDraft(null);
     setSavedCount(written);
   };
 
   const pending =
-    Object.values(draft).some((value) => value?.trim()) || Boolean(heightDraft?.trim());
+    Object.values(draft).some((value) => value?.trim()) ||
+    Boolean(heightDraft?.trim()) ||
+    Boolean(birthDraft?.trim());
+
+  const sexLabel = SEX_OPTIONS.find((option) => option.id === (profile.sex ?? "unset"))?.label ?? "Not set";
 
   const row = (metric: BodyMetric) => {
     const latest = latestFor(measurements, metric);
@@ -197,6 +223,59 @@ export function MeasurementsCard() {
               <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden />
             </summary>
             <div className="space-y-2 px-4 pb-4">{TAPE_METRICS.map((metric) => row(metric))}</div>
+          </details>
+
+          {/* Two facts the Science tab's formulas need and nothing else reads.
+              Folded away like the tape: most people set them once. The year is
+              typed, so it goes through Save like height; sex is a control, so
+              it writes on tap like the cadences. */}
+          <details className="group rounded-xl bg-muted">
+            <summary className="flex min-h-[44px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
+              <span>
+                <span className="block text-sm font-semibold">About you</span>
+                <span className="block text-xs text-muted-foreground">
+                  {profile.birthYear ? `Born ${profile.birthYear}` : "Birth year"} · {sexLabel}
+                </span>
+              </span>
+              <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden />
+            </summary>
+            <div className="space-y-3 px-4 pb-4">
+              <label className="flex items-center gap-3">
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold">Born</span>
+                  <span className="block text-xs text-muted-foreground">
+                    {profile.birthYear ? "Year" : "Not set yet"}
+                  </span>
+                </span>
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  min={1900}
+                  max={new Date().getFullYear()}
+                  aria-label="Year of birth"
+                  placeholder="YYYY"
+                  className="w-24 shrink-0"
+                  value={birthDraft ?? (profile.birthYear ? String(profile.birthYear) : "")}
+                  onChange={(event) => {
+                    setBirthDraft(event.target.value);
+                    setSavedCount(0);
+                  }}
+                />
+              </label>
+              <div>
+                <p className="mb-2 text-xs font-medium text-muted-foreground">Sex</p>
+                <Segmented
+                  size="sm"
+                  aria-label="Sex"
+                  options={SEX_OPTIONS}
+                  value={profile.sex ?? "unset"}
+                  onChange={(next) => setProfile({ sex: next === "unset" ? undefined : next })}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Used for body-fat, strength standards and calories on the Science tab. Nothing else.
+              </p>
+            </div>
           </details>
 
           <Button className="w-full" onClick={save} disabled={!pending}>

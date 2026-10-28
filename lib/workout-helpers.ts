@@ -319,7 +319,8 @@ export function buildLogFromSession(
       // grain, which is the only place they were ever true.
       durationSeconds: setItem.durationSeconds,
       distanceKm: setItem.distanceKm,
-      completedAt: setItem.completedAt
+      completedAt: setItem.completedAt,
+      rir: setItem.rir
     }))
   );
 
@@ -454,6 +455,9 @@ function loggedSessions(workoutId: string, setLogs: SetLog[]): SetLog[][] {
   return [...sessions.values()];
 }
 
+// Deliberately not `rir`: reps in reserve is how the set went, not what the
+// next one is for. Carrying it forward would show "2 left" on a set that has
+// not happened yet, and then log that guess as if it were judged.
 const carry = (row: SetLog): CarriedSet => ({
   weight: row.weight,
   reps: row.reps,

@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowUpRight, CalendarCheck, ChevronRight, Dumbbell, Minus, PersonStanding, TriangleAlert } from "lucide-react";
+import { useEffect, useRef } from "react";
 
 import { CHART } from "@/features/progress/chart-theme";
 import type { Ring, RingTone } from "@/lib/progress-scores";
@@ -161,11 +162,16 @@ export function RingHeader({ ring }: { ring: Ring }) {
   return <p className="text-sm leading-snug text-muted-foreground">{ring.sentence}</p>;
 }
 
-export type ProgressView = "summary" | RingId;
+/**
+ * The views under the rings. Science is a tab without a ring: it is not a
+ * score of anything, it is the formulas, so it has no circle to light up.
+ */
+export type ProgressView = "summary" | RingId | "science";
 
 const VIEW_TABS: { id: ProgressView; label: string }[] = [
   { id: "summary", label: "Summary" },
-  ...RING_META.map(({ id, label }) => ({ id, label }))
+  ...RING_META.map(({ id, label }) => ({ id, label })),
+  { id: "science", label: "Science" }
 ];
 
 /**
@@ -180,8 +186,22 @@ export function ViewTabs({
   view: ProgressView;
   onChange: (view: ProgressView) => void;
 }) {
+  // Five tabs no longer fit a phone, so the row scrolls — and a view opened
+  // from a link (`?view=science`) must not land with its own tab out of sight.
+  // Horizontal only: `scrollIntoView` would also drag the page vertically.
+  const scroller = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const row = scroller.current;
+    const active = row?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
+    if (!row || !active) {
+      return;
+    }
+    const left = active.offsetLeft - row.clientWidth / 2 + active.offsetWidth / 2;
+    row.scrollTo({ left: Math.max(0, left), behavior: "auto" });
+  }, [view]);
+
   return (
-    <div className="-mx-4 overflow-x-auto px-4 scrollbar-hide" data-tour="progress-tabs">
+    <div ref={scroller} className="-mx-4 overflow-x-auto px-4 scrollbar-hide" data-tour="progress-tabs">
       <div className="flex w-max gap-1 border-b border-border" role="tablist" aria-label="Progress section">
         {VIEW_TABS.map((tab) => {
           const active = view === tab.id;

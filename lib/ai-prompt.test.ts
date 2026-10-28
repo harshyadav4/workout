@@ -44,7 +44,7 @@ const prompt = buildAiPrompt({
   sessions,
   logs,
   setLogs,
-  profile: { heightCm: 176, weightKg: 74, goalWeightKg: 70 },
+  profile: { heightCm: 176, weightKg: 74, goalWeightKg: 70, birthYear: 1996, sex: "male" },
   today: "2026-10-25"
 });
 
@@ -71,6 +71,13 @@ assert.ok(prompt.trimEnd().endsWith("```"), "the example closes the prompt");
 // What the app knows is in it.
 assert.match(prompt, /Height: 176 cm/);
 assert.match(prompt, /Goal bodyweight: 70 kg/);
+assert.match(prompt, /Age: 30/, "age is the year difference, so a coach can pick loads for it");
+assert.match(prompt, /Sex: male/);
+{
+  const other = buildAiPrompt({ library, sessions, logs, setLogs, profile: { heightCm: 176, weightKg: 74, sex: "other" }, today: "2026-10-25" });
+  assert.doesNotMatch(other, /Sex:/, '"other" is not sent: the coach has no table for it either');
+  assert.doesNotMatch(other, /Age:/, "no birth year, no age line");
+}
 assert.match(prompt, /barbell bench press: 77\.5 kg top set, 2 sessions/);
 assert.doesNotMatch(prompt, /barbell full squat: 140/, "only the last 8 weeks count as recent");
 assert.match(prompt, /"Push"\n    - barbell bench press: 4 x 8 @ 70 kg/);

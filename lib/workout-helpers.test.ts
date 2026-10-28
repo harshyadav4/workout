@@ -133,6 +133,20 @@ assert.deepEqual(buildLogFromSession(session([{ name: "bench", sets: [] }]), tem
   );
 
   assert.equal(built.logs.length, 1, "the un-started exercise drops from both");
+}
+
+// Reps in reserve rides to the set row when it was given, and stays absent —
+// not 0 — when it was not. 0 is "nothing left", a real answer.
+{
+  const rated = { ...set(8, 60, true), rir: 2 };
+  const spent = { ...set(6, 65, true), rir: 0 };
+  const built = buildLogFromSession(session([{ name: "bench", sets: [rated, spent, set(6, 65, true)] }]), templates);
+  assert.deepEqual(
+    built.setLogs.map((row) => row.rir),
+    [2, 0, undefined],
+    "RIR reaches set_logs as given: 2, 0, and absent when not asked"
+  );
+  assert.equal(built.logs[0].totalReps, 20, "the rollup is untouched by it");
   assert.equal(
     built.logs[0].totalVolume,
     built.setLogs.reduce((sum, row) => sum + row.reps * row.weight, 0),

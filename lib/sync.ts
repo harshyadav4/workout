@@ -8,6 +8,7 @@ import type {
   ScheduledSession,
   SessionTemplate,
   SetLog,
+  Sex,
   SkillGoal,
   SkillLevel,
   WorkoutLog,
@@ -160,7 +161,8 @@ function rowToLog(row: Row): WorkoutLog {
   };
 }
 
-function setLogToRow(setLog: SetLog, userId: string): Row {
+/** Exported for the round-trip tests only. */
+export function setLogToRow(setLog: SetLog, userId: string): Row {
   return {
     id: setLog.id,
     user_id: userId,
@@ -172,11 +174,13 @@ function setLogToRow(setLog: SetLog, userId: string): Row {
     weight: setLog.weight,
     duration_seconds: setLog.durationSeconds ?? null,
     distance_km: setLog.distanceKm ?? null,
-    completed_at: setLog.completedAt ?? null
+    completed_at: setLog.completedAt ?? null,
+    rir: setLog.rir ?? null
   };
 }
 
-function rowToSetLog(row: Row): SetLog {
+/** Exported for the round-trip tests only. */
+export function rowToSetLog(row: Row): SetLog {
   return {
     id: row.id as string,
     logId: row.log_id as string,
@@ -190,7 +194,10 @@ function rowToSetLog(row: Row): SetLog {
     durationSeconds: (row.duration_seconds as number) ?? undefined,
     // Null is "not a distance set". Numeric columns come back as strings.
     distanceKm: row.distance_km == null ? undefined : Number(row.distance_km),
-    completedAt: (row.completed_at as string) ?? undefined
+    completedAt: (row.completed_at as string) ?? undefined,
+    // Null is "not asked", and 0 is a real answer (nothing left), so `== null`
+    // and not `||`.
+    rir: row.rir == null ? undefined : Number(row.rir)
   };
 }
 
@@ -323,6 +330,8 @@ export async function loadUserState(): Promise<RemoteState> {
           // `|| undefined` rather than `?? 0`: the column is nullable and a
           // goal of 0 kg is not a goal, so both readings collapse to "unset".
           goalWeightKg: Number(profileRow.goal_weight_kg) || undefined,
+          birthYear: Number(profileRow.birth_year) || undefined,
+          sex: (profileRow.sex as Sex | null) ?? undefined,
           weightCadence: (profileRow.weight_cadence as MeasurementCadence) ?? undefined,
           measurementCadence:
             (profileRow.measurement_cadence as MeasurementCadence) ?? undefined,
@@ -407,13 +416,21 @@ async function writeTable<T extends Identified>(
  * `started_at` / `finished_at` are 0007 too: sessions sync, untimed, without them.
  * `deletion_requested_at` is 0008: the profile syncs without it, and the
  * pending deletion stays on the device until it runs.
+ * `rir`, `birth_year` and `sex` are 0013 (the Science tab's inputs): sets sync
+ * without their reps-in-reserve and the profile without age and sex until it
+ * runs. A `neck` reading is not covered — the metric check constraint rejects
+ * it with 23514, which is not a missing column — so 0013 ships before the
+ * neck field does.
  */
 const OPTIONAL_COLUMNS = [
   "media_path",
   "distance_km",
   "started_at",
   "finished_at",
-  "deletion_requested_at"
+  "deletion_requested_at",
+  "rir",
+  "birth_year",
+  "sex"
 ];
 
 function isMissingOptionalColumn(error: { code?: string; message?: string }): boolean {
@@ -658,6 +675,8 @@ export async function pushChanges(
       height_cm: next.profile.heightCm,
       weight_kg: next.profile.weightKg,
       goal_weight_kg: next.profile.goalWeightKg ?? null,
+      birth_year: next.profile.birthYear ?? null,
+      sex: next.profile.sex ?? null,
       weight_cadence: next.profile.weightCadence ?? null,
       measurement_cadence: next.profile.measurementCadence ?? null,
       schedule_config: next.scheduleConfig ?? null,
