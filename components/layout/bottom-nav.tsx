@@ -46,7 +46,7 @@ export function BottomNav() {
       // Out of the way while typing: on iPhone a fixed bar either rides up on
       // the keyboard or sits behind it, and both cover the field being typed in.
       hidden={typing}
-      className="fixed bottom-0 left-0 right-0 z-40 px-4 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]"
+      className="fixed bottom-0 left-0 right-0 z-40 px-4 pb-[calc(env(safe-area-inset-bottom)+0.25rem)]"
     >
       <div className="dock mx-auto grid max-w-md grid-cols-4 gap-1 rounded-3xl border border-border p-1.5 shadow-dock" data-tour="nav">
         {items.map((item) => {

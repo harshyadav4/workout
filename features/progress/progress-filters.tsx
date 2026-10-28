@@ -8,6 +8,7 @@ import {
   type ExerciseTotal,
   type ProgressRange
 } from "@/lib/progress-metrics";
+import { Segmented } from "@/components/ui/segmented";
 import { cn } from "@/lib/utils";
 
 /**
@@ -36,26 +37,7 @@ export function ProgressFilters({
 }) {
   return (
     <div className="space-y-3">
-      <div
-        role="group"
-        aria-label="Time range"
-        className="well grid grid-cols-5 gap-1 rounded-xl p-1"
-      >
-        {RANGE_OPTIONS.map((option) => (
-          <button
-            key={option.id}
-            type="button"
-            aria-pressed={range === option.id}
-            onClick={() => onRangeChange(option.id)}
-            className={cn(
-              "min-h-[44px] rounded-lg text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              range === option.id ? "key" : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
+      <Segmented dense aria-label="Time range" options={RANGE_OPTIONS} value={range} onChange={onRangeChange} />
 
       {range === "custom" ? (
         <div className="rounded-xl bg-muted p-3">

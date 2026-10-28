@@ -421,7 +421,7 @@ label {
 .app-safe-bottom {
   /* The nav measures 88px (5.5rem) exactly, so 5.5rem left the last card's edge
      flush against it. 6.5rem is the breathing room. */
-  padding-bottom: calc(env(safe-area-inset-bottom) + 6.5rem);
+  padding-bottom: calc(env(safe-area-inset-bottom) + 6.25rem);
 }
 
 /* Materials. */
@@ -442,6 +442,17 @@ label {
 .key:active {
   transform: translateY(2px);
   box-shadow: var(--shadow-key-pressed);
+}
+
+/* The segmented control's one key, sliding to the chosen segment. */
+.segment-thumb {
+  transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .segment-thumb {
+    transition: none;
+  }
 }
 
 .key-quiet {
@@ -1073,39 +1084,47 @@ label {
   cursor: pointer;
   color: var(--muscle-idle);
   fill: currentColor;
-  transition: color 200ms ease-out, filter 200ms ease-out;
+  /* The selected muscle's ring (--s-*): 2 screen pixels whatever the figure's
+     scale, drawn under the fill so the shape does not fatten. iOS Safari
+     ignores `filter` inside an SVG, so this ring is what it shows. */
+  stroke: none;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  paint-order: stroke;
+  vector-effect: non-scaling-stroke;
+  transition: color 200ms ease-out, filter 200ms ease-out, stroke 200ms ease-out;
 }
 
-[data-muscle="pecUpper"] { color: var(--m-pecUpper, var(--muscle-idle)); filter: var(--g-pecUpper, none); }
-[data-muscle="pecLower"] { color: var(--m-pecLower, var(--muscle-idle)); filter: var(--g-pecLower, none); }
-[data-muscle="serratus"] { color: var(--m-serratus, var(--muscle-idle)); filter: var(--g-serratus, none); }
-[data-muscle="deltFront"] { color: var(--m-deltFront, var(--muscle-idle)); filter: var(--g-deltFront, none); }
-[data-muscle="deltSide"] { color: var(--m-deltSide, var(--muscle-idle)); filter: var(--g-deltSide, none); }
-[data-muscle="deltRear"] { color: var(--m-deltRear, var(--muscle-idle)); filter: var(--g-deltRear, none); }
-[data-muscle="traps"] { color: var(--m-traps, var(--muscle-idle)); filter: var(--g-traps, none); }
-[data-muscle="rhomboids"] { color: var(--m-rhomboids, var(--muscle-idle)); filter: var(--g-rhomboids, none); }
-[data-muscle="lats"] { color: var(--m-lats, var(--muscle-idle)); filter: var(--g-lats, none); }
-[data-muscle="erectors"] { color: var(--m-erectors, var(--muscle-idle)); filter: var(--g-erectors, none); }
-[data-muscle="biceps"] { color: var(--m-biceps, var(--muscle-idle)); filter: var(--g-biceps, none); }
-[data-muscle="brachialis"] { color: var(--m-brachialis, var(--muscle-idle)); filter: var(--g-brachialis, none); }
-[data-muscle="tricepsLong"] { color: var(--m-tricepsLong, var(--muscle-idle)); filter: var(--g-tricepsLong, none); }
-[data-muscle="tricepsLateral"] { color: var(--m-tricepsLateral, var(--muscle-idle)); filter: var(--g-tricepsLateral, none); }
-[data-muscle="forearmFlexors"] { color: var(--m-forearmFlexors, var(--muscle-idle)); filter: var(--g-forearmFlexors, none); }
-[data-muscle="forearmExtensors"] { color: var(--m-forearmExtensors, var(--muscle-idle)); filter: var(--g-forearmExtensors, none); }
-[data-muscle="abs"] { color: var(--m-abs, var(--muscle-idle)); filter: var(--g-abs, none); }
-[data-muscle="obliques"] { color: var(--m-obliques, var(--muscle-idle)); filter: var(--g-obliques, none); }
-[data-muscle="gluteMax"] { color: var(--m-gluteMax, var(--muscle-idle)); filter: var(--g-gluteMax, none); }
-[data-muscle="gluteMed"] { color: var(--m-gluteMed, var(--muscle-idle)); filter: var(--g-gluteMed, none); }
-[data-muscle="rectusFemoris"] { color: var(--m-rectusFemoris, var(--muscle-idle)); filter: var(--g-rectusFemoris, none); }
-[data-muscle="vastusLateralis"] { color: var(--m-vastusLateralis, var(--muscle-idle)); filter: var(--g-vastusLateralis, none); }
-[data-muscle="vastusMedialis"] { color: var(--m-vastusMedialis, var(--muscle-idle)); filter: var(--g-vastusMedialis, none); }
-[data-muscle="sartorius"] { color: var(--m-sartorius, var(--muscle-idle)); filter: var(--g-sartorius, none); }
-[data-muscle="adductors"] { color: var(--m-adductors, var(--muscle-idle)); filter: var(--g-adductors, none); }
-[data-muscle="hamsOuter"] { color: var(--m-hamsOuter, var(--muscle-idle)); filter: var(--g-hamsOuter, none); }
-[data-muscle="hamsInner"] { color: var(--m-hamsInner, var(--muscle-idle)); filter: var(--g-hamsInner, none); }
-[data-muscle="gastrocnemius"] { color: var(--m-gastrocnemius, var(--muscle-idle)); filter: var(--g-gastrocnemius, none); }
-[data-muscle="soleus"] { color: var(--m-soleus, var(--muscle-idle)); filter: var(--g-soleus, none); }
-[data-muscle="tibialis"] { color: var(--m-tibialis, var(--muscle-idle)); filter: var(--g-tibialis, none); }
+[data-muscle="pecUpper"] { color: var(--m-pecUpper, var(--muscle-idle)); filter: var(--g-pecUpper, none); stroke: var(--s-pecUpper, none); }
+[data-muscle="pecLower"] { color: var(--m-pecLower, var(--muscle-idle)); filter: var(--g-pecLower, none); stroke: var(--s-pecLower, none); }
+[data-muscle="serratus"] { color: var(--m-serratus, var(--muscle-idle)); filter: var(--g-serratus, none); stroke: var(--s-serratus, none); }
+[data-muscle="deltFront"] { color: var(--m-deltFront, var(--muscle-idle)); filter: var(--g-deltFront, none); stroke: var(--s-deltFront, none); }
+[data-muscle="deltSide"] { color: var(--m-deltSide, var(--muscle-idle)); filter: var(--g-deltSide, none); stroke: var(--s-deltSide, none); }
+[data-muscle="deltRear"] { color: var(--m-deltRear, var(--muscle-idle)); filter: var(--g-deltRear, none); stroke: var(--s-deltRear, none); }
+[data-muscle="traps"] { color: var(--m-traps, var(--muscle-idle)); filter: var(--g-traps, none); stroke: var(--s-traps, none); }
+[data-muscle="rhomboids"] { color: var(--m-rhomboids, var(--muscle-idle)); filter: var(--g-rhomboids, none); stroke: var(--s-rhomboids, none); }
+[data-muscle="lats"] { color: var(--m-lats, var(--muscle-idle)); filter: var(--g-lats, none); stroke: var(--s-lats, none); }
+[data-muscle="erectors"] { color: var(--m-erectors, var(--muscle-idle)); filter: var(--g-erectors, none); stroke: var(--s-erectors, none); }
+[data-muscle="biceps"] { color: var(--m-biceps, var(--muscle-idle)); filter: var(--g-biceps, none); stroke: var(--s-biceps, none); }
+[data-muscle="brachialis"] { color: var(--m-brachialis, var(--muscle-idle)); filter: var(--g-brachialis, none); stroke: var(--s-brachialis, none); }
+[data-muscle="tricepsLong"] { color: var(--m-tricepsLong, var(--muscle-idle)); filter: var(--g-tricepsLong, none); stroke: var(--s-tricepsLong, none); }
+[data-muscle="tricepsLateral"] { color: var(--m-tricepsLateral, var(--muscle-idle)); filter: var(--g-tricepsLateral, none); stroke: var(--s-tricepsLateral, none); }
+[data-muscle="forearmFlexors"] { color: var(--m-forearmFlexors, var(--muscle-idle)); filter: var(--g-forearmFlexors, none); stroke: var(--s-forearmFlexors, none); }
+[data-muscle="forearmExtensors"] { color: var(--m-forearmExtensors, var(--muscle-idle)); filter: var(--g-forearmExtensors, none); stroke: var(--s-forearmExtensors, none); }
+[data-muscle="abs"] { color: var(--m-abs, var(--muscle-idle)); filter: var(--g-abs, none); stroke: var(--s-abs, none); }
+[data-muscle="obliques"] { color: var(--m-obliques, var(--muscle-idle)); filter: var(--g-obliques, none); stroke: var(--s-obliques, none); }
+[data-muscle="gluteMax"] { color: var(--m-gluteMax, var(--muscle-idle)); filter: var(--g-gluteMax, none); stroke: var(--s-gluteMax, none); }
+[data-muscle="gluteMed"] { color: var(--m-gluteMed, var(--muscle-idle)); filter: var(--g-gluteMed, none); stroke: var(--s-gluteMed, none); }
+[data-muscle="rectusFemoris"] { color: var(--m-rectusFemoris, var(--muscle-idle)); filter: var(--g-rectusFemoris, none); stroke: var(--s-rectusFemoris, none); }
+[data-muscle="vastusLateralis"] { color: var(--m-vastusLateralis, var(--muscle-idle)); filter: var(--g-vastusLateralis, none); stroke: var(--s-vastusLateralis, none); }
+[data-muscle="vastusMedialis"] { color: var(--m-vastusMedialis, var(--muscle-idle)); filter: var(--g-vastusMedialis, none); stroke: var(--s-vastusMedialis, none); }
+[data-muscle="sartorius"] { color: var(--m-sartorius, var(--muscle-idle)); filter: var(--g-sartorius, none); stroke: var(--s-sartorius, none); }
+[data-muscle="adductors"] { color: var(--m-adductors, var(--muscle-idle)); filter: var(--g-adductors, none); stroke: var(--s-adductors, none); }
+[data-muscle="hamsOuter"] { color: var(--m-hamsOuter, var(--muscle-idle)); filter: var(--g-hamsOuter, none); stroke: var(--s-hamsOuter, none); }
+[data-muscle="hamsInner"] { color: var(--m-hamsInner, var(--muscle-idle)); filter: var(--g-hamsInner, none); stroke: var(--s-hamsInner, none); }
+[data-muscle="gastrocnemius"] { color: var(--m-gastrocnemius, var(--muscle-idle)); filter: var(--g-gastrocnemius, none); stroke: var(--s-gastrocnemius, none); }
+[data-muscle="soleus"] { color: var(--m-soleus, var(--muscle-idle)); filter: var(--g-soleus, none); stroke: var(--s-soleus, none); }
+[data-muscle="tibialis"] { color: var(--m-tibialis, var(--muscle-idle)); filter: var(--g-tibialis, none); stroke: var(--s-tibialis, none); }
 
 @media (prefers-reduced-motion: reduce) {
   [data-muscle] {

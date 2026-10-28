@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Segmented } from "@/components/ui/segmented";
 import { useWorkoutStore } from "@/features/workout/workout-store";
 import {
   CADENCES,
@@ -56,24 +57,7 @@ function CadencePicker({
         {label}
         {hint ? <span className="text-foreground"> · {hint}</span> : null}
       </p>
-      <div className="well grid grid-cols-4 gap-1 rounded-xl p-1">
-        {CADENCES.map((item) => {
-          const active = (value ?? "off") === item.id;
-          return (
-            <button
-              key={item.id}
-              type="button"
-              aria-pressed={active}
-              onClick={() => onChange(item.id)}
-              className={`h-10 rounded-lg text-xs font-semibold transition-colors ${
-                active ? "key" : "text-muted-foreground"
-              }`}
-            >
-              {item.label}
-            </button>
-          );
-        })}
-      </div>
+      <Segmented size="sm" options={CADENCES} value={value ?? "off"} onChange={onChange} />
     </div>
   );
 }

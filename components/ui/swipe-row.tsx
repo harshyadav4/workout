@@ -141,7 +141,7 @@ export function SwipeRow({
   };
 
   return (
-    <div className={cn("relative overflow-hidden", className)}>
+    <div data-swipe-row className={cn("relative overflow-hidden", className)}>
       <button
         type="button"
         aria-label={label}

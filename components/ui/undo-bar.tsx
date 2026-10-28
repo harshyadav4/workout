@@ -31,7 +31,7 @@ export function UndoBar() {
   return (
     <div
       role="status"
-      className="page-enter fixed inset-x-0 z-40 px-4 bottom-[calc(env(safe-area-inset-bottom)+6.25rem)]"
+      className="page-enter fixed inset-x-0 z-40 px-4 bottom-[calc(env(safe-area-inset-bottom)+6rem)]"
     >
       <div className="plaque mx-auto flex max-w-md items-center gap-2 rounded-2xl py-1.5 pl-4 pr-1.5">
         <p className="min-w-0 flex-1 truncate text-sm font-semibold">{offer.label}</p>

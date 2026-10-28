@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { InfoNote } from "@/components/ui/info-note";
 import { Input } from "@/components/ui/input";
+import { Segmented } from "@/components/ui/segmented";
 import { ThemedSelect } from "@/components/ui/select";
 import { SessionPreview } from "@/features/planner/session-preview";
 import { MuscleMapCard } from "@/features/home/muscle-map-card";
@@ -538,24 +539,18 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
               </label>
             </div>
 
-            <div className="well grid grid-cols-2 gap-1 rounded-xl p-1">
-              {(["weekly", "rotation"] as const).map((item) => (
-                <button
-                  key={item}
-                  type="button"
-                  aria-pressed={mode === item}
-                  onClick={() => {
-                    setMode(item);
-                    setConfirmation(null);
-                  }}
-                  className={`h-11 rounded-lg text-sm font-semibold transition-colors ${
-                    mode === item ? "key" : "text-muted-foreground"
-                  }`}
-                >
-                  {item === "weekly" ? "Weekly" : "Rotation"}
-                </button>
-              ))}
-            </div>
+            <Segmented
+              aria-label="Schedule kind"
+              options={[
+                { id: "weekly", label: "Weekly" },
+                { id: "rotation", label: "Rotation" }
+              ]}
+              value={mode}
+              onChange={(item) => {
+                setMode(item);
+                setConfirmation(null);
+              }}
+            />
 
             {mode === "weekly" ? (
               <div className="space-y-2">

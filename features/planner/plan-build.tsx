@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { InfoNote } from "@/components/ui/info-note";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Segmented } from "@/components/ui/segmented";
 import { SwipeRow } from "@/components/ui/swipe-row";
 import { usePendingRemoval } from "@/components/ui/use-pending-removal";
 import { NumberInput } from "@/components/ui/number-input";
@@ -756,24 +757,17 @@ export function PlanBuild({
                       </button>
                       {/* A plank and a carry are measured in seconds; a run in
                           distance and time. */}
-                      <div className="well grid grid-cols-3 gap-1 rounded-xl p-1">
-                        {(["reps", "time", "distance"] as const).map((item) => {
-                          const active = (exercise.metric ?? "reps") === item;
-                          return (
-                            <button
-                              key={item}
-                              type="button"
-                              aria-pressed={active}
-                              onClick={() => setMetric(exercise, item)}
-                              className={`h-10 rounded-lg text-xs font-semibold transition-colors ${
-                                active ? "key" : "text-muted-foreground"
-                              }`}
-                            >
-                              {item === "reps" ? "Reps" : item === "time" ? "Time" : "Distance"}
-                            </button>
-                          );
-                        })}
-                      </div>
+                      <Segmented
+                        size="sm"
+                        aria-label="Measured in"
+                        options={[
+                          { id: "reps", label: "Reps" },
+                          { id: "time", label: "Time" },
+                          { id: "distance", label: "Distance" }
+                        ]}
+                        value={exercise.metric ?? "reps"}
+                        onChange={(item) => setMetric(exercise, item)}
+                      />
 
                       {/* Visible labels, not placeholders: every one of these is
                           pre-filled, so the placeholder never rendered once. */}

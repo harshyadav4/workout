@@ -3,6 +3,8 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { Segmented } from "@/components/ui/segmented";
+import { useSwipeTabs } from "@/components/ui/use-swipe-tabs";
 import { PlanBuild } from "@/features/planner/plan-build";
 import { PlanSchedule } from "@/features/planner/plan-schedule";
 
@@ -39,24 +41,12 @@ export function PlanDashboard() {
     router.replace(next === "build" ? "/plan?mode=build" : "/plan", { scroll: false });
   };
 
+  // Build is on the left, Schedule on the right: a swipe left goes to Schedule.
+  const swipe = useSwipeTabs((direction) => setMode(direction === "left" ? "schedule" : "build"));
+
   return (
-    <section className="space-y-4">
-      <div className="well grid grid-cols-2 gap-1 rounded-xl p-1" role="tablist" aria-label="Plan mode" data-tour="plan-modes">
-        {MODES.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            role="tab"
-            aria-selected={mode === item.id}
-            onClick={() => setMode(item.id)}
-            className={`h-11 rounded-lg text-sm font-semibold transition-colors ${
-              mode === item.id ? "key" : "text-muted-foreground"
-            }`}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
+    <section className="space-y-4" {...swipe}>
+      <Segmented role="tablist" aria-label="Plan mode" data-tour="plan-modes" options={MODES} value={mode} onChange={setMode} />
 
       {mode === "build" ? <PlanBuild sharedText={sharedText} /> : <PlanSchedule onGoBuild={() => setMode("build")} />}
     </section>

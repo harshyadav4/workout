@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { setDetailedTiming, useDetailedTiming } from "@/features/workout/use-detailed-timing";
 import { setDistanceUnit, useDistanceUnit } from "@/features/workout/use-distance-unit";
+import { Segmented } from "@/components/ui/segmented";
 import { applyTheme, isTheme, THEME_KEY, type Theme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
@@ -62,22 +63,13 @@ export function ThemeToggle() {
   return (
     <div>
       <p className="text-xs font-medium text-muted-foreground">Theme</p>
-      <div className="well mt-1.5 grid grid-cols-3 gap-1 rounded-xl p-1" role="group" aria-label="Theme">
-        {(Object.keys(SKIN_LABELS) as Theme[]).map((option) => (
-          <button
-            key={option}
-            type="button"
-            aria-pressed={theme === option}
-            onClick={() => choose(option)}
-            className={cn(
-              "h-11 rounded-lg text-sm font-semibold transition-colors",
-              theme === option ? "key" : "text-muted-foreground"
-            )}
-          >
-            {SKIN_LABELS[option]}
-          </button>
-        ))}
-      </div>
+      <Segmented
+        className="mt-1.5"
+        aria-label="Theme"
+        options={(Object.keys(SKIN_LABELS) as Theme[]).map((option) => ({ id: option, label: SKIN_LABELS[option] }))}
+        value={theme}
+        onChange={choose}
+      />
     </div>
   );
 }
@@ -88,19 +80,16 @@ export function DistanceUnitToggle() {
   return (
     <div>
       <p className="text-xs font-medium text-muted-foreground">Distance</p>
-      <div className="well mt-1.5 grid grid-cols-2 gap-1 rounded-xl p-1" role="group" aria-label="Distance unit">
-        {(["km", "mi"] as const).map((option) => (
-          <button
-            key={option}
-            type="button"
-            aria-pressed={unit === option}
-            onClick={() => setDistanceUnit(option)}
-            className={cn("h-11 rounded-lg text-sm font-semibold transition-colors", unit === option ? "key" : "text-muted-foreground")}
-          >
-            {option === "km" ? "Kilometres" : "Miles"}
-          </button>
-        ))}
-      </div>
+      <Segmented
+        className="mt-1.5"
+        aria-label="Distance unit"
+        options={[
+          { id: "km", label: "Kilometres" },
+          { id: "mi", label: "Miles" }
+        ]}
+        value={unit}
+        onChange={setDistanceUnit}
+      />
     </div>
   );
 }

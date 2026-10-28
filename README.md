@@ -73,6 +73,9 @@ gets, once the app is on the home screen (`public/manifest.webmanifest`, `public
 | Sheets | slide up, a grabber, swipe down to dismiss (from the grabber, or from the body once it is scrolled to the top) | same |
 | Deleting | immediate, with an Undo bar for five seconds (`lib/undo.ts`); list rows also swipe left to delete | same |
 | Tap the tab you are on | back to the top of that screen | same |
+| Segmented controls (Theme, Distance, Build/Schedule, Gym/Cardio, …) | one key slides to the chosen segment; a swipe on the control moves it one step | same |
+| Plan and Progress tabs | swipe the page sideways to switch; a swipe that starts on a row, a chip strip or the body map stays theirs | same |
+| Selected muscle on the body map | a brand-coloured ring plus a glow (the ring alone on iPhone, which does not draw filters inside an SVG) | ring and glow |
 | Long press on a label or a stat | nothing — text selects only in fields and on About (`select-text`) | same |
 | Zoom | none — double tap and pinch do nothing, as in a native app (installed app only on iPhone) | none |
 | Updates | a newer build loads itself the next time the app goes to the background, unless a timer or a sheet is in use; otherwise the "New version · Reload" bar | same |

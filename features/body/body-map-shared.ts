@@ -134,9 +134,15 @@ export function getHeatColor(intensity: number) {
  * globals.css. Painting from the `<svg>` root beats threading a fill onto each
  * of the ~120 paths.
  */
-/** The halo on the muscle you are pointing at. Only ever one at a time. */
-// Brand-coloured, not the foreground: a dark halo on Paper read as a stain.
+/**
+ * The halo on the muscle you are pointing at. Only ever one at a time.
+ * Brand-coloured, not the foreground: a dark halo on Paper read as a stain.
+ * Two parts, because iOS Safari does not apply CSS `filter` to elements inside
+ * an SVG: the drop-shadow glow where it works, and a brand-coloured stroke
+ * around the muscle everywhere — on iPhone that outline is the whole of it.
+ */
 const GLOW = "drop-shadow(0 0 2px hsl(var(--brand))) drop-shadow(0 0 6px hsl(var(--brand)))";
+const RING = "hsl(var(--brand))";
 
 export function muscleHeatVars(highlights: BodyMuscleHighlight[], glowMuscleId?: MuscleId) {
   const lit = glowMuscleId ? resolveMuscleIds(glowMuscleId) : [];
@@ -147,7 +153,8 @@ export function muscleHeatVars(highlights: BodyMuscleHighlight[], glowMuscleId?:
       `--m-${muscleId}`,
       getHeatColor(getIntensity(highlights, muscleId))
     ]),
-    ...lit.map((muscleId) => [`--g-${muscleId}`, GLOW])
+    ...lit.map((muscleId) => [`--g-${muscleId}`, GLOW]),
+    ...lit.map((muscleId) => [`--s-${muscleId}`, RING])
   ]) as React.CSSProperties;
 }
 
