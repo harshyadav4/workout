@@ -5,6 +5,7 @@ import {
   clearUserRows,
   isMissingTable,
   pushChanges,
+  syncErrorMessage,
   type RemoteState,
   type SyncableState
 } from "@/lib/sync";
@@ -33,11 +34,23 @@ function client() {
   return supabase;
 }
 
-/** A missing table means 0008 has not run — say so, rather than show a code. */
-function archiveError(error: { code?: string; message?: string }): Error {
-  return isMissingTable(error)
+/**
+ * A missing table means 0008 has not run — say so, rather than show a code.
+ * Anything else goes through the sync translator: the raw text names tables.
+ */
+function archiveError(error: unknown): Error {
+  return isMissingTable(error as { code?: string })
     ? new Error("Deletion needs migration 0008. Your data did not change.")
-    : new Error(error.message ?? "Could not connect to your account.");
+    : new Error(syncErrorMessage(error));
+}
+
+/** Runs a step whose failures come from Supabase, so what is thrown is a sentence. */
+async function translated<T>(step: () => Promise<T>): Promise<T> {
+  try {
+    return await step();
+  } catch (cause) {
+    throw archiveError(cause);
+  }
 }
 
 /**
@@ -53,7 +66,7 @@ export async function archiveUserData(userId: string, state: SyncableState): Pro
   if (error) {
     throw archiveError(error);
   }
-  await clearUserRows(userId);
+  await translated(() => clearUserRows(userId));
   return requestedAt;
 }
 
@@ -105,7 +118,7 @@ export async function discardArchive(
 
   const listed = await supabaseClient.storage.from(MEDIA_BUCKET).list(userId, { limit: MEDIA_LIST_LIMIT });
   if (listed.error) {
-    throw listed.error;
+    throw archiveError(listed.error);
   }
   const leftovers = unusedMedia(
     (listed.data ?? []).map((file) => `${userId}/${file.name}`),
@@ -114,7 +127,7 @@ export async function discardArchive(
   if (leftovers.length > 0) {
     const { error: removeError } = await supabaseClient.storage.from(MEDIA_BUCKET).remove(leftovers);
     if (removeError) {
-      throw removeError;
+      throw archiveError(removeError);
     }
   }
 }
@@ -127,7 +140,7 @@ export async function discardArchive(
  * step fails, the archive is still there.
  */
 export async function restoreToAccount(userId: string, restored: SyncableState): Promise<void> {
-  await clearUserRows(userId);
+  await translated(() => clearUserRows(userId));
   const nothing: SyncableState = {
     templates: [],
     sessionTemplates: [],
@@ -140,6 +153,6 @@ export async function restoreToAccount(userId: string, restored: SyncableState):
     profile: { ...restored.profile },
     scheduleConfig: undefined
   };
-  await pushChanges(userId, nothing, restored);
+  await translated(() => pushChanges(userId, nothing, restored));
   await discardArchive(userId, restored.templates);
 }

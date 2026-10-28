@@ -2,12 +2,13 @@
 
 import { ChevronRight, Compass, Download, Upload } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { InfoNote } from "@/components/ui/info-note";
 import { Input } from "@/components/ui/input";
+import { takeAccountRemovedNotice } from "@/features/auth/account-removed";
 import { useAuth } from "@/features/auth/use-auth";
 import { ClearThisPhone, DataDeletion } from "@/features/profile/data-deletion";
 import { useStartTour } from "@/features/tour/tour";
@@ -26,7 +27,7 @@ import {
 } from "@/lib/import-backup";
 import { shareOrDownloadJson } from "@/lib/download";
 import { buildPRLedger, buildStreaks } from "@/lib/progress-trends";
-import { buildExport } from "@/lib/sync";
+import { buildExport, syncErrorKind, syncErrorMessage } from "@/lib/sync";
 import { todayKey } from "@/lib/utils";
 
 /** user_metadata is provider-controlled and typed `any` — narrow, don't cast. */
@@ -410,6 +411,17 @@ export function AccountSection() {
   const { user, logout } = useAuth();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Why this device is suddenly signed out, when the sync layer did it: the
+  // account was deleted on the server. Read when signed out, so the flag set
+  // just before that sign-out is already there; shown until the next sign-in.
+  const [accountRemoved, setAccountRemoved] = useState(false);
+  useEffect(() => {
+    if (user) {
+      setAccountRemoved(false);
+    } else if (takeAccountRemovedNotice()) {
+      setAccountRemoved(true);
+    }
+  }, [user]);
 
   const signOut = async () => {
     setPending(true);
@@ -417,7 +429,13 @@ export function AccountSection() {
     try {
       await logout();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not sign out. Check your internet connection.");
+      // Never the raw text — an auth error can quote the request. Offline is the
+      // one case worth its own sentence here.
+      setError(
+        syncErrorKind(cause) === "offline"
+          ? "Could not sign out. Check your internet connection."
+          : syncErrorMessage(cause)
+      );
     }
     // Signed out, the page stays: it becomes the guest's.
     setPending(false);
@@ -426,6 +444,11 @@ export function AccountSection() {
   if (!user) {
     return (
       <Section title="Account">
+        {accountRemoved ? (
+          <p className="rounded-xl border border-danger/40 p-4 text-sm text-danger" role="alert">
+            Your account was removed. Sign in again to start fresh.
+          </p>
+        ) : null}
         <InfoNote
           heading={<p className="text-sm text-muted-foreground">Your data is on this phone only.</p>}
           note={

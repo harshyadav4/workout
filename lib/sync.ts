@@ -488,28 +488,66 @@ export function snapshotState(state: SyncableState): SyncableState {
   };
 }
 
+/** The reason behind a sync failure, for callers that act on it (sign out, say). */
+export type SyncErrorKind = "offline" | "expired" | "account-gone" | "refused" | "missing-schema" | "unknown";
+
+const NETWORK_FAILURE = /failed to fetch|load failed|networkerror|network request failed/i;
+const EXPIRED_SESSION = /jwt expired|invalid jwt|refresh token|session.*(expired|missing|not found)/i;
+
 /**
- * A sync failure in words the user can act on.
- *
- * Read by shape rather than `instanceof Error`: a rejected fetch does not always
- * arrive as an `Error` subclass. `hint` is appended because PostgrestError's own
- * docs say Postgres usually puts the actionable fix there, not in `message`.
+ * What kind of failure this is, read from the Postgres / PostgREST / GoTrue
+ * code first and the message second. By shape rather than `instanceof Error`:
+ * a rejected fetch does not always arrive as an `Error` subclass.
+ */
+export function syncErrorKind(error: unknown): SyncErrorKind {
+  const shape = error as { message?: unknown; code?: unknown; status?: unknown } | null | undefined;
+  const message = typeof shape?.message === "string" ? shape.message : "";
+  const code = typeof shape?.code === "string" ? shape.code : "";
+  const status = typeof shape?.status === "number" ? shape.status : 0;
+
+  // PGRST205 is "table not found", 42P01 the same from Postgres, 42703 "column
+  // not found": a migration in supabase/migrations not yet run on this project.
+  if (code === "PGRST205" || code === "42P01" || code === "42703") {
+    return "missing-schema";
+  }
+  // Every user table references auth.users: a foreign key failure on a sync
+  // write means the account behind the token is gone.
+  if (code === "23503") {
+    return "account-gone";
+  }
+  if (code === "PGRST301" || code === "PGRST303" || status === 401 || EXPIRED_SESSION.test(message)) {
+    return "expired";
+  }
+  // 42501 is Postgres "insufficient privilege"; PostgREST phrases an RLS refusal in words.
+  if (code === "42501" || /row-level security|permission denied/i.test(message)) {
+    return "refused";
+  }
+  if (NETWORK_FAILURE.test(message) || (error instanceof TypeError && !code)) {
+    return "offline";
+  }
+  return "unknown";
+}
+
+const SYNC_ERROR_TEXT: Record<SyncErrorKind, string> = {
+  offline: "No internet connection. It sends when you are back online.",
+  expired: "Your sign-in expired. Sign in again.",
+  "account-gone": "This account no longer exists. Sign in again.",
+  refused: "Your account refused the change. Sign out and in again.",
+  // For the developer, not the lifter: the README promises this exact pointer.
+  "missing-schema": "The account's database is missing an update. Run the migrations in supabase/migrations.",
+  unknown: "Could not reach your account."
+};
+
+/**
+ * A sync failure in words the user can act on. Never the raw message: Postgres
+ * names tables, constraints and policies in it, and that is schema on screen.
+ * The code goes in brackets so a screenshot still identifies the failure; the
+ * raw text is only ever logged (see features/workout/supabase-sync.tsx).
  */
 export function syncErrorMessage(error: unknown): string {
-  const shape = error as { message?: unknown; hint?: unknown; code?: unknown } | null | undefined;
-  const message = typeof shape?.message === "string" ? shape.message.trim() : "";
-  const hint = typeof shape?.hint === "string" ? shape.hint.trim() : "";
-  // PGRST205 is "table not found" and 42703 "column not found": almost always
-  // a migration in supabase/migrations that has not been run on this project.
-  const code = typeof shape?.code === "string" ? shape.code : "";
-  const missingSchema = code === "PGRST205" || code === "42703";
-
-  if (!message) {
-    return "Unknown error";
-  }
-
-  const text = hint ? `${message} — ${hint}` : message;
-  return missingSchema ? `${text} (run the migrations in supabase/migrations)` : text;
+  const shape = error as { code?: unknown } | null | undefined;
+  const code = typeof shape?.code === "string" && shape.code ? ` (${shape.code})` : "";
+  return `${SYNC_ERROR_TEXT[syncErrorKind(error)]}${code}`;
 }
 
 /**

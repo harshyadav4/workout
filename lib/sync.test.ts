@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 
 import { reconcile } from "@/lib/reconcile";
-import { buildExport, diffRows, remoteBaseline, syncErrorMessage, type RemoteState, type SyncableState } from "@/lib/sync";
+import { buildExport, diffRows, remoteBaseline, syncErrorKind, syncErrorMessage, type RemoteState, type SyncableState } from "@/lib/sync";
 import type { WorkoutLog, WorkoutTemplate } from "@/lib/types";
 
 // The whole sync rests on this: a missed delete resurrects a session on the
@@ -92,18 +92,33 @@ const c = { id: "c", n: 1 };
   assert.match(payload.exportedAt, /^\d{4}-\d{2}-\d{2}T/, "the file says when it was written");
 }
 
-// Sync errors reach the user verbatim, so the unwrapping has to survive whatever
-// supabase-js throws — including a rejected fetch that is not an Error subclass.
+// Sync errors reach the screen, so they are sentences, never the raw Postgres
+// text — that names tables and constraints. Only the code goes with them.
 {
-  assert.equal(syncErrorMessage(new Error("JWT expired")), "JWT expired");
+  assert.equal(syncErrorKind({ code: "23503", message: 'insert or update on table "profiles" violates foreign key constraint "profiles_id_fkey"' }), "account-gone");
   assert.equal(
-    syncErrorMessage({ message: "permission denied", hint: "Check your RLS policy" }),
-    "permission denied — Check your RLS policy",
-    "PostgREST puts the actionable fix in hint, not message"
+    syncErrorMessage({ code: "23503", message: 'violates foreign key constraint "profiles_id_fkey"' }),
+    "This account no longer exists. Sign in again. (23503)",
+    "a deleted account's token reads as the account being gone, with no table named"
   );
-  assert.equal(syncErrorMessage({ message: "Failed to fetch" }), "Failed to fetch");
-  assert.equal(syncErrorMessage("a bare string"), "Unknown error");
-  assert.equal(syncErrorMessage(undefined), "Unknown error", "must not throw on a nullish reject");
+  assert.equal(
+    syncErrorMessage({ code: "42501", message: 'new row violates row-level security policy for table "data_archives"' }),
+    "Your account refused the change. Sign out and in again. (42501)"
+  );
+  assert.equal(syncErrorKind({ message: "new row violates row-level security policy" }), "refused", "an RLS refusal without a code still reads from the words");
+  assert.equal(syncErrorKind(new Error("JWT expired")), "expired");
+  assert.equal(syncErrorKind({ code: "PGRST301", message: "JWT expired" }), "expired");
+  assert.equal(syncErrorKind({ message: "Failed to fetch" }), "offline");
+  assert.equal(syncErrorKind(new TypeError("Load failed")), "offline", "Safari's wording of a dead network");
+  assert.equal(
+    syncErrorMessage({ code: "PGRST205", message: "Could not find the table 'public.skill_goals'", hint: "Perhaps you meant..." }),
+    "The account's database is missing an update. Run the migrations in supabase/migrations. (PGRST205)",
+    "the migration pointer stays — the README promises it"
+  );
+  assert.equal(syncErrorKind({ code: "42703", message: "column does not exist" }), "missing-schema");
+  assert.equal(syncErrorMessage({ message: "something odd", hint: "Check your RLS policy" }), "Could not reach your account.", "neither the message nor the hint leaks");
+  assert.equal(syncErrorMessage("a bare string"), "Could not reach your account.");
+  assert.equal(syncErrorMessage(undefined), "Could not reach your account.", "must not throw on a nullish reject");
 }
 
 // The baseline after a read is what the account holds, not the merged store.

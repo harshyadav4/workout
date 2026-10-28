@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 
+import { clearAccountRemovedNotice, markAccountRemoved } from "@/features/auth/account-removed";
 import { useAuth } from "@/features/auth/use-auth";
 import { afterTour, isTouring } from "@/features/tour/tour-store";
 import { setSyncStatus, useSyncStatus } from "@/features/workout/sync-status";
@@ -19,6 +20,7 @@ import {
   pushChanges,
   remoteBaseline,
   snapshotState,
+  syncErrorKind,
   syncErrorMessage,
   type SyncableState
 } from "@/lib/sync";
@@ -54,6 +56,31 @@ const NOTHING_KNOWN_REMOTE: SyncableState = {
   measurements: [],
   profile: EMPTY_PROFILE
 };
+
+/**
+ * A foreign key failure on a sync write means the account behind the token is
+ * gone — every user table references auth.users — while the token itself stays
+ * valid for up to an hour, so the device would keep failing the same way until
+ * it ran out. The server is asked once to be sure (a missing row elsewhere
+ * would fail the same key check), then the device signs out locally: the
+ * server-side session went with the account, so a server sign-out can only
+ * error. The account's local copy stays keyed to the old id and is never
+ * pushed into whichever account signs in next.
+ */
+async function signOutIfAccountGone(error: unknown) {
+  if (!supabase || syncErrorKind(error) !== "account-gone") {
+    return;
+  }
+  const { error: whoami } = await supabase.auth.getUser();
+  const gone =
+    whoami !== null &&
+    (whoami.status === 403 || whoami.status === 404 || (whoami as { code?: string }).code === "user_not_found");
+  if (!gone) {
+    return;
+  }
+  markAccountRemoved();
+  await supabase.auth.signOut({ scope: "local" });
+}
 
 /** Background Sync tag the worker answers with a "retry-sync" message. */
 const SYNC_TAG = "push-changes";
@@ -102,6 +129,10 @@ export function SupabaseSync() {
       }
       return;
     }
+
+    // Signed in: a "your account was removed" notice left by an earlier
+    // sign-out in this tab no longer applies.
+    clearAccountRemovedNotice();
 
     // Before anything is read or pushed: prove the persisted copy is this
     // user's, or drop it. Everything below may upload local state, and on a
@@ -156,6 +187,7 @@ export function SupabaseSync() {
           if (!cancelled) {
             setSyncStatus({ error: { stage: "push", message: syncErrorMessage(error) } });
           }
+          void signOutIfAccountGone(error);
           // Android Chrome: the worker wakes when the network is back and asks
           // this window to flush (public/sw.js "sync"), even if the page was
           // frozen in the background meanwhile. Absent elsewhere; the `online`
