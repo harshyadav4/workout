@@ -146,7 +146,7 @@ function SessionStrip({
   startedAt?: string;
 }) {
   return (
-    <Card className="sticky top-[calc(env(safe-area-inset-top)+0.5rem)] z-30 grid grid-cols-[auto_1fr_auto] items-center gap-3 p-3">
+    <Card className="sticky top-[calc(env(safe-area-inset-top)+var(--titlebar)+0.5rem)] z-30 grid grid-cols-[auto_1fr_auto] items-center gap-3 p-3">
       <SessionRing value={total > 0 ? done / total : 0} size={56} stroke={8} label={`${done} of ${total} sets logged`}>
         <span className="font-display text-[17px] font-extrabold tracking-tight">{done}</span>
       </SessionRing>

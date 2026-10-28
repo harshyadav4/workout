@@ -23,7 +23,7 @@ export function MobileShell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="mx-auto min-h-dvh max-w-md px-4 pb-8 pt-[calc(env(safe-area-inset-top)+1.5rem)] app-safe-bottom">
+    <div className="mx-auto min-h-dvh max-w-md px-4 pb-8 pt-[calc(env(safe-area-inset-top)+var(--titlebar)+1.5rem)] app-safe-bottom">
       <ArtifactWallpaper set={wallpaper} />
       {header ? <header className="mb-5 px-1">{header}</header> : <h1 className="sr-only">{title}</h1>}
       <main className="page-enter space-y-4">

@@ -4,9 +4,14 @@ import { cn } from "@/lib/utils";
 
 /** A well: pressed into the surface, so it reads as a place to put something. */
 export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
-  ({ className, ...props }, ref) => (
+  ({ className, type, enterKeyHint, ...props }, ref) => (
     <input
       ref={ref}
+      type={type}
+      // The phone keyboard's return key says what it does — "Done" closes it,
+      // "Search" searches — instead of a bare return arrow. Pass "next" on a
+      // field in a chain.
+      enterKeyHint={enterKeyHint ?? (type === "search" ? "search" : "done")}
       className={cn(
         // text-base, not text-sm: iOS Safari zooms the viewport on focus for any
         // input under 16px and does not zoom back.

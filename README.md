@@ -67,6 +67,15 @@ gets, once the app is on the home screen (`public/manifest.webmanifest`, `public
 | Retry a failed sync | when the browser fires `online` | `online`, plus Background Sync wakes the worker |
 | Sign in | Google, Apple (native sheet with Face ID) | Google, Apple |
 | Status bar colour | follows the theme | follows the theme |
+| Back while a sheet is open | edge swipe closes the sheet, not the page | back gesture closes the sheet, not the app |
+| Tabs | each keeps its scroll position | same |
+| Keyboard return key | says Done / Search | same |
+
+Installed on a desktop (Chrome, Edge): the window's title bar is the app's own
+(`window-controls-overlay`; `--titlebar` in `app/globals.css` pads the pages under it) and the
+page has no scrollbar. In a browser tab both stay as the browser draws them. Hover styles apply
+only on devices that can hover (`hoverOnlyWhenSupported` in `tailwind.config.ts`), so a tapped
+key does not stay lit.
 
 iPhone limits that shape the design: a page's timers stop within seconds of the screen
 locking, so anything that must happen then goes through Web Push; notifications, push and the
@@ -126,6 +135,24 @@ npm run dev
 > data* refuses with a message naming this migration — it never deletes anything it cannot first archive. Deletion
 > keeps the old data hidden in `data_archives` for 7 days; there is no scheduled job, so the
 > archive is deleted the first time the user opens the app after the week.
+>
+> **If "Delete all my data" fails with "refused the change"** (code `42501`, or in the console
+> `new row violates row-level security policy for table "data_archives"`), the table's policy
+> exists but is empty. A policy created by hand in the dashboard with blank expressions, or a
+> table created before the migration ran, leaves `create policy` with nothing to add — and an
+> empty policy refuses every row. Check with:
+>
+> ```sql
+> select policyname, qual, with_check from pg_policies where tablename = 'data_archives';
+> ```
+>
+> Both `qual` and `with_check` must read `(auth.uid() = user_id)`. If either is null, recreate it:
+>
+> ```sql
+> drop policy if exists "data archives: own row" on data_archives;
+> create policy "data archives: own row" on data_archives
+>   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+> ```
 
 > **Run `0007_cardio_and_skills.sql` for cardio distance, Skills and session times.** It adds
 > `set_logs.distance_km`, the `skill_goals` table, and `scheduled_sessions.started_at` /
@@ -285,6 +312,11 @@ npm run seed:year  # fills a year of logs against a real Supabase project
 ## Notes
 
 - Route protection is client-side via `AuthGuard`; RLS is what actually enforces access.
+- Sync errors reach the screen as one sentence plus the Postgres/PostgREST code in brackets
+  (`lib/sync.ts`, `syncErrorMessage`), never the raw message — it names tables, constraints and
+  policies. The raw text is in the browser console under `[supabase-sync]`. A foreign key
+  failure on a push (`23503`) means the account behind the still-valid token was deleted; the
+  device confirms that with the server, signs out locally, and the You tab says why.
 - Supabase sync is debounced so tapping through sets stays responsive. The store knows
   nothing about Supabase — `features/workout/supabase-sync.tsx` subscribes from outside.
 - Dates are `YYYY-MM-DD` keys parsed as `${key}T00:00:00Z` throughout.

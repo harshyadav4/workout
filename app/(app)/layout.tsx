@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 
+import { ScrollMemory } from "@/components/layout/scroll-memory";
 import { GuestMergePrompt } from "@/features/auth/guest-merge-prompt";
 import { UpdateBar } from "@/features/pwa/update-bar";
 import { TourOverlay } from "@/features/tour/tour";
@@ -20,6 +21,8 @@ export default function AppLayout({
   return (
     <>
       {children}
+      {/* Each tab keeps its scroll position across the dock. */}
+      <ScrollMemory />
       {/* Once for every page, so the tour lives across page changes. Suspense
           because it reads ?tour=1 from the URL. */}
       {/* The sign-in question about this phone's guest training. */}

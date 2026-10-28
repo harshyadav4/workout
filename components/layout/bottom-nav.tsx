@@ -58,6 +58,9 @@ export function BottomNav() {
             <Link
               key={item.href}
               href={item.href}
+              // No scroll-to-top from Next: ScrollMemory puts each tab back
+              // where it was left.
+              scroll={false}
               aria-current={isOn(item.href, pathname) ? "page" : undefined}
               // Where the tour's guide flies to before it changes page.
               data-tour={`nav-${item.href}`}

@@ -111,6 +111,8 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP }} />
       </head>
       <body className={`${inter.variable} ${bricolage.variable}`}>
+        {/* Drags the window when installed on a desktop; zero height elsewhere. */}
+        <div className="titlebar-drag" aria-hidden />
         <AppProviders>{children}</AppProviders>
         <RegisterServiceWorker />
         {/* Page views on Vercel (no cookies). Counts nothing in development. */}

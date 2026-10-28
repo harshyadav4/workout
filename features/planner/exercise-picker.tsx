@@ -128,6 +128,7 @@ export function ExercisePicker({ onBack, onPick }: ExercisePickerProps) {
           the results — the two things you use when you don't want to type. */}
       <Input
         placeholder="Search by name or muscle"
+        enterKeyHint="search"
         value={query}
         onChange={(event) => setQuery(event.target.value)}
       />

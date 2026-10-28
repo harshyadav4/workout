@@ -163,6 +163,51 @@ html {
 html,
 body {
   overscroll-behavior: none;
+  /* The app restores each tab's own scroll position (ScrollMemory). Scroll
+     anchoring fought it: a card that renders a frame after the page shifted the
+     restored view down by its height. Content here is local, so the shift
+     anchoring guards against is not one this app has. */
+  overflow-anchor: none;
+}
+
+/* Installed: no scrollbar down the page. Phones draw an overlay one that fades,
+   so this changes nothing there; on a desktop the classic 12px bar was the one
+   thing in the window that said "web page". The wheel, trackpad and keys still
+   scroll. In a browser tab the bar stays — there it is the cue for "more
+   below". Inner lists (ScrollArea) keep their own thin bar. */
+@media (display-mode: standalone), (display-mode: window-controls-overlay) {
+  html {
+    scrollbar-width: none;
+  }
+
+  html::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Installed on a desktop, the title bar is ours (manifest display_override
+   "window-controls-overlay"): the OS draws only its close/minimise controls over
+   the top right, and the page runs under them. --titlebar is how much of the
+   top that strip takes, added to the pages' top padding; .titlebar-drag is a
+   bare strip the same height that drags the window, as a title bar would. Both
+   are 0 everywhere else. */
+:root {
+  --titlebar: 0px;
+}
+
+@media (display-mode: window-controls-overlay) {
+  :root {
+    --titlebar: env(titlebar-area-height, 0px);
+  }
+
+  .titlebar-drag {
+    position: fixed;
+    inset: 0 0 auto 0;
+    z-index: 60;
+    height: env(titlebar-area-height, 0px);
+    -webkit-app-region: drag;
+    app-region: drag;
+  }
 }
 
 /* Controls are pressed, not read: a long press must not select the label or

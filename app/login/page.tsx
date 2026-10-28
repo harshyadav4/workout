@@ -136,7 +136,7 @@ export default function LoginPage() {
       />
       <div className="login-night-shade absolute inset-0" />
 
-      <div className="relative flex w-full max-w-md flex-col px-6 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] pt-[calc(env(safe-area-inset-top)+2rem)] sm:rounded-3xl sm:border sm:border-border sm:bg-card/85 sm:p-8 sm:shadow-plaque sm:backdrop-blur">
+      <div className="relative flex w-full max-w-md flex-col px-6 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] pt-[calc(env(safe-area-inset-top)+var(--titlebar)+2rem)] sm:rounded-3xl sm:border sm:border-border sm:bg-card/85 sm:p-8 sm:shadow-plaque sm:backdrop-blur">
         <div className="flex flex-1 flex-col justify-end pb-10 pt-8 [@media(max-height:700px)]:pb-6 sm:flex-none sm:py-8">
           <h1 className="font-display text-[44px] font-extrabold leading-[0.95] tracking-[-0.03em] [@media(max-height:700px)]:text-[38px]">
             Train.

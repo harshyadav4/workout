@@ -2,6 +2,10 @@ import type { Config } from "tailwindcss";
 
 const config: Config = {
   darkMode: ["class"],
+  // `hover:` only where something can hover. On a touch screen the hover state
+  // stays on the last tapped key until the next tap lands somewhere else, so
+  // every button looked half-pressed after use.
+  future: { hoverOnlyWhenSupported: true },
   content: [
     "./app/**/*.{ts,tsx}",
     "./components/**/*.{ts,tsx}",

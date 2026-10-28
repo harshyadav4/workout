@@ -2,7 +2,7 @@
 
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
-import type { CSSProperties, FocusEvent } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type FocusEvent } from "react";
 
 import { isTextEntry, useKeyboard } from "@/components/ui/use-keyboard";
 import { cn } from "@/lib/utils";
@@ -12,7 +12,69 @@ import { cn } from "@/lib/utils";
 export const DRAWER_CONTENT =
   "bottom-0 w-full rounded-b-none pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:bottom-0";
 
-export const Dialog = DialogPrimitive.Root;
+/** The key this file adds to `history.state` while a sheet is open. */
+const SHEET_STATE = "ariseSheet";
+let sheetSerial = 0;
+
+/**
+ * One history entry for as long as `open` is true. The Android back gesture
+ * (and the iOS edge swipe) pops it, and `close` runs — the sheet goes, the page
+ * stays, which is what a native sheet does. Closed any other way (the X, the
+ * scrim, Escape, a button), the entry is popped here so the next Back still
+ * goes where the user expects.
+ *
+ * The new state copies the current one: Next keeps its own keys in
+ * `history.state` and reloads the page on a popstate whose state lacks them.
+ */
+function useSheetHistory(open: boolean, close: () => void) {
+  const closeRef = useRef(close);
+  closeRef.current = close;
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const id = ++sheetSerial;
+    window.history.pushState({ ...(window.history.state ?? {}), [SHEET_STATE]: id }, "");
+    let poppedByBack = false;
+    const onPop = () => {
+      if (window.history.state?.[SHEET_STATE] !== id) {
+        poppedByBack = true;
+        closeRef.current();
+      }
+    };
+    window.addEventListener("popstate", onPop);
+    return () => {
+      window.removeEventListener("popstate", onPop);
+      // Still our entry on top: the sheet closed from the UI, so drop it. After
+      // a route change inside the sheet, Next's entry is on top and stays.
+      if (!poppedByBack && window.history.state?.[SHEET_STATE] === id) {
+        window.history.back();
+      }
+    };
+  }, [open]);
+}
+
+/**
+ * Radix's Root, plus the history entry above. Works controlled (`open` +
+ * `onOpenChange`) or not (`DialogTrigger` inside): the open state is mirrored
+ * here either way, so Back can close it.
+ */
+export function Dialog({ open, defaultOpen, onOpenChange, children, ...props }: DialogPrimitive.DialogProps) {
+  const [uncontrolled, setUncontrolled] = useState(defaultOpen ?? false);
+  const isOpen = open ?? uncontrolled;
+  const change = (next: boolean) => {
+    setUncontrolled(next);
+    onOpenChange?.(next);
+  };
+  useSheetHistory(isOpen, () => change(false));
+  return (
+    <DialogPrimitive.Root open={isOpen} onOpenChange={change} {...props}>
+      {children}
+    </DialogPrimitive.Root>
+  );
+}
+
 export const DialogTrigger = DialogPrimitive.Trigger;
 export const DialogClose = DialogPrimitive.Close;
 
