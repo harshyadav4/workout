@@ -72,7 +72,9 @@ gets, once the app is on the home screen (`public/manifest.webmanifest`, `public
 | Keyboard return key | says Done / Search | same |
 | Sheets | slide up, a grabber, swipe down to dismiss | same |
 | Long press on a label or a stat | nothing — text selects only in fields and on About (`select-text`) | same |
-| Double tap on text | no zoom; pinch zoom stays | same |
+| Zoom | none — double tap and pinch do nothing, as in a native app (installed app only on iPhone) | none |
+| Updates | a newer build loads itself the next time the app goes to the background, unless a timer or a sheet is in use; otherwise the "New version · Reload" bar | same |
+| Keyboard | 1–4 switch tabs, Escape closes a sheet | same |
 
 Installed on a desktop (Chrome, Edge): the window's title bar is the app's own
 (`window-controls-overlay`; `--titlebar` in `app/globals.css` pads the pages under it) and the

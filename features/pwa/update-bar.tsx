@@ -4,11 +4,29 @@ import { RefreshCw, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { LIVE_KEY, REST_KEY, readStorage, restoreLive, restoreRest } from "@/lib/timer";
 
 /** The build this page was loaded from (next.config `env`). */
 const LOADED = process.env.NEXT_PUBLIC_BUILD_ID || "dev";
 /** At most one check per ten minutes, however often the app is reopened. */
 const CHECK_EVERY_MS = 10 * 60 * 1000;
+
+/**
+ * Whether a reload now would cut something short: a rest or a set timer
+ * running, a sheet open (a half-built session lives only in it), or a field
+ * being typed in. Each of those is the user's, and the update waits.
+ */
+function midTask(): boolean {
+  const now = Date.now();
+  if (restoreRest(readStorage(REST_KEY), now) || restoreLive(readStorage(LIVE_KEY), now)) {
+    return true;
+  }
+  if (document.querySelector('[role="dialog"]')) {
+    return true;
+  }
+  const focused = document.activeElement;
+  return focused instanceof HTMLInputElement || focused instanceof HTMLTextAreaElement;
+}
 
 /** True only when both builds are real and differ. Development never offers. */
 export function isNewer(loaded: string, server: string | undefined): boolean {
@@ -16,16 +34,22 @@ export function isNewer(loaded: string, server: string | undefined): boolean {
 }
 
 /**
- * "New version · Reload", just above the dock. An installed app stays open
- * for days, so it checks when it comes back to the screen: /api/version
- * against the build it was loaded from. It also asks the service worker to
- * look for a new sw.js. Pages are network first in sw.js, so Reload gets the
- * new build.
+ * Updates the way a store app does: quietly, while nobody is looking. An
+ * installed app stays open for days, so it checks when it comes back to the
+ * screen — /api/version against the build it was loaded from — and asks the
+ * service worker to look for a new sw.js. Once a newer build is known, the
+ * next time the app goes to the background it reloads right there, with
+ * nothing on screen to flash, unless a timer or a sheet is in use (midTask).
+ * The "New version · Reload" bar above the dock is the fallback for an app
+ * that never leaves the screen. Pages are network first in sw.js, so either
+ * route gets the new build.
  */
 export function UpdateBar() {
   const [show, setShow] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const lastCheck = useRef(0);
+  // Read inside the visibility handler, which closes over the first render.
+  const newer = useRef(false);
 
   useEffect(() => {
     if (LOADED === "dev") {
@@ -50,6 +74,7 @@ export function UpdateBar() {
         }
         const { version } = (await response.json()) as { version?: string };
         if (isNewer(LOADED, version)) {
+          newer.current = true;
           setShow(true);
         }
       } catch {
@@ -57,10 +82,20 @@ export function UpdateBar() {
       }
     };
 
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        if (newer.current && !midTask()) {
+          window.location.reload();
+        }
+        return;
+      }
+      void check();
+    };
+
     // The first load is the current build; the first check is ten minutes on.
     lastCheck.current = Date.now();
-    document.addEventListener("visibilitychange", check);
-    return () => document.removeEventListener("visibilitychange", check);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
   }, []);
 
   if (!show || dismissed) {

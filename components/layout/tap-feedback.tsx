@@ -33,8 +33,15 @@ export function TapFeedback() {
       }
       haptic();
     };
+    // iOS Safari applies `:active` to a touched element only while some
+    // touchstart listener exists on the page. This one does nothing but that.
+    const onTouch = () => undefined;
     document.addEventListener("click", onClick, true);
-    return () => document.removeEventListener("click", onClick, true);
+    document.addEventListener("touchstart", onTouch, { passive: true });
+    return () => {
+      document.removeEventListener("click", onClick, true);
+      document.removeEventListener("touchstart", onTouch);
+    };
   }, []);
 
   return null;

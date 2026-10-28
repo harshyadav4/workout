@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { BarChart3, CalendarDays, Home, UserCircle2 } from "lucide-react";
 
@@ -38,6 +38,7 @@ export function BottomNav() {
   const recordingDue = isRecordingDue(measurements, profile);
   const typing = useTyping();
   const pending = usePendingTab(pathname);
+  useTabKeys();
 
   return (
     <nav
@@ -106,6 +107,33 @@ function usePendingTab(pathname: string) {
   const [href, set] = useState<string | undefined>(undefined);
   useEffect(() => set(undefined), [pathname]);
   return { href, set };
+}
+
+/**
+ * Keys 1–4 switch tabs, for the installed desktop app and a phone with a
+ * keyboard. Not while typing, not with a sheet open (Escape is its key), and
+ * not with a modifier held — those are the browser's shortcuts.
+ */
+function useTabKeys() {
+  const router = useRouter();
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey || event.altKey || isTextEntry(event.target)) {
+        return;
+      }
+      if (document.querySelector('[role="dialog"]')) {
+        return;
+      }
+      const item = items[Number(event.key) - 1];
+      if (item && /^[1-4]$/.test(event.key)) {
+        event.preventDefault();
+        router.push(item.href, { scroll: false });
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [router]);
 }
 
 /** True while a text field anywhere on the page has focus. */

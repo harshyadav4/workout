@@ -258,12 +258,35 @@ textarea,
   user-select: text;
 }
 
-/* No 300 ms wait for a double-tap zoom, and no double-tap zoom at all — on the
-   whole page, not only on controls, so a double tap on a stat does not zoom
-   the screen. Pinch zoom stays: taking it away is an accessibility fault, and
-   iPhone ignores the setting anyway. */
+/* Only panning: no double-tap zoom and no pinch zoom, so the screen is the
+   screen, as in a native app (the viewport meta in app/layout.tsx says the
+   same for iPhone, which honours it only in the installed app). The cost is
+   real: pinching was the one way to enlarge the screen for someone who needs
+   it; the phone's own text size setting is the route left (Android applies it
+   to the app; iPhone does not). Also the no-300ms-wait rule for every tap. */
 body {
-  touch-action: manipulation;
+  touch-action: pan-x pan-y;
+}
+
+/* Every tappable answers a press. Keys have their own (`.key:active` moves
+   the key down); this is the floor for the plain buttons — rows, chips, icons,
+   table cells — which otherwise felt like tapping glass. */
+button:not(.key):not(.key-quiet):not(:disabled):active,
+[role="button"]:active {
+  opacity: 0.72;
+}
+
+/* No up/down arrows in number fields: a desktop widget, and the fields set the
+   numeric keypad already. */
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 /* No iPhone "save image" / link preview sheet on a long press, and no

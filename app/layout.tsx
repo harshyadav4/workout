@@ -86,6 +86,12 @@ export const viewport: Viewport = {
   ],
   width: "device-width",
   initialScale: 1,
+  // No pinch zoom, with `touch-action: pan-x pan-y` in globals.css for the
+  // browsers that read that instead. iPhone honours this only in the
+  // installed app; in Safari it zooms regardless. See the note in globals.css
+  // on what it costs.
+  maximumScale: 1,
+  userScalable: false,
   viewportFit: "cover",
   // Android Chrome: shrink the page above the keyboard instead of covering it.
   // iPhone ignores this; the sheets handle it there (components/ui/use-keyboard).
