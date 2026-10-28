@@ -129,6 +129,7 @@ export function ExercisePicker({ onBack, onPick }: ExercisePickerProps) {
       <Input
         placeholder="Search by name or muscle"
         enterKeyHint="search"
+        autoCapitalize="none"
         value={query}
         onChange={(event) => setQuery(event.target.value)}
       />

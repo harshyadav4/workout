@@ -70,6 +70,9 @@ gets, once the app is on the home screen (`public/manifest.webmanifest`, `public
 | Back while a sheet is open | edge swipe closes the sheet, not the page | back gesture closes the sheet, not the app |
 | Tabs | each keeps its scroll position | same |
 | Keyboard return key | says Done / Search | same |
+| Sheets | slide up, a grabber, swipe down to dismiss | same |
+| Long press on a label or a stat | nothing — text selects only in fields and on About (`select-text`) | same |
+| Double tap on text | no zoom; pinch zoom stays | same |
 
 Installed on a desktop (Chrome, Edge): the window's title bar is the app's own
 (`window-controls-overlay`; `--titlebar` in `app/globals.css` pads the pages under it) and the

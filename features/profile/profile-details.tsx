@@ -102,7 +102,7 @@ export function ProfileHeader() {
             <p className="truncate font-display text-[22px] font-extrabold leading-none tracking-tight">
               {name || "No name yet"}
             </p>
-            <p className="mt-1.5 truncate text-sm text-muted-foreground">{email || "—"}</p>
+            <p className="mt-1.5 select-text truncate text-sm text-muted-foreground">{email || "—"}</p>
           </div>
           {guest ? (
             <Button asChild size="sm" className="ml-auto shrink-0">
@@ -223,7 +223,7 @@ function SyncStatus() {
             ? "New data still saves, but data from other devices does not show."
             : "It is on this phone and sends with your next change."}
         </p>
-        <p className="mt-1 break-words text-xs text-muted-foreground">{error.message}</p>
+        <p className="mt-1 select-text break-words text-xs text-muted-foreground">{error.message}</p>
         {stalled ? (
           <Button variant="secondary" className="mt-3 w-full" onClick={retrySync}>
             Retry

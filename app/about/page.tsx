@@ -97,7 +97,7 @@ function Ctas() {
 
 export default function AboutPage() {
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 pb-[calc(env(safe-area-inset-bottom)+2rem)] pt-[calc(env(safe-area-inset-top)+1.5rem)] sm:px-6">
+    <main className="select-text mx-auto w-full max-w-5xl px-4 pb-[calc(env(safe-area-inset-bottom)+2rem)] pt-[calc(env(safe-area-inset-top)+1.5rem)] sm:px-6">
       <script
         type="application/ld+json"
         // "<" escaped so no answer text can close the script tag.

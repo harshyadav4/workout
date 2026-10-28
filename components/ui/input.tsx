@@ -12,6 +12,11 @@ export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttribute
       // "Search" searches — instead of a bare return arrow. Pass "next" on a
       // field in a chain.
       enterKeyHint={enterKeyHint ?? (type === "search" ? "search" : "done")}
+      // Nothing typed into an <Input> here is prose: names of lifts and
+      // sessions, numbers, a search. Autocorrect turned "RDL" into a word and
+      // underlined "Zercher". The two textareas (notes, a pasted plan) keep it.
+      autoCorrect="off"
+      spellCheck={false}
       className={cn(
         // text-base, not text-sm: iOS Safari zooms the viewport on focus for any
         // input under 16px and does not zoom back.

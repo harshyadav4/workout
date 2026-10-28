@@ -557,6 +557,7 @@ export function PlanBuild({
                   <Input
                     className="mt-1"
                     placeholder="Push, Pull, Legs"
+                    autoCapitalize="words"
                     value={sessionName}
                     onChange={(event) => setSessionName(event.target.value)}
                   />
@@ -700,6 +701,7 @@ export function PlanBuild({
                       <div className="flex gap-2">
                         <Input
                           placeholder="Exercise name"
+                          autoCapitalize="words"
                           value={exercise.name}
                           onChange={(event) =>
                             updateExercise(exercise.id, {

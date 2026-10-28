@@ -249,7 +249,7 @@ function CustomSkillBuilder({ onDone }: { onDone: () => void }) {
       <p className="mt-1 text-xs text-muted-foreground">Add exercises, easiest first.</p>
       <label className="mt-4 block text-xs text-muted-foreground">
         Skill name
-        <Input className="mt-1" value={name} placeholder="Front lever" onChange={(event) => setName(event.target.value)} />
+        <Input className="mt-1" autoCapitalize="words" value={name} placeholder="Front lever" onChange={(event) => setName(event.target.value)} />
       </label>
 
       <ol className="mt-4 space-y-2">
