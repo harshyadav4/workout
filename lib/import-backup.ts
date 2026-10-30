@@ -94,6 +94,16 @@ export interface ParsedBackup {
   counts: Record<string, number>;
 }
 
+/** Nothing to add: for a backup or archive that holds only another part (diet). */
+export const EMPTY_WORKOUT_BACKUP: RemoteState = {
+  templates: [],
+  sessionTemplates: [],
+  scheduledSessions: [],
+  logs: [],
+  setLogs: [],
+  measurements: []
+};
+
 /**
  * Validate a decoded export. Throws `ImportError` only when the file is not an
  * export at all — a file with no recognisable rows is a wrong-file mistake, and

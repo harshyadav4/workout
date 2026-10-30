@@ -28,23 +28,33 @@ interface PromptState {
   userId?: string;
   /** "5 sessions and 2 weigh-ins". */
   summary?: string;
+  /** Run on "Add", for copies the workout store does not hold (diet). */
+  onAdd?: (() => void)[];
 }
 
 const prompt = createStore<PromptState>(() => ({}));
 
-export function askGuestMerge(userId: string, summary: string) {
-  prompt.setState({ userId, summary });
+/** A second caller joins the open question rather than replacing it: one question, one answer. */
+export function askGuestMerge(userId: string, summary: string, onAdd?: () => void) {
+  prompt.setState((current) => {
+    const open = current.userId === userId && current.summary;
+    return {
+      userId,
+      summary: open ? `${current.summary}, and ${summary}` : summary,
+      onAdd: [...(open ? current.onAdd ?? [] : []), ...(onAdd ? [onAdd] : [])]
+    };
+  });
 }
 
 export function GuestMergePrompt() {
-  const { userId, summary } = useStore(prompt);
+  const { userId, summary, onAdd } = useStore(prompt);
   const store = useWorkoutStoreApi();
 
   if (!userId || !summary) {
     return null;
   }
 
-  const close = () => prompt.setState({ userId: undefined, summary: undefined });
+  const close = () => prompt.setState({ userId: undefined, summary: undefined, onAdd: undefined });
 
   const add = () => {
     const guest = readGuestCopy();
@@ -54,6 +64,7 @@ export function GuestMergePrompt() {
         .hydrateRemote(guestAsIncoming(guest, store.getState().profile, store.getState().scheduleConfig));
       clearGuestCopy();
     }
+    onAdd?.forEach((run) => run());
     close();
   };
 

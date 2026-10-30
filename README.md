@@ -140,6 +140,13 @@ npm run dev
 
 ## Supabase setup
 
+> **Run `0015_diet_micronutrients.sql` for a meal's foods to sync.** Without it meals still sync, and
+> their foods and micronutrients stay on the device.
+
+> **Run `0014_diet.sql` for Diet to sync.** It adds `meals`, `meal_plans`, `scheduled_meal_days`
+> and `diet_settings`. The app does not break without it: diet stays on the device, every workout
+> table syncs as before, and the next save after the migration sends it all.
+
 > **Run `0008_data_deletion.sql` for "Delete all my data".** It adds
 > `profiles.deletion_requested_at` and the `data_archives` table. Without it *Delete all my
 > data* refuses with a message naming this migration — it never deletes anything it cannot first archive. Deletion
@@ -182,7 +189,7 @@ npm run dev
 
 1. Create a Supabase project.
 2. Run the migrations in `supabase/migrations/` in order — `0001_init.sql` through
-   `0010_push.sql`. `0009` makes template ids per user (older projects collide on shared
+   `0014_diet.sql`. `0009` makes template ids per user (older projects collide on shared
    ids like `db-0025`); `0010` adds the two Web Push tables.
 3. Enable the Google provider under **Authentication → Providers**.
 4. Add your local dev origin and deployed domain to the allowed redirect URLs.
@@ -296,6 +303,61 @@ engagement percentages, so `lib/exercises.ts` derives them: `MUSCLE_MAP` widens 
 dataset name to every app muscle it could mean, then `HEAD_RULES` narrows it back down by
 matching the exercise name. This is inference, not measurement, and the UI is written to say
 so.
+
+## Diet
+
+The circle in the middle of the dock flips the whole app between Workout and Diet, and the tabs
+rename: Meals, Diet plan, Intake, You. The choice stays on the device (`features/diet/area-store.ts`).
+
+Diet mirrors the workout model and shares no data with it:
+
+| Workout | Diet |
+|---|---|
+| Exercise (`WorkoutTemplate`) | `Meal` |
+| Workout (`SessionTemplate`) | `MealPlan`: one day of eating, each meal with a time |
+| `ScheduleConfig`, `ScheduledSession` | `MealScheduleConfig`, `ScheduledMealDay` |
+| Logging a set | Ticking a meal |
+| `workout-store`, `supabase-sync`, `reconcile` | `diet-store`, `diet-supabase-sync`, `diet-reconcile` |
+
+The rule that shapes it (`lib/meal-schedule.ts`): a meal the user has touched is never rewritten.
+A new schedule, an edited plan or a deleted plan only changes meals still unticked, and an eaten
+meal keeps the numbers it was eaten at. There is no separate log, so Progress reads eaten meals off
+the days. A plan copies a meal's numbers: an edited meal reaches a plan when that plan is next saved.
+Diet reads bodyweight and training from the workout side, and only reads them.
+
+The Science tab on Intake (`lib/diet-science.ts`) runs published rules over the meals you ticked,
+each with its source behind the ⓘ. It starts with the path to your target weight: your weigh-ins,
+where your weight goes at what you eat, and the standard pace. Maintenance comes from your food and
+scale when there is enough data, and from the Mifflin-St Jeor formula until then.
+
+Micronutrients come from meals built out of library foods (`lib/diet-micros.ts`). A meal only typed
+by hand is unknown for them, and unknown is never counted as zero: an average only reads days where
+every eaten meal is known. Targets are ICMR-NIN 2020, by sex. Potassium and sodium are WHO 2012, and
+fibre is IOM 2005. Vitamin B12 is not in the food table, so it is not shown.
+
+A body goal (`lib/diet-body-goal.ts`) sets lean mass, body fat or both, because weight alone cannot
+tell muscle from fat. The app works out the weight that implies and a dated roadmap: lose fat first,
+then build. With a body goal, the weight path aims for the end of the next roadmap step at that step's
+pace, so the two cards never give opposite advice. All of it is an estimate, and the card names its
+sources and limits.
+
+## Food library
+
+542 foods in `public/foods.json`, fetched the same way on first open of the food picker
+(`lib/foods.ts`). The values are the Indian Food Composition Tables 2017 (National Institute of
+Nutrition, Hyderabad), per 100 g of the raw food, taken from the MIT-packaged `index.csv` at
+github.com/ifct2017/compositions. It is not a dependency: fetch that file once and run
+
+```
+npm run foods -- /path/to/index.csv
+```
+
+Energy arrives in kJ and is stored in kcal. Pure fats (oils, ghee) carry no energy in the table,
+so they are written as 100 g fat and 900 kcal per 100 g. Vitamin A and vitamin D are worked out
+rather than copied, because those columns mislead: `scripts/build-foods.ts` explains why. The table
+has no oats, whey, curd, bread, butter or salt. No prices: cost on a meal is always typed by the user. Diet code is kept apart from workout code on purpose — its own types
+(`lib/diet-types.ts`), store, tables and screens — so a meal can never reach the training
+aggregations.
 
 ## Checks
 

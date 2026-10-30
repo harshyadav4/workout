@@ -14,6 +14,8 @@ export interface TourStep {
   query?: string;
   /** The `data-tour` value of the part to highlight. Absent: a centred card. */
   target?: string;
+  /** The side of the app this step shows. Absent: Workout. */
+  area?: "diet";
   title: string;
   body: string;
 }
@@ -22,7 +24,7 @@ export const TOUR_STEPS: TourStep[] = [
   {
     route: "/",
     title: "Welcome to Arise",
-    body: "This sample account shows Alex after 6 months of training. Your own data is safe. It comes back when the tour ends."
+    body: "This sample account shows Alex after 6 months of training and meal plans. Your own data is safe. It comes back when the tour ends."
   },
   {
     route: "/",
@@ -96,6 +98,34 @@ export const TOUR_STEPS: TourStep[] = [
     target: "progress-wins",
     title: "Your wins",
     body: "New records, exercises that went up, and weeks in a row. The app finds them after each workout."
+  },
+  {
+    route: "/",
+    target: "nav-area",
+    title: "Workout and Diet",
+    body: "Tap this circle to change between Workout and Diet. The tabs change their names and show the other side of the app."
+  },
+  {
+    route: "/",
+    area: "diet",
+    target: "diet-today",
+    title: "Today's meals",
+    body: "This list shows your meals for today, in time order. Tick the box when you eat a meal. Tap Skip if you do not eat it."
+  },
+  {
+    route: "/plan",
+    query: "mode=build",
+    area: "diet",
+    target: "diet-plan-build",
+    title: "Your meal plans",
+    body: "Build a day of meals by hand, from the food library, or with AI. Foods from the library also give micronutrients. Then put your plans on days in Schedule."
+  },
+  {
+    route: "/progress",
+    area: "diet",
+    target: "diet-intake",
+    title: "What you ate",
+    body: "Intake shows your calories, your protein and the money you spent. Science shows your muscle goal, your path to your target weight and your micronutrients. Only the meals you tick count."
   },
   {
     route: "/profile",

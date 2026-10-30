@@ -10,6 +10,7 @@ import { InfoNote } from "@/components/ui/info-note";
 import { Input } from "@/components/ui/input";
 import { takeAccountRemovedNotice } from "@/features/auth/account-removed";
 import { useAuth } from "@/features/auth/use-auth";
+import { useDietStoreApi } from "@/features/diet/diet-store";
 import { ClearThisPhone, DataDeletion } from "@/features/profile/data-deletion";
 import { useStartTour } from "@/features/tour/tour";
 import { useTour } from "@/features/tour/tour-store";
@@ -19,7 +20,9 @@ import { RestAlertsToggle } from "@/features/pwa/rest-alerts";
 import { retrySync, useSyncStatus } from "@/features/workout/sync-status";
 import { useWorkoutStore, useWorkoutStoreApi } from "@/features/workout/workout-store";
 import { hasGoal } from "@/lib/body-metrics";
+import { buildDietExport, parseDietBackupText, type ParsedDietBackup } from "@/lib/diet-backup";
 import {
+  EMPTY_WORKOUT_BACKUP,
   ImportError,
   importSummary,
   parseExportText,
@@ -284,12 +287,26 @@ export function DataSection() {
   const store = useWorkoutStoreApi();
   const [error, setError] = useState<string | null>(null);
   const [staged, setStaged] = useState<ParsedBackup | null>(null);
+  const [stagedDiet, setStagedDiet] = useState<ParsedDietBackup | undefined>();
+  const dietStore = useDietStoreApi();
   const fileInput = useRef<HTMLInputElement>(null);
 
   const readFile = async (file: File) => {
     setError(null);
     try {
-      setStaged(parseExportText(await file.text()));
+      const text = await file.text();
+      const diet = parseDietBackupText(text);
+      setStagedDiet(diet);
+      try {
+        setStaged(parseExportText(text));
+      } catch (cause) {
+        // Someone who only uses Diet has a backup with no workout rows in it,
+        // which is a good file, so restore its diet and add no workouts.
+        if (!diet || !(cause instanceof ImportError)) {
+          throw cause;
+        }
+        setStaged({ state: EMPTY_WORKOUT_BACKUP, counts: {} });
+      }
     } catch (cause) {
       setError(cause instanceof ImportError ? cause.message : "Could not read that file.");
     }
@@ -307,7 +324,7 @@ export function DataSection() {
             setError(cause instanceof Error ? cause.message : "Could not make the backup.");
           try {
             // Built and handed over in the same tap: the share sheet needs it.
-            shareOrDownloadJson(`arise-${todayKey()}.json`, buildExport(store.getState()), "Arise backup").catch(failed);
+            shareOrDownloadJson(`arise-${todayKey()}.json`, { ...buildExport(store.getState()), diet: buildDietExport(dietStore.getState()) }, "Arise backup").catch(failed);
           } catch (cause) {
             failed(cause);
           }
@@ -346,7 +363,7 @@ export function DataSection() {
             heading={
               <>
                 <p>
-                  This file contains <span className="tabular-nums">{importSummary(staged.counts)}</span>.
+                  This file contains <span className="tabular-nums">{importSummary({ ...staged.counts, ...stagedDiet?.counts })}</span>.
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">The app adds it to your data and deletes nothing.</p>
               </>
@@ -358,6 +375,9 @@ export function DataSection() {
               className="flex-1"
               onClick={() => {
                 hydrateRemote(staged.state);
+                if (stagedDiet) {
+                  dietStore.getState().hydrateDiet(stagedDiet.state);
+                }
                 setStaged(null);
               }}
             >

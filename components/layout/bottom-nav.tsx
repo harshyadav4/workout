@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { BarChart3, CalendarDays, Home, UserCircle2 } from "lucide-react";
+import { Fragment, useEffect, useState } from "react";
+import { BarChart3, CalendarDays, ClipboardList, Home, UserCircle2, UtensilsCrossed } from "lucide-react";
 
 import { isTextEntry } from "@/components/ui/use-keyboard";
+import { useArea } from "@/features/diet/area-store";
+import { AreaSwitch } from "@/features/diet/area-switch";
 import { useWorkoutStore } from "@/features/workout/workout-store";
 import { isRecordingDue } from "@/lib/body-metrics";
 import { cn } from "@/lib/utils";
@@ -16,6 +18,17 @@ const items = [
   { href: "/progress", label: "Progress", icon: BarChart3 },
   { href: "/profile", label: "You", icon: UserCircle2 }
 ];
+
+/** The same four places on the Diet side, named for what they hold there. */
+const dietItems = [
+  { href: "/", label: "Meals", icon: UtensilsCrossed },
+  { href: "/plan", label: "Diet plan", icon: ClipboardList },
+  { href: "/progress", label: "Intake", icon: BarChart3 },
+  { href: "/profile", label: "You", icon: UserCircle2 }
+];
+
+/** The circle sits between the second and third tab. */
+const SWITCH_BEFORE = 2;
 
 function isOn(href: string, pathname: string) {
   return href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -38,6 +51,7 @@ export function BottomNav() {
   const recordingDue = isRecordingDue(measurements, profile);
   const typing = useTyping();
   const pending = usePendingTab(pathname);
+  const shown = useArea() === "diet" ? dietItems : items;
   useTabKeys();
 
   return (
@@ -48,16 +62,17 @@ export function BottomNav() {
       hidden={typing}
       className="fixed bottom-0 left-0 right-0 z-40 px-4 pb-[calc(env(safe-area-inset-bottom)+0.25rem)]"
     >
-      <div className="dock mx-auto grid max-w-md grid-cols-4 gap-1 rounded-3xl border border-border p-1.5 shadow-dock" data-tour="nav">
-        {items.map((item) => {
+      <div className="dock mx-auto grid max-w-md grid-cols-5 gap-1 rounded-3xl border border-border p-1.5 shadow-dock" data-tour="nav">
+        {shown.map((item, index) => {
           const active = pending.href ? pending.href === item.href : isOn(item.href, pathname);
           const Icon = item.icon;
           // Only the You tab carries a dot, and only for something the user
           // asked to be reminded about — a cadence they set themselves.
           const dot = item.href === "/profile" && recordingDue;
           return (
+            <Fragment key={item.href}>
+            {index === SWITCH_BEFORE ? <AreaSwitch /> : null}
             <Link
-              key={item.href}
               href={item.href}
               // No scroll-to-top from Next: ScrollMemory puts each tab back
               // where it was left.
@@ -100,6 +115,7 @@ export function BottomNav() {
                 {dot ? <span className="sr-only">. A measurement is due</span> : null}
               </span>
             </Link>
+            </Fragment>
           );
         })}
       </div>

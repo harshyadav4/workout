@@ -2,6 +2,8 @@
 
 import { AuthGuard } from "@/features/auth/auth-guard";
 import { AuthProvider } from "@/features/auth/use-auth";
+import { DietStoreProvider } from "@/features/diet/diet-store";
+import { DietSupabaseSync } from "@/features/diet/diet-supabase-sync";
 import { AppBadge } from "@/features/pwa/app-badge";
 import { SupabaseSync } from "@/features/workout/supabase-sync";
 import { WorkoutStoreProvider } from "@/features/workout/workout-store";
@@ -12,7 +14,10 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
       <WorkoutStoreProvider>
         <SupabaseSync />
         <AppBadge />
-        <AuthGuard>{children}</AuthGuard>
+        <DietStoreProvider>
+          <DietSupabaseSync />
+          <AuthGuard>{children}</AuthGuard>
+        </DietStoreProvider>
       </WorkoutStoreProvider>
     </AuthProvider>
   );

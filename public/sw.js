@@ -6,7 +6,7 @@
  * Deliberately small:
  *   - pages:          network first, last good copy when offline
  *   - /_next/static:  cache first (file names are content hashes, never stale)
- *   - exercises.json, icons: stale while revalidate
+ *   - exercises.json, foods.json, icons: stale while revalidate
  *   - /api/demo:      cache first (library demos never change under their
  *                     name; kept so a demo opens with no signal)
  *   - everything else, and every other origin (Supabase, the rest of /api):
@@ -92,7 +92,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (url.pathname === "/exercises.json" || /\.(png|svg|webmanifest)$/.test(url.pathname)) {
+  if (url.pathname === "/exercises.json" || url.pathname === "/foods.json" || /\.(png|svg|webmanifest)$/.test(url.pathname)) {
     event.respondWith(
       caches.open(STATIC).then(async (cache) => {
         const hit = await cache.match(request);

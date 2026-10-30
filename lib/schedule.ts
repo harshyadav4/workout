@@ -81,7 +81,7 @@ function pad(value: number): string {
 
 // Iterate calendar days in UTC so weekday/date math is timezone-independent;
 // the YYYY-MM-DD keys are plain day strings the rest of the app matches on.
-function* eachDay(start: string, end: string): Generator<{ key: string; weekday: number }> {
+export function* eachDay(start: string, end: string): Generator<{ key: string; weekday: number }> {
   const [ys, ms, ds] = start.split("-").map(Number);
   const [ye, me, de] = end.split("-").map(Number);
   let cursor = Date.UTC(ys, ms - 1, ds);

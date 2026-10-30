@@ -7,9 +7,12 @@ import { Button } from "@/components/ui/button";
 import { InfoNote } from "@/components/ui/info-note";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/features/auth/use-auth";
+import { useDietStore, useDietStoreApi } from "@/features/diet/diet-store";
 import { useSyncStatus } from "@/features/workout/sync-status";
 import { useWorkoutStore, useWorkoutStoreApi } from "@/features/workout/workout-store";
 import { archiveUserData, discardArchive, loadArchive, restoreToAccount } from "@/lib/archive";
+import { buildDietExport } from "@/lib/diet-backup";
+import { clearDietRows, dietSnapshot, loadDietArchive, restoreDietToAccount } from "@/lib/diet-sync";
 import { DELETION_GRACE_DAYS, daysToRestore, deletionDate, deletionDue } from "@/lib/deletion";
 import { snapshotState } from "@/lib/sync";
 
@@ -58,6 +61,7 @@ export function DeletionBanner() {
   const requestedAt = useWorkoutStore((state) => state.profile.deletionRequestedAt);
   const setProfile = useWorkoutStore((state) => state.setProfile);
   const restoreArchive = useWorkoutStore((state) => state.restoreArchive);
+  const dietStore = useDietStoreApi();
   const hasNewData = useWorkoutStore(
     (state) =>
       state.logs.length > 0 ||
@@ -108,7 +112,13 @@ export function DeletionBanner() {
     setPending(true);
     setFailure(undefined);
     try {
-      restoreArchive(await loadArchive(user.id), mode);
+      const dietArchive = await loadDietArchive(user.id);
+      restoreArchive(await loadArchive(user.id, { mayHaveNoWorkouts: Boolean(dietArchive) }), mode);
+      // Before the workout restore below, which lets the archive go.
+      if (dietArchive) {
+        dietStore.getState().restoreDietArchive(dietArchive, mode);
+        await restoreDietToAccount(user.id, dietSnapshot(dietStore.getState()));
+      }
       // The account is made to match this phone before the archive goes, so a
       // failed upload leaves the archive in place.
       await restoreToAccount(user.id, snapshotState(store.getState()));
@@ -240,6 +250,7 @@ export function DataDeletion() {
   const store = useWorkoutStoreApi();
   const requestedAt = useWorkoutStore((state) => state.profile.deletionRequestedAt);
   const archiveLocal = useWorkoutStore((state) => state.archiveLocal);
+  const dietStore = useDietStoreApi();
   const [confirming, setConfirming] = useState(false);
   const [typed, setTyped] = useState("");
   const [pending, setPending] = useState(false);
@@ -261,7 +272,12 @@ export function DataDeletion() {
     try {
       // Snapshot first, clear second: if the archive cannot be written,
       // nothing has been removed.
-      archiveLocal(await archiveUserData(user.id, snapshotState(store.getState())));
+      const stamp = await archiveUserData(user.id, snapshotState(store.getState()), {
+        diet: buildDietExport(dietStore.getState())
+      });
+      await clearDietRows(user.id);
+      dietStore.getState().archiveDietLocal(stamp);
+      archiveLocal(stamp);
       setConfirming(false);
       setTyped("");
     } catch (cause) {
@@ -340,6 +356,7 @@ export function DataDeletion() {
  */
 export function ClearThisPhone() {
   const clearGuestData = useWorkoutStore((state) => state.clearGuestData);
+  const clearDietGuestData = useDietStore((state) => state.clearDietGuestData);
   const [confirming, setConfirming] = useState(false);
   const [typed, setTyped] = useState("");
   const [done, setDone] = useState(false);
@@ -377,6 +394,7 @@ export function ClearThisPhone() {
           disabled={!confirmedWord(typed)}
           onClick={() => {
             clearGuestData();
+            clearDietGuestData();
             setDone(true);
           }}
         >

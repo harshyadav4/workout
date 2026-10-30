@@ -1,4 +1,6 @@
 import { MobileShell } from "@/components/layout/mobile-shell";
+import { AreaView } from "@/features/diet/area-view";
+import { DietToday, DietTodayHeader } from "@/features/diet/diet-today";
 import { SignInNudge } from "@/features/auth/sign-in-nudge";
 import { HomeDashboard } from "@/features/home/home-dashboard";
 import { TodayHeader } from "@/features/home/today-header";
@@ -7,7 +9,10 @@ import { TourLink } from "@/features/tour/tour-link";
 
 export default function HomePage() {
   return (
-    <MobileShell title="Today" wallpaper="today" header={<TodayHeader />}>
+    <MobileShell title="Today" wallpaper="today" header={<AreaView workout={<TodayHeader />} diet={<DietTodayHeader />} />}>
+      <AreaView
+        diet={<DietToday />}
+        workout={
       <div className="space-y-4">
         <SystemSkillsNotice />
         {/* Three sessions in, still only on this phone: one quiet line. */}
@@ -18,6 +23,8 @@ export default function HomePage() {
         {/* Under the last card, where the wallpaper shows: the third door. */}
         <SkillsGate className="pt-2" />
       </div>
+        }
+      />
     </MobileShell>
   );
 }

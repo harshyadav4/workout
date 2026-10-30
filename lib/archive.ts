@@ -1,4 +1,4 @@
-import { ImportError, parseExportText } from "@/lib/import-backup";
+import { EMPTY_WORKOUT_BACKUP, ImportError, parseExportText } from "@/lib/import-backup";
 import { supabase } from "@/lib/supabase";
 import {
   buildExport,
@@ -58,11 +58,16 @@ async function translated<T>(step: () => Promise<T>): Promise<T> {
  * order: if the snapshot fails, nothing has been removed. Returns the request
  * time, which the caller stamps on the profile.
  */
-export async function archiveUserData(userId: string, state: SyncableState): Promise<string> {
+export async function archiveUserData(
+  userId: string,
+  state: SyncableState,
+  /** Parts kept beside the workout data in the same row (diet). */
+  extra?: Record<string, unknown>
+): Promise<string> {
   const requestedAt = new Date().toISOString();
   const { error } = await client()
     .from("data_archives")
-    .upsert({ user_id: userId, requested_at: requestedAt, payload: buildExport(state) });
+    .upsert({ user_id: userId, requested_at: requestedAt, payload: { ...buildExport(state), ...extra } });
   if (error) {
     throw archiveError(error);
   }
@@ -71,7 +76,11 @@ export async function archiveUserData(userId: string, state: SyncableState): Pro
 }
 
 /** The archived data, in the shape a restore merges. */
-export async function loadArchive(userId: string): Promise<RemoteState> {
+export async function loadArchive(
+  userId: string,
+  /** The archive also holds diet, so having no workout rows is not a damaged archive. */
+  { mayHaveNoWorkouts = false }: { mayHaveNoWorkouts?: boolean } = {}
+): Promise<RemoteState> {
   const { data, error } = await client()
     .from("data_archives")
     .select("payload")
@@ -88,6 +97,9 @@ export async function loadArchive(userId: string): Promise<RemoteState> {
     // same validation: a damaged row drops what it cannot read, not the lot.
     return parseExportText(JSON.stringify(data.payload)).state;
   } catch (cause) {
+    if (mayHaveNoWorkouts && cause instanceof ImportError) {
+      return EMPTY_WORKOUT_BACKUP;
+    }
     throw new Error(cause instanceof ImportError ? cause.message : "Could not read your old data.");
   }
 }

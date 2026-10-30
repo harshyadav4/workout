@@ -43,6 +43,18 @@ export function isTouring(): boolean {
 }
 
 /**
+ * Told when the tour starts and ends, synchronously, before anything it held
+ * back runs. For a store that keeps its own sample and its own real copy (diet).
+ */
+export function onTourActive(listener: (active: boolean) => void): () => void {
+  return tour.subscribe((state, previous) => {
+    if (state.active !== previous.active) {
+      listener(state.active);
+    }
+  });
+}
+
+/**
  * The fields the sample replaces. Everything else — the actions, `muscles`,
  * the owner, UI flags — stays as the store had it.
  */

@@ -1,4 +1,6 @@
 import { MobileShell } from "@/components/layout/mobile-shell";
+import { AreaView } from "@/features/diet/area-view";
+import { DietTargetsCard } from "@/features/diet/diet-targets-card";
 import { InstallCard } from "@/features/pwa/install-card";
 import { MeasurementsCard } from "@/features/profile/measurements-card";
 import {
@@ -20,7 +22,7 @@ export default function ProfilePage() {
     <MobileShell title="You" wallpaper="you">
       <InstallCard />
       <ProfileHeader />
-      <GoalsSection />
+      <AreaView workout={<GoalsSection />} diet={<DietTargetsCard />} />
       <MeasurementsCard />
       <SettingsSection />
       <DataSection />
