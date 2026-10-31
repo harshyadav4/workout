@@ -1,3 +1,7 @@
+## Design
+
+Before any change a person can see, read `DESIGN.md` and follow it. Decide where a new feature belongs before you write code. Do not just add it. Put this rule in every subagent prompt that touches UI.
+
 ## graphify
 
 This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
