@@ -157,12 +157,22 @@ export function scheduleHorizonEnd(config: Pick<ScheduleConfig, "startDate" | "e
  */
 export function mergeGeneratedSessions(
   existing: ScheduledSession[],
-  generated: ScheduledSession[]
+  generated: ScheduledSession[],
+  /**
+   * Workouts that run beside the plan, like an injury's. They are kept, but they
+   * do not claim their date: a daily one would otherwise cost every generated
+   * workout in its range.
+   */
+  besideThePlan: ReadonlySet<string> = new Set()
 ): ScheduledSession[] {
   const kept = existing.filter(
     (session) => session.status !== "planned" || session.source !== "repeat"
   );
-  const keptDates = new Set(kept.map((session) => session.date));
+  const keptDates = new Set(
+    kept
+      .filter((session) => !session.sessionTemplateId || !besideThePlan.has(session.sessionTemplateId))
+      .map((session) => session.date)
+  );
 
   return [...kept, ...generated.filter((session) => !keptDates.has(session.date))].sort((a, b) =>
     a.date.localeCompare(b.date)

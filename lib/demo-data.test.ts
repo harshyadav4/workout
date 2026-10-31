@@ -1,4 +1,13 @@
 // Run with: npm run check
+import {
+  injuryName,
+  injuryWorkoutIds,
+  isCheckInDue,
+  isInjurySession,
+  painLogsFor,
+  painTrend,
+  shouldSeePhysio
+} from "@/lib/injuries";
 import assert from "node:assert/strict";
 
 import { buildComposition } from "@/lib/body-composition";
@@ -24,7 +33,10 @@ for (const today of ["2026-10-26", "2026-10-29", "2026-11-01"]) {
   assert.ok(demo.logs.every((log) => log.date < today), `no logs from today or later ${label}`);
 
   // Today: a lifting session, planned and not started — Home's ready state.
-  const todays = demo.scheduledSessions.filter((session) => session.date === today);
+  const ownWorkouts = injuryWorkoutIds(demo.injuries ?? []);
+  const todays = demo.scheduledSessions.filter(
+    (session) => session.date === today && !isInjurySession(session, ownWorkouts)
+  );
   assert.equal(todays.length, 1, `exactly one session today ${label}`);
   assert.equal(todays[0].type, "workout");
   assert.equal(todays[0].status, "planned");
@@ -95,6 +107,29 @@ for (const today of ["2026-10-26", "2026-10-29", "2026-11-01"]) {
   assert.equal(skill.level, 3, `three levels cleared ${label}`);
   assert.equal(skill.current?.name, "Chin-up");
   assert.ok(skill.ratio > 0 && skill.ratio < 1, `chin-ups in progress ${label}`);
+
+  // The left hip: 8 weeks of scores, improving, and answered this week.
+  const hip = demo.injuries?.[0];
+  assert.ok(hip, `an injury ${label}`);
+  assert.equal(demo.injuries?.length, 1);
+  assert.equal(injuryName(hip), "Left hip");
+  assert.equal(demo.painLogs?.length, 9, `a score a week ${label}`);
+  assert.equal(painLogsFor(demo.painLogs ?? [], hip.id).at(-1)?.date, today, `the last score is today ${label}`);
+  assert.equal(painTrend(demo.painLogs ?? [], hip.id), "better", `it is improving ${label}`);
+  assert.equal(isCheckInDue(hip, demo.painLogs ?? [], today), false, `no question due ${label}`);
+  assert.equal(shouldSeePhysio(hip, demo.painLogs ?? []), false, `no physio line ${label}`);
+
+  // Its workout: a row on Today, past days done, and no logs from any of them.
+  assert.equal(hip.workout?.sessionTemplateId, "demo-tpl-hip");
+  const hipDays = demo.scheduledSessions.filter((session) => isInjurySession(session, ownWorkouts));
+  assert.equal(hipDays.length, 42, `every day for 6 weeks ${label}`);
+  assert.equal(hipDays.find((session) => session.date === today)?.status, "planned", `to do today ${label}`);
+  assert.equal(hipDays.filter((session) => session.status === "completed").length, 14, `2 weeks done ${label}`);
+  assert.ok(!demo.logs.some((log) => log.workoutId === "demo-clamshell"), `it writes no logs ${label}`);
+  assert.ok(
+    hipDays[0].exercises[0].sets.every((set) => set.completed),
+    `a past day's sets are done ${label}`
+  );
 }
 
 // Same day, same numbers.

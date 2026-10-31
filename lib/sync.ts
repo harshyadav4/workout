@@ -1,6 +1,10 @@
+import { readInjury } from "@/lib/injuries";
 import { supabase } from "@/lib/supabase";
 import type {
   BodyMeasurement,
+  Injury,
+  InjuryDeletion,
+  PainLog,
   BodyMetric,
   MeasurementCadence,
   ProfileInfo,
@@ -26,7 +30,7 @@ import type {
 type Row = Record<string, unknown>;
 
 /** Everything the app owns per user, in write order (nothing here references anything else). */
-const TABLES = [
+export const TABLES = [
   "workout_templates",
   "session_templates",
   "scheduled_sessions",
@@ -35,7 +39,11 @@ const TABLES = [
   // nothing to point at.
   "set_logs",
   "body_measurements",
-  "skill_goals"
+  "skill_goals",
+  // The deletions first: if a later write fails, a deleted injury stays deleted.
+  "injury_deletions",
+  "injuries",
+  "pain_logs"
 ] as const;
 
 // -- mappers ---------------------------------------------------------------
@@ -241,6 +249,61 @@ function rowToSkillGoal(row: Row): SkillGoal {
   };
 }
 
+export function injuryToRow(injury: Injury, userId: string): Row {
+  return {
+    id: injury.id,
+    user_id: userId,
+    place: injury.place,
+    side: injury.side ?? null,
+    start_date: injury.startDate,
+    worse_with: injury.worseWith ?? null,
+    stop_sign: injury.stopSign ?? false,
+    healed_date: injury.healedDate ?? null,
+    workout: injury.workout ?? null
+  };
+}
+
+/** Through `readInjury`: a row that cannot say where the injury is, is dropped. */
+export function rowToInjury(row: Row): Injury | undefined {
+  return readInjury({
+    id: row.id,
+    place: row.place,
+    side: row.side,
+    startDate: row.start_date,
+    worseWith: row.worse_with,
+    stopSign: row.stop_sign,
+    healedDate: row.healed_date,
+    workout: row.workout
+  });
+}
+
+export function painLogToRow(log: PainLog, userId: string): Row {
+  return {
+    id: log.id,
+    user_id: userId,
+    injury_id: log.injuryId,
+    date: log.date,
+    score: log.score
+  };
+}
+
+export function rowToPainLog(row: Row): PainLog {
+  return {
+    id: row.id as string,
+    injuryId: row.injury_id as string,
+    date: row.date as string,
+    score: Number(row.score ?? 0)
+  };
+}
+
+export function injuryDeletionToRow(deletion: InjuryDeletion, userId: string): Row {
+  return { id: deletion.id, user_id: userId, deleted_at: deletion.deletedAt };
+}
+
+export function rowToInjuryDeletion(row: Row): InjuryDeletion {
+  return { id: row.id as string, deletedAt: row.deleted_at as string };
+}
+
 /**
  * True when a table this build expects is not in the database yet — a deploy
  * that went out before its migration ran. 42P01 from Postgres, PGRST205 from
@@ -261,6 +324,10 @@ export interface RemoteState {
   measurements: BodyMeasurement[];
   /** Absent when the table is not there yet (0007): keep what is on the device. */
   skillGoals?: SkillGoal[];
+  /** All three are absent when their tables are not there yet (0016): keep what is on the device. */
+  injuries?: Injury[];
+  painLogs?: PainLog[];
+  deletedInjuries?: InjuryDeletion[];
   profile?: ProfileInfo;
   scheduleConfig?: ScheduleConfig;
 }
@@ -281,7 +348,19 @@ export async function loadUserState(): Promise<RemoteState> {
     };
   }
 
-  const [templates, sessionTemplates, sessions, logs, setLogs, measurements, profile, skills] =
+  const [
+    templates,
+    sessionTemplates,
+    sessions,
+    logs,
+    setLogs,
+    measurements,
+    profile,
+    skills,
+    injuries,
+    painLogs,
+    injuryDeletions
+  ] =
     await Promise.all([
     supabase.from("workout_templates").select("*"),
     supabase.from("session_templates").select("*"),
@@ -290,7 +369,10 @@ export async function loadUserState(): Promise<RemoteState> {
       supabase.from("set_logs").select("*").order("date", { ascending: false }),
       supabase.from("body_measurements").select("*").order("date"),
       supabase.from("profiles").select("*").maybeSingle(),
-      supabase.from("skill_goals").select("*").order("created_at")
+      supabase.from("skill_goals").select("*").order("created_at"),
+      supabase.from("injuries").select("*"),
+      supabase.from("pain_logs").select("*").order("date"),
+      supabase.from("injury_deletions").select("*")
     ]);
 
   const failure = [
@@ -303,7 +385,10 @@ export async function loadUserState(): Promise<RemoteState> {
     profile,
     // A missing skills table is a migration not yet run, not a failed load:
     // everything else still comes back.
-    ...(isMissingTable(skills.error) ? [] : [skills])
+    ...(isMissingTable(skills.error) ? [] : [skills]),
+    ...(isMissingTable(injuries.error) ? [] : [injuries]),
+    ...(isMissingTable(painLogs.error) ? [] : [painLogs]),
+    ...(isMissingTable(injuryDeletions.error) ? [] : [injuryDeletions])
   ].find(
     (result) => result.error
   );
@@ -312,6 +397,9 @@ export async function loadUserState(): Promise<RemoteState> {
   }
 
   const profileRow = profile.data as Row | null;
+  // The three arrive together with 0016. Anything less says nothing about
+  // injuries, and "nothing" must not read as "you have none".
+  const injuryTablesThere = !injuries.error && !painLogs.error && !injuryDeletions.error;
 
   return {
     templates: (templates.data ?? []).map(rowToTemplate),
@@ -321,6 +409,11 @@ export async function loadUserState(): Promise<RemoteState> {
     setLogs: (setLogs.data ?? []).map(rowToSetLog),
     measurements: (measurements.data ?? []).map(rowToMeasurement),
     skillGoals: skills.error ? undefined : (skills.data ?? []).map(rowToSkillGoal),
+    injuries: injuryTablesThere
+      ? (injuries.data ?? []).map(rowToInjury).filter((row): row is Injury => row !== undefined)
+      : undefined,
+    painLogs: injuryTablesThere ? (painLogs.data ?? []).map(rowToPainLog) : undefined,
+    deletedInjuries: injuryTablesThere ? (injuryDeletions.data ?? []).map(rowToInjuryDeletion) : undefined,
     profile: profileRow
       ? {
           name: (profileRow.name as string) ?? "",
@@ -455,6 +548,9 @@ export interface SyncableState {
   setLogs: SetLog[];
   measurements: BodyMeasurement[];
   skillGoals?: SkillGoal[];
+  injuries?: Injury[];
+  painLogs?: PainLog[];
+  deletedInjuries?: InjuryDeletion[];
   profile: ProfileInfo;
   scheduleConfig?: ScheduleConfig;
 }
@@ -481,6 +577,9 @@ export function remoteBaseline(remote: RemoteState): SyncableState {
     setLogs: remote.setLogs,
     measurements: remote.measurements,
     skillGoals: remote.skillGoals,
+    injuries: remote.injuries,
+    painLogs: remote.painLogs,
+    deletedInjuries: remote.deletedInjuries,
     profile: remote.profile ?? EMPTY_PROFILE,
     scheduleConfig: remote.scheduleConfig
   };
@@ -500,6 +599,9 @@ export function snapshotState(state: SyncableState): SyncableState {
     setLogs: state.setLogs,
     measurements: state.measurements,
     skillGoals: state.skillGoals,
+    injuries: state.injuries,
+    painLogs: state.painLogs,
+    deletedInjuries: state.deletedInjuries,
     profile: state.profile,
     scheduleConfig: state.scheduleConfig
   };
@@ -663,6 +765,29 @@ export async function pushChanges(
     }
     console.warn("[sync] skill_goals table missing — run migration 0007");
   }
+  try {
+    await writeTable("injury_deletions", previous.deletedInjuries ?? [], next.deletedInjuries ?? [], (item) =>
+      injuryDeletionToRow(item, userId)
+    );
+    await writeTable("injuries", previous.injuries ?? [], next.injuries ?? [], (item) =>
+      injuryToRow(item, userId)
+    );
+    // On the `(user_id, injury_id, date)` key, for the reason body_measurements
+    // gives: two phones scoring the same day mint two ids for one score.
+    await writeTable(
+      "pain_logs",
+      previous.painLogs ?? [],
+      next.painLogs ?? [],
+      (item) => painLogToRow(item, userId),
+      "user_id,injury_id,date"
+    );
+  } catch (error) {
+    // Before 0016 has run, injuries live on the device only; nothing else fails.
+    if (!isMissingTable(error as { code?: string })) {
+      throw error;
+    }
+    console.warn("[sync] injury tables missing — run migration 0016");
+  }
 
   const profileChanged =
     previous.profile !== next.profile || previous.scheduleConfig !== next.scheduleConfig;
@@ -703,15 +828,26 @@ export async function pushChanges(
  * `workout_logs`, and the cascade is there but an explicit order does not lean
  * on it.
  */
-const USER_TABLES = [
+export const USER_TABLES = [
   "set_logs",
   "workout_logs",
   "body_measurements",
   "scheduled_sessions",
   "session_templates",
   "workout_templates",
-  "skill_goals"
+  "skill_goals",
+  "pain_logs",
+  "injuries",
+  "injury_deletions"
 ] as const;
+
+/** Newer than the app's floor. A project without one has nothing there to delete. */
+const OPTIONAL_TABLES: ReadonlySet<string> = new Set([
+  "skill_goals",
+  "pain_logs",
+  "injuries",
+  "injury_deletions"
+]);
 
 /**
  * Delete every row this user owns, explicitly, rather than through the diff:
@@ -725,8 +861,7 @@ export async function clearUserRows(userId: string): Promise<void> {
   }
   for (const table of USER_TABLES) {
     const { error } = await supabase.from(table).delete().eq("user_id", userId);
-    // skill_goals arrives with 0007; a project without it has nothing there to delete.
-    if (error && !(table === "skill_goals" && isMissingTable(error))) {
+    if (error && !(OPTIONAL_TABLES.has(table) && isMissingTable(error))) {
       throw error;
     }
   }

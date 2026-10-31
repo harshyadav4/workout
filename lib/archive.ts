@@ -161,6 +161,9 @@ export async function restoreToAccount(userId: string, restored: SyncableState):
     setLogs: [],
     measurements: [],
     skillGoals: [],
+    injuries: [],
+    painLogs: [],
+    deletedInjuries: [],
     // A different object, so the profile is written too — with the stamp cleared.
     profile: { ...restored.profile },
     scheduleConfig: undefined

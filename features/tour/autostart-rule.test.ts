@@ -27,6 +27,7 @@ assert.equal(hasOwnData(empty), false);
 assert.equal(hasOwnData({ ...empty, scheduledSessions: [{ type: "rest" }] }), false, "rest days alone are not training");
 assert.equal(hasOwnData({ ...empty, scheduledSessions: [{ type: "workout" }] }), true, "a planned session is");
 assert.equal(hasOwnData({ ...empty, logs: [{}] }), true);
+assert.equal(hasOwnData({ ...empty, injuries: [{}] }), true, "an injury is your own data");
 assert.equal(hasOwnData({ ...empty, sessionTemplates: [{}] }), true, "a built session is");
 assert.equal(hasOwnData({ ...empty, measurements: [{}] }), true, "a weigh-in is");
 

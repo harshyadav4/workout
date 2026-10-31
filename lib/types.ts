@@ -306,6 +306,83 @@ export interface BodyMeasurement {
   value: number;
 }
 
+/** The places a person can point to on the body map. See `INJURY_PLACES` in lib/injuries. */
+export type InjuryPlace =
+  | "neck"
+  | "upperBack"
+  | "lowerBack"
+  | "abs"
+  | "shoulder"
+  | "chest"
+  | "biceps"
+  | "triceps"
+  | "elbow"
+  | "forearm"
+  | "wrist"
+  | "hip"
+  | "groin"
+  | "quad"
+  | "glute"
+  | "hamstring"
+  | "knee"
+  | "shin"
+  | "calf"
+  | "ankle";
+
+export type InjurySide = "left" | "right" | "both";
+
+/** Every day, every 2 days, or the weekdays picked (0 is Sunday). */
+export type InjuryWorkoutFrequency =
+  | { kind: "every"; days: 1 | 2 }
+  | { kind: "weekdays"; weekdays: number[] };
+
+/**
+ * The normal workout labelled "For an injury". The link lives here and not on
+ * `SessionTemplate`, so a workout stays a workout and no other table changes.
+ */
+export interface InjuryWorkout {
+  sessionTemplateId: string;
+  frequency: InjuryWorkoutFrequency;
+  startDate: string;
+  /** The last day it falls on. */
+  endDate: string;
+}
+
+export interface Injury {
+  id: string;
+  place: InjuryPlace;
+  /** Absent on a place on the body's middle line. */
+  side?: InjurySide;
+  /** The day it was added. */
+  startDate: string;
+  worseWith?: string;
+  /** A stop sign was ticked, so the app told them to see a doctor first. */
+  stopSign?: boolean;
+  /** Absent while it still hurts. */
+  healedDate?: string;
+  workout?: InjuryWorkout;
+}
+
+/**
+ * One 0 to 10 score. Like `BodyMeasurement`, it never reaches the volume,
+ * strength or muscle aggregations.
+ */
+export interface PainLog {
+  id: string;
+  injuryId: string;
+  date: string; // YYYY-MM-DD
+  score: number;
+}
+
+/**
+ * What keeps a deleted injury deleted on every phone. `id` is the injury's id.
+ * It carries no health detail, because the injury's own row is really gone.
+ */
+export interface InjuryDeletion {
+  id: string;
+  deletedAt: string;
+}
+
 /**
  * How often you intend to record. Weight and tape are separate settings because
  * the real-world rhythms differ — people weigh weekly and measure monthly.

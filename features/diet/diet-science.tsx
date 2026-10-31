@@ -9,7 +9,7 @@ import { useDietStore } from "@/features/diet/diet-store";
 import { MeterBar } from "@/features/diet/meter-bar";
 import { CHART, ChartTooltip, EmptyChart, animationProps, axisProps, formatSigned, gridProps, useSection } from "@/features/progress/chart-theme";
 import { Panel, SectionRule } from "@/features/progress/panel";
-import { useWorkoutStore } from "@/features/workout/workout-store";
+import { useMainSessions, useWorkoutStore } from "@/features/workout/workout-store";
 import { NAVY_ERROR_PERCENT, buildComposition, compositionNeeds } from "@/lib/body-composition";
 import { cardioSessions } from "@/lib/cardio-metrics";
 import { PATH_COPY } from "@/lib/diet-cards";
@@ -789,7 +789,7 @@ export function useBodyGoal() {
   const measurements = useWorkoutStore((state) => state.measurements);
   const profile = useWorkoutStore((state) => state.profile);
   const logs = useWorkoutStore((state) => state.logs);
-  const scheduled = useWorkoutStore((state) => state.scheduledSessions);
+  const scheduled = useMainSessions();
 
   const energy = useMemo(() => {
     const restingKcal = bmr(profile, today);
@@ -886,7 +886,7 @@ export function EnergyCards({ goal }: { goal: BodyGoal }) {
   const profile = useWorkoutStore((state) => state.profile);
   const logs = useWorkoutStore((state) => state.logs);
   const setLogs = useWorkoutStore((state) => state.setLogs);
-  const scheduled = useWorkoutStore((state) => state.scheduledSessions);
+  const scheduled = useMainSessions();
 
   const availability = useMemo(() => {
     const composition = buildComposition(measurements, profile);

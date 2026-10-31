@@ -1,5 +1,6 @@
 "use client";
 
+import { TriangleAlert } from "lucide-react";
 import { Fragment, useMemo, type ReactNode } from "react";
 
 import { ExerciseDemoButton } from "@/features/workout/exercise-media-dialog";
@@ -7,6 +8,7 @@ import { useDetailedTiming } from "@/features/workout/use-detailed-timing";
 import { useDistanceUnit } from "@/features/workout/use-distance-unit";
 import { useWorkoutStore } from "@/features/workout/workout-store";
 import { type DistanceUnit, formatDistance, formatPace } from "@/lib/cardio";
+import { injuriesLoadedBy, mayLoadLine } from "@/lib/injuries";
 import { formatDayKey } from "@/lib/progress-metrics";
 import { formatDuration, formatTimeOfDay, secondsBetween, sessionBreakdown } from "@/lib/session-time";
 import { formatClock } from "@/lib/timer";
@@ -73,6 +75,8 @@ function setsLine(sets: PlannedSet[], exercise: PlannedExercise, unit: DistanceU
 export function SessionPreview({ session, action }: { session: ScheduledSession; action?: ReactNode }) {
   const logs = useWorkoutStore((state) => state.logs);
   const setLogs = useWorkoutStore((state) => state.setLogs);
+  const injuries = useWorkoutStore((state) => state.injuries);
+  const templates = useWorkoutStore((state) => state.templates);
   const unit = useDistanceUnit();
   const detailed = useDetailedTiming();
   const breakdown = useMemo(
@@ -122,6 +126,15 @@ export function SessionPreview({ session, action }: { session: ScheduledSession;
         const timing = breakdown?.get(exercise.id);
         // With detailed timing on, a logged set has a clock time, so it needs its own line.
         const timed = Boolean(breakdown) && working.some((setItem) => setItem.completedAt);
+        // Only for a day still ahead: a finished day cannot be changed by a hint.
+        const [loaded] =
+          session.status === "planned"
+            ? injuriesLoadedBy(
+                templates.find((item) => item.id === exercise.workoutId)?.muscles ?? [],
+                injuries,
+                session.sessionTemplateId
+              )
+            : [];
         return (
           <div key={exercise.id} className="list-row flex items-start gap-1 py-2.5 pl-4 pr-1.5">
             <div className="min-w-0 flex-1">
@@ -131,6 +144,12 @@ export function SessionPreview({ session, action }: { session: ScheduledSession;
                 <span className="whitespace-nowrap">{lastDate ? `last done ${formatDayKey(lastDate)}` : "first time"}</span>
                 {timing?.seconds ? ` · ${formatDuration(timing.seconds)}` : null}
               </p>
+              {loaded ? (
+                <p className="mt-0.5 flex items-center gap-1.5 text-[13px] font-medium text-warning">
+                  <TriangleAlert className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  {mayLoadLine(loaded)}
+                </p>
+              ) : null}
               {timed ? (
                 <ol className="mt-1.5 space-y-0.5 text-[13px] tabular-nums">
                   {working.map((setItem, index) => (

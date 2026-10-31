@@ -1,5 +1,6 @@
+import { staleInjuryDays } from "@/lib/injuries";
 import type { RemoteState, SyncableState } from "@/lib/sync";
-import type { BodyMeasurement, ScheduledSession } from "@/lib/types";
+import type { BodyMeasurement, PainLog, ScheduledSession } from "@/lib/types";
 
 /**
  * Merge what Supabase returned into what this device already holds.
@@ -15,7 +16,10 @@ import type { BodyMeasurement, ScheduledSession } from "@/lib/types";
  *
  * **Deliberately deletion-blind.** A row deleted on another device comes back.
  * Resurrecting one session is a far cheaper mistake than losing one, and the fix
- * for it is a `deleted_at` tombstone rather than a narrower merge.
+ * for it is a `deleted_at` tombstone rather than a narrower merge. Injuries are
+ * the exception: a health record someone deleted must not come back, so they
+ * have that tombstone (`deletedInjuries`), and a day of their workout that the
+ * account has moved past goes too (`staleInjuryDays`).
  *
  * Safe only because the caller has already established that the local copy
  * belongs to the signed-in user — see `claimFor` in the store. Merging a
@@ -74,6 +78,15 @@ function unionByDateAndMetric(local: BodyMeasurement[], remote: BodyMeasurement[
   return [...byKey.values()];
 }
 
+/** Like a measurement: one score per injury per day, and a new score mints a new id. */
+function unionByInjuryAndDate(local: PainLog[], remote: PainLog[]) {
+  const byKey = new Map<string, PainLog>();
+  for (const item of [...local, ...remote]) {
+    byKey.set(`${item.injuryId}:${item.date}`, item);
+  }
+  return [...byKey.values()];
+}
+
 const byDateAscending = (a: { date: string }, b: { date: string }) => a.date.localeCompare(b.date);
 
 /** Sets with a log against them — how far into a session a device got. */
@@ -98,6 +111,25 @@ function furtherAlong(mine: ScheduledSession, theirs: ScheduledSession): Schedul
 }
 
 export function reconcile(local: SyncableState, remote: RemoteState): SyncableState {
+  // Either side's deletion wins over either side's row, and the row's scores go
+  // with it. The account then loses any such row too: the baseline still holds
+  // it and the merged state does not, so the next push deletes it.
+  const deletedInjuries = remote.deletedInjuries
+    ? unionById(local.deletedInjuries ?? [], remote.deletedInjuries)
+    : local.deletedInjuries;
+  const deletedIds = new Set((deletedInjuries ?? []).map((item) => item.id));
+  const injuries = remote.injuries ? unionById(local.injuries ?? [], remote.injuries) : local.injuries;
+  const painLogs = remote.painLogs
+    ? unionByInjuryAndDate(local.painLogs ?? [], remote.painLogs).sort(byDateAscending)
+    : local.painLogs;
+  const staleDays = staleInjuryDays(
+    local.injuries ?? [],
+    local.scheduledSessions,
+    remote.injuries,
+    remote.scheduledSessions,
+    deletedIds
+  );
+
   // Presets ship with the app and are never stored, so the remote list holds
   // only what the user added. This branch was already right in `hydrateRemote`
   // and is carried across verbatim — nothing fails loudly if it is dropped.
@@ -110,9 +142,9 @@ export function reconcile(local: SyncableState, remote: RemoteState): SyncableSt
   return {
     templates: [...presets, ...added.filter((item) => !presets.some((p) => p.id === item.id))],
     sessionTemplates: unionById(local.sessionTemplates, remote.sessionTemplates),
-    scheduledSessions: unionById(local.scheduledSessions, remote.scheduledSessions, furtherAlong).sort(
-      byDateAscending
-    ),
+    scheduledSessions: unionById(local.scheduledSessions, remote.scheduledSessions, furtherAlong)
+      .filter((session) => !staleDays.has(session.id))
+      .sort(byDateAscending),
     // Newest first, the order `loadUserState` asks Postgres for and the order
     // the store prepends in.
     logs: unionById(local.logs, remote.logs).sort((a, b) => byDateAscending(b, a)),
@@ -123,6 +155,10 @@ export function reconcile(local: SyncableState, remote: RemoteState): SyncableSt
     // Undefined remote means the table is not there yet (0007): keep the
     // device's goals rather than wiping them with an empty list.
     skillGoals: remote.skillGoals ? unionById(local.skillGoals ?? [], remote.skillGoals) : local.skillGoals,
+    // The same rule: an older backup, or an account with no table yet, says nothing.
+    injuries: injuries?.filter((item) => !deletedIds.has(item.id)),
+    painLogs: painLogs?.filter((item) => !deletedIds.has(item.injuryId)),
+    deletedInjuries,
     // Both are one small object that the next push rewrites whole, so there is
     // no partial local edit to lose. The account is the authority on them.
     profile: remote.profile ?? local.profile,

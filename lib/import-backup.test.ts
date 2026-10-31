@@ -40,6 +40,32 @@ assert.equal(parsed.state.profile?.name, "A");
 assert.equal(parsed.counts.sets, 1);
 assert.equal(parsed.state.skillGoals?.length, 1, "skill goals round-trip — a restore used to drop them");
 assert.equal(parsed.counts.skills, 1);
+
+// Injuries round-trip, and a bad row is dropped on its own.
+{
+  const injury = { id: "i1", place: "hip", side: "left", startDate: "2026-08-01" };
+  const pain = { id: "p1", injuryId: "i1", date: "2026-08-01", score: 6 };
+  const withInjuries = parseExport({
+    ...good,
+    injuries: [injury, { id: "i2", place: "toString", side: "left", startDate: "2026-08-01" }],
+    painLogs: [pain, { ...pain, id: "p2", score: 11 }, { ...pain, id: "p3", injuryId: "" }]
+  });
+  assert.deepEqual(withInjuries.state.injuries, [injury]);
+  assert.deepEqual(withInjuries.state.painLogs, [pain]);
+  assert.equal(withInjuries.counts.injuries, 1);
+  assert.equal(withInjuries.counts["pain scores"], 1);
+  assert.equal(parsed.state.injuries, undefined, "a file from before injuries leaves the device's alone");
+  assert.equal(parsed.state.painLogs, undefined);
+  assert.equal(parseExport({ injuries: [injury] }).counts.injuries, 1, "a file with only an injury is still a backup");
+
+  const deletion = { id: "i9", deletedAt: "2026-08-02T00:00:00.000Z" };
+  assert.deepEqual(
+    parseExport({ ...good, deletedInjuries: [deletion, { id: "i8" }, { deletedAt: "x" }] }).state.deletedInjuries,
+    [deletion],
+    "a deletion rides along, so a restore does not bring the injury back"
+  );
+  assert.equal(parsed.state.deletedInjuries, undefined);
+}
 assert.equal(
   parseExport({ ...good, skillGoals: undefined }).state.skillGoals,
   undefined,

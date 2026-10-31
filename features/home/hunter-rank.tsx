@@ -16,7 +16,7 @@ import {
 import { RankCrest } from "@/features/home/artifacts";
 import { SessionRing } from "@/features/home/session-ring";
 import { useTour } from "@/features/tour/tour-store";
-import { useWorkoutStore } from "@/features/workout/workout-store";
+import { useMainSessions, useWorkoutStore } from "@/features/workout/workout-store";
 import { hunterRank, RANKS, type Rank } from "@/lib/hunter";
 import { formatDayKey } from "@/lib/progress-metrics";
 import { StatusSkillsDoor, useSkillsFound } from "@/features/skills/skill-doors";
@@ -25,7 +25,7 @@ import { cn } from "@/lib/utils";
 
 function useHunterRank() {
   const logs = useWorkoutStore((state) => state.logs);
-  const scheduled = useWorkoutStore((state) => state.scheduledSessions);
+  const scheduled = useMainSessions();
   // `activeDate`, never `new Date()`: the same day the rest of Home is on.
   const today = useWorkoutStore((state) => state.activeDate);
   return useMemo(() => hunterRank(logs, scheduled, today), [logs, scheduled, today]);

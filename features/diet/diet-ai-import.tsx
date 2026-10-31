@@ -9,6 +9,7 @@ import { ListRow, SheetRows } from "@/components/ui/list";
 import { useDietStore, useDietStoreApi } from "@/features/diet/diet-store";
 import { MealNumbers } from "@/features/diet/meal-numbers";
 import { useWorkoutStoreApi } from "@/features/workout/workout-store";
+import { injuryWorkoutIds, isInjurySession } from "@/lib/injuries";
 import { buildDietImport, parseAiDietPlan, type DietImport } from "@/lib/ai-diet-plan";
 import { buildAiDietPrompt } from "@/lib/ai-diet-prompt";
 import { averageIntake, dailyIntake } from "@/lib/diet-metrics";
@@ -61,7 +62,8 @@ export function DietAiImportSheet({ open, onOpenChange }: { open: boolean; onOpe
   /** Called inside the tap, before any await, so iPhone Safari counts it as the user's gesture. */
   const copy = () => {
     const today = todayKey();
-    const { profile, scheduledSessions } = workoutStore.getState();
+    const { profile, scheduledSessions, injuries } = workoutStore.getState();
+    const ownWorkouts = injuryWorkoutIds(injuries);
     const { settings, scheduledMealDays } = dietStore.getState();
     const nextWeek = shiftKey(today, 6);
     const recent = dailyIntake(scheduledMealDays, { start: shiftKey(today, -27), end: today });
@@ -71,8 +73,13 @@ export function DietAiImportSheet({ open, onOpenChange }: { open: boolean; onOpe
       goalWeightKg: profile.goalWeightKg,
       birthYear: profile.birthYear,
       sex: profile.sex,
+      // An injury's daily exercises are not training days to eat for.
       trainingDaysPerWeek: scheduledSessions.filter(
-        (session) => session.type === "workout" && session.date >= today && session.date <= nextWeek
+        (session) =>
+          session.type === "workout" &&
+          session.date >= today &&
+          session.date <= nextWeek &&
+          !isInjurySession(session, ownWorkouts)
       ).length,
       settings,
       recentAverage: recent.length > 0 ? averageIntake(recent) : undefined,

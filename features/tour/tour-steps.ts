@@ -125,7 +125,7 @@ export const TOUR_STEPS: TourStep[] = [
     route: "/profile",
     target: "profile-body",
     title: "Your body",
-    body: "Add your weight and tape measurements. Set a goal weight. Progress then shows when you will likely reach it."
+    body: "Add your weight and tape measurements. Set a goal weight. Progress then shows when you will likely reach it. Injuries keeps your pain score, and a workout from your doctor."
   },
   {
     route: "/profile",

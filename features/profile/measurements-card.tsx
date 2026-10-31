@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { ListGroup, ListRow, ListSheet, ListSheetRow, SheetDone } from "@/components/ui/list";
 import { WarmGradient } from "@/components/ui/progress-arc";
 import { Segmented } from "@/components/ui/segmented";
+import { InjuriesRow } from "@/features/injuries/injuries-row";
 import { useWorkoutStore } from "@/features/workout/workout-store";
 import {
   CADENCES,
@@ -478,6 +479,7 @@ export function BodyGroup({ goal }: { goal: React.ReactNode }) {
       <TapeRow />
       <AboutRow />
       <CheckInsRow />
+      <InjuriesRow />
     </ListGroup>
   );
 }

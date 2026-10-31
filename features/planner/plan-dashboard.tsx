@@ -24,6 +24,18 @@ export function PlanDashboard() {
   // text in the URL. It is lifted into state and the URL cleaned at once, so a
   // reload or a back swipe does not offer the same import twice.
   const [sharedText, setSharedText] = useState<string>();
+  // From an injury's "Workout for this": the Add workout sheet, with the label set.
+  const [forInjury, setForInjury] = useState<string>();
+  const injuryParam = params.get("injury");
+  useEffect(() => {
+    if (injuryParam === null) {
+      return;
+    }
+    setForInjury(injuryParam);
+    router.replace("/plan?mode=build", { scroll: false });
+    // The params object changes identity on every navigation; the id is the trigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [injuryParam]);
   const incoming = params.get("text") ?? params.get("url");
   useEffect(() => {
     if (incoming === null) {
@@ -48,7 +60,7 @@ export function PlanDashboard() {
     <section className="space-y-4" {...swipe}>
       <Segmented quiet role="tablist" aria-label="Plan mode" data-tour="plan-modes" options={MODES} value={mode} onChange={setMode} />
 
-      {mode === "build" ? <PlanBuild sharedText={sharedText} /> : <PlanSchedule onGoBuild={() => setMode("build")} />}
+      {mode === "build" ? <PlanBuild sharedText={sharedText} forInjury={forInjury} /> : <PlanSchedule onGoBuild={() => setMode("build")} />}
     </section>
   );
 }

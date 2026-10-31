@@ -84,8 +84,15 @@ export function ListRow({
   onClick,
   disabled,
   noChevron,
+  action,
   ...content
-}: RowContent & { onClick?: () => void; disabled?: boolean; noChevron?: boolean }) {
+}: RowContent & {
+  onClick?: () => void;
+  disabled?: boolean;
+  noChevron?: boolean;
+  /** A row's one quiet action. Only on a row that is not itself a button. */
+  action?: React.ReactNode;
+}) {
   const marker = { "data-icon": content.icon ? "" : undefined };
   return onClick ? (
     <button type="button" onClick={onClick} disabled={disabled} className={cn(ROW, PRESSABLE)} {...marker}>
@@ -96,7 +103,7 @@ export function ListRow({
     </button>
   ) : (
     <div className={ROW} {...marker}>
-      <RowBody {...content} />
+      <RowBody {...content} end={action} />
     </div>
   );
 }

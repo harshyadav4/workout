@@ -26,11 +26,13 @@ export function hasOwnData(state: {
   sessionTemplates: unknown[];
   measurements: unknown[];
   scheduledSessions: { type: string }[];
+  injuries?: unknown[];
 }): boolean {
   return (
     state.logs.length > 0 ||
     state.sessionTemplates.length > 0 ||
     state.measurements.length > 0 ||
+    (state.injuries?.length ?? 0) > 0 ||
     state.scheduledSessions.some((session) => session.type === "workout")
   );
 }

@@ -1,6 +1,10 @@
+import { isPainScore, readInjury } from "@/lib/injuries";
 import type { RemoteState } from "@/lib/sync";
 import type {
   BodyMeasurement,
+  Injury,
+  InjuryDeletion,
+  PainLog,
   ScheduledSession,
   SessionTemplate,
   SetLog,
@@ -150,6 +154,19 @@ export function parseExport(raw: unknown): ParsedBackup {
           (row) => hasId(row) && isText(row.name) && Array.isArray(row.levels) && isText(row.createdAt)
         )
       : undefined,
+    // The same rule as skill goals: a file from before injuries says nothing.
+    injuries: Array.isArray(raw.injuries)
+      ? raw.injuries.map(readInjury).filter((row): row is Injury => row !== undefined)
+      : undefined,
+    painLogs: Array.isArray(raw.painLogs)
+      ? keepValid<PainLog>(
+          raw.painLogs,
+          (row) => hasId(row) && hasDate(row) && isText(row.injuryId) && isPainScore(row.score)
+        )
+      : undefined,
+    deletedInjuries: Array.isArray(raw.deletedInjuries)
+      ? keepValid<InjuryDeletion>(raw.deletedInjuries, (row) => hasId(row) && isText(row.deletedAt))
+      : undefined,
     // Optional in RemoteState, and `reconcile` already falls back to the local
     // copy — so a file with no usable profile leaves the account's own alone.
     // Every required field is checked: a half-built profile reaching the store
@@ -165,7 +182,9 @@ export function parseExport(raw: unknown): ParsedBackup {
     "exercise logs": state.logs.length,
     sets: state.setLogs.length,
     measurements: state.measurements.length,
-    skills: state.skillGoals?.length ?? 0
+    skills: state.skillGoals?.length ?? 0,
+    injuries: state.injuries?.length ?? 0,
+    "pain scores": state.painLogs?.length ?? 0
   };
 
   if (Object.values(counts).every((count) => count === 0) && !state.profile) {

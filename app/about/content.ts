@@ -124,6 +124,7 @@ export const FEATURES: Feature[] = [
 /** Also true, too small for a section of its own. */
 export const EXTRAS: string[] = [
   "Calisthenics skill levels",
+  "Injury tracking: a weekly pain score, a workout from your doctor on the days they said, and a reminder to see a physio if it is not getting better. Arise does not diagnose",
   "A game-style Hunter rank from E to S",
   "A guided tour on sample data",
   "Backup download and restore"

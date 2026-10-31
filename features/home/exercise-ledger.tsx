@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, Minus, Plus, Trash2 } from "lucide-react";
+import { Check, Minus, Plus, Trash2, TriangleAlert } from "lucide-react";
 
 import { LiveTimerControl } from "@/features/home/live-timer";
 import { useDistanceUnit } from "@/features/workout/use-distance-unit";
@@ -231,6 +231,10 @@ interface ExerciseLedgerProps {
   onPick: () => void;
   /** Drop this exercise from today. Absent on the last one left. */
   onRemove?: () => void;
+  /** A hint that this exercise may load an injury. It never blocks the workout. */
+  warning?: string;
+  /** Change this exercise for today. Goes with `warning`. */
+  onSwap?: () => void;
   /** The session's one live clock, for timed sets (see live-timer). */
   timer?: {
     /** The set the clock is running for, if any. */
@@ -255,6 +259,8 @@ export function ExerciseLedger({
   onRemoveSet,
   onPick,
   onRemove,
+  warning,
+  onSwap,
   timer
 }: ExerciseLedgerProps) {
   const openSet = exercise.sets.find((setItem) => setItem.id === openSetId);
@@ -347,7 +353,26 @@ export function ExerciseLedger({
               {planLine}
               {restLine}
             </p>
+            {warning ? (
+              <p className="mt-0.5 flex items-center gap-1.5 text-[13px] font-medium text-warning">
+                <TriangleAlert className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                {warning}
+              </p>
+            ) : null}
           </div>
+          {warning && onSwap ? (
+            <button
+              type="button"
+              aria-label={`Swap ${exercise.templateName} for today`}
+              className="key-quiet h-11 shrink-0 rounded-full px-4 text-[13.5px] font-semibold"
+              onClick={(event) => {
+                event.stopPropagation();
+                onSwap();
+              }}
+            >
+              Swap
+            </button>
+          ) : null}
           {isFinished ? <Check className="h-5 w-5 shrink-0 text-[var(--l2)]" strokeWidth={2.4} aria-label="All sets logged" /> : null}
         </div>
 

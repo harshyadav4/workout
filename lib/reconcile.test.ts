@@ -172,4 +172,52 @@ const emptyRemote = (over: Partial<RemoteState> = {}): RemoteState => ({
   assert.equal(merged.measurements[0].value, 72, "the account wins the collision");
 }
 
+// Pain scores collide on `(injuryId, date)` for the same reason, and a read that
+// says nothing about injuries must not wipe the ones on this phone.
+{
+  const hip = { id: "hip", place: "hip" as const, side: "left" as const, startDate: "2026-08-01" };
+  const knee = { id: "knee", place: "knee" as const, side: "right" as const, startDate: "2026-08-02" };
+  const merged = reconcile(
+    emptyLocal({
+      injuries: [hip],
+      painLogs: [
+        { id: "local", injuryId: "hip", date: "2026-08-25", score: 5 },
+        { id: "other", injuryId: "knee", date: "2026-08-25", score: 2 }
+      ]
+    }),
+    emptyRemote({
+      injuries: [knee],
+      painLogs: [{ id: "remote", injuryId: "hip", date: "2026-08-25", score: 4 }]
+    })
+  );
+  assert.deepEqual(merged.injuries?.map((item) => item.id).sort(), ["hip", "knee"], "both phones' injuries stay");
+  assert.equal(merged.painLogs?.length, 2, "one score per injury per day");
+  assert.equal(merged.painLogs?.find((log) => log.injuryId === "hip")?.score, 4, "the account wins the collision");
+
+  const silent = reconcile(emptyLocal({ injuries: [hip], painLogs: [] }), emptyRemote());
+  assert.deepEqual(silent.injuries, [hip], "no answer about injuries keeps the device's");
+
+  // A deletion on either side beats the row on either side.
+  const gone = { id: "hip", deletedAt: "2026-08-26T00:00:00.000Z" };
+  const score = { id: "s", injuryId: "hip", date: "2026-08-25", score: 5 };
+  const fromAccount = reconcile(
+    emptyLocal({ injuries: [hip, knee], painLogs: [score] }),
+    emptyRemote({ injuries: [knee], painLogs: [], deletedInjuries: [gone] })
+  );
+  assert.deepEqual(fromAccount.injuries, [knee], "deleted on another phone");
+  assert.deepEqual(fromAccount.painLogs, [], "its scores go too");
+  assert.deepEqual(fromAccount.deletedInjuries, [gone], "and the deletion is kept");
+
+  const fromHere = reconcile(
+    emptyLocal({ injuries: [knee], deletedInjuries: [gone] }),
+    emptyRemote({ injuries: [hip, knee], painLogs: [score], deletedInjuries: [] })
+  );
+  assert.deepEqual(fromHere.injuries, [knee], "deleted here, and not yet sent");
+  assert.deepEqual(fromHere.painLogs, []);
+  assert.deepEqual(fromHere.deletedInjuries, [gone]);
+
+  const noTables = reconcile(emptyLocal({ injuries: [knee], deletedInjuries: [gone] }), emptyRemote());
+  assert.deepEqual(noTables.deletedInjuries, [gone], "no answer keeps the device's deletions too");
+}
+
 console.log("reconcile checks passed");

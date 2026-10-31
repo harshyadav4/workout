@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, ChevronRight, Dumbbell, PlayCircle, Plus, Sparkles } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Dumbbell, PlayCircle, Plus, Sparkles } from "lucide-react";
 import { useState, useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { usePendingRemoval } from "@/components/ui/use-pending-removal";
 import { NumberInput } from "@/components/ui/number-input";
 import { ThemedSelect } from "@/components/ui/select";
 import { AiImportSheet } from "@/features/planner/ai-import";
+import { InjuryWorkoutForm } from "@/features/injuries/injury-workout-form";
 import { ExercisePicker } from "@/features/planner/exercise-picker";
 import { MuscleSelectView } from "@/features/planner/muscle-drawer";
 import { ExerciseMediaView, templateDatasetId } from "@/features/workout/exercise-media-dialog";
@@ -29,9 +30,11 @@ import {
   DEFAULT_INCREMENT_SECONDS,
   PROGRESSION_LABELS
 } from "@/lib/progression";
+import { activeInjuries, injuryName } from "@/lib/injuries";
 import { buildSessionSummary } from "@/lib/workout-helpers";
 import type {
   ExerciseMetric,
+  Injury,
   ProgressionSettings,
   MuscleId,
   SessionTemplate,
@@ -167,10 +170,13 @@ function normalizeName(name: string): string {
 }
 
 export function PlanBuild({
-  sharedText
+  sharedText,
+  forInjury
 }: {
   /** Text shared into the app from Android's share sheet: an AI answer to import. */
   sharedText?: string;
+  /** An injury's id: open Add workout straight away, with its label set. */
+  forInjury?: string;
 } = {}) {
   const unit = useDistanceUnit();
   const muscles = useWorkoutStore((state) => state.muscles);
@@ -180,8 +186,14 @@ export function PlanBuild({
   const createSessionTemplate = useWorkoutStore((state) => state.createSessionTemplate);
   const updateSessionTemplate = useWorkoutStore((state) => state.updateSessionTemplate);
   const deleteSessionTemplate = useWorkoutStore((state) => state.deleteSessionTemplate);
+  const injuries = useWorkoutStore((state) => state.injuries);
+  const setInjuryWorkout = useWorkoutStore((state) => state.setInjuryWorkout);
 
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // The "For an injury" label, and the workout waiting for its days. Nothing is
+  // saved until those are chosen, so closing that sheet goes back to the form.
+  const [labelFor, setLabelFor] = useState("");
+  const [planning, setPlanning] = useState<SessionTemplate>();
   const [aiOpen, setAiOpen] = useState(false);
   // Shared text opens the AI sheet straight away, with the text in it.
   useEffect(() => {
@@ -221,10 +233,17 @@ export function PlanBuild({
     offerUndo({ label: "Exercise removed", undo: () => setBuilderExercises(previous), commit: () => undefined });
   };
 
+  const labelOptions = activeInjuries(injuries).filter((injury) => !injury.workout);
+  const labelledInjury = labelOptions.find((injury) => injury.id === labelFor);
+  const ownerOf = (sessionId: string) => injuries.find((injury) => injury.workout?.sessionTemplateId === sessionId);
+  const isOwnWorkout = Boolean(editingId && ownerOf(editingId));
+
   const shownWorkouts = sessionTemplates.filter((session) => !removal.hidden.has(session.id));
   const hasPlan = shownWorkouts.length > 0;
 
   const resetBuilder = () => {
+    setLabelFor("");
+    setPlanning(undefined);
     setEditingId(null);
     setSessionName("");
     setProgression({ rule: "off" });
@@ -236,7 +255,24 @@ export function PlanBuild({
     setMedia(null);
   };
 
+  // From an injury's "Workout for this": the name and the label are already there.
+  useEffect(() => {
+    const injury = forInjury ? injuries.find((item) => item.id === forInjury) : undefined;
+    if (!injury) {
+      return;
+    }
+    resetBuilder();
+    setLabelFor(injury.id);
+    setSessionName(`${injuryName(injury)} exercises`);
+    // A doctor's exercise rarely has a weight, so none is suggested.
+    setBuilderExercises((current) => current.map((exercise) => ({ ...exercise, weight: 0 })));
+    setDrawerOpen(true);
+    // Only when asked to: the injury list changes for other reasons.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [forInjury]);
+
   const openEdit = (session: SessionTemplate) => {
+    setLabelFor("");
     setEditingId(session.id);
     setSessionName(session.name);
     setProgression(session.progression ?? { rule: "off" });
@@ -494,6 +530,12 @@ export function PlanBuild({
               }
     };
 
+    // The doctor's numbers stay as typed, so a labelled workout has no rule.
+    if (labelledInjury) {
+      setPlanning({ ...template, progression: undefined });
+      return;
+    }
+
     const saved = editingId
       ? updateSessionTemplate(editingId, template)
       : createSessionTemplate(template);
@@ -547,9 +589,39 @@ export function PlanBuild({
               behind the address bar instead of clamping to what's actually visible. */}
           <DialogContent
             className={`${DRAWER_CONTENT} max-h-[88dvh] overflow-y-auto`}
-            hideClose={Boolean(pickerCardId || muscleCardId || media)}
+            hideClose={Boolean(pickerCardId || muscleCardId || media || planning)}
           >
-            {pickerCardId ? (
+            {planning && labelledInjury ? (
+              <>
+                <div className="mb-3 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPlanning(undefined)}
+                    aria-label="Back to workout"
+                    className="key-quiet flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-foreground"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <div className="min-w-0">
+                    <DialogTitle>Add to your plan</DialogTitle>
+                    <DialogDescription>
+                      {planning.name} · {planning.exercises.length} exercise{planning.exercises.length === 1 ? "" : "s"}
+                    </DialogDescription>
+                  </div>
+                </div>
+                <InjuryWorkoutForm
+                  submitLabel="Add to my plan"
+                  onSubmit={(frequency, weeks) => {
+                    if (createSessionTemplate(planning)) {
+                      setInjuryWorkout(labelledInjury.id, planning.id, frequency, weeks);
+                    }
+                    setPlanning(undefined);
+                    resetBuilder();
+                    setDrawerOpen(false);
+                  }}
+                />
+              </>
+            ) : pickerCardId ? (
               <ExercisePicker
                 onBack={() => setPickerCardId(null)}
                 onPick={(exercise) => applyPick(pickerCardId, exercise)}
@@ -838,7 +910,7 @@ export function PlanBuild({
                     variant="secondary"
                     className="w-full"
                     onClick={() => {
-                      const next = createEmptyExercise();
+                      const next = { ...createEmptyExercise(), ...(labelFor ? { weight: 0 } : {}) };
                       setBuilderExercises((current) => [...current, next]);
                       setOpenExerciseId(next.id);
                     }}
@@ -850,10 +922,34 @@ export function PlanBuild({
                     <p className="text-sm text-danger">{error.message}</p>
                   ) : null}
 
+                  {/* Only on a new workout, so Legs can never leave the main button by mistake. */}
+                  {!editingId && labelOptions.length > 0 ? (
+                    <div>
+                      <p className="mb-1 text-xs font-medium text-muted-foreground">For an injury</p>
+                      <ThemedSelect
+                        aria-label="For an injury"
+                        value={labelFor}
+                        onValueChange={(next) => {
+                          setLabelFor(next);
+                          // A doctor's exercise rarely has a weight, so none is suggested.
+                          if (next) {
+                            setBuilderExercises((current) =>
+                              current.map((exercise) => (exercise.name.trim() ? exercise : { ...exercise, weight: 0 }))
+                            );
+                          }
+                        }}
+                        options={[
+                          { value: "", label: "No" },
+                          ...labelOptions.map((injury) => ({ value: injury.id, label: injuryName(injury) }))
+                        ]}
+                      />
+                    </div>
+                  ) : null}
+
                   {/* The rule that decides the weight when this session opens.
                       Off keeps the numbers above exactly as typed, which is what
                       every session built before this existed still does. */}
-                  <div>
+                  <div className={labelledInjury || isOwnWorkout ? "hidden" : undefined}>
                     <InfoNote
                       heading={<p className="text-xs font-medium text-muted-foreground">Progression</p>}
                       note={
@@ -931,7 +1027,7 @@ export function PlanBuild({
                       scroll away from wherever you finished editing. */}
                   <div className={SHEET_FOOT}>
                     <Button className="w-full" onClick={saveSession}>
-                      {editingId ? "Save changes" : "Save workout"}
+                      {editingId ? "Save changes" : labelledInjury ? "Next" : "Save workout"}
                     </Button>
                   </div>
                 </div>
@@ -956,7 +1052,11 @@ export function PlanBuild({
                     {session.name}
                   </span>
                 }
-                hint={workoutLine(session)}
+                hint={
+                  ownerOf(session.id)
+                    ? `${workoutLine(session)} · for ${injuryName(ownerOf(session.id) as Injury).toLowerCase()}`
+                    : workoutLine(session)
+                }
                 onClick={() => openEdit(session)}
               />
             </SwipeRow>

@@ -1,10 +1,13 @@
 import { deriveEngagement } from "@/lib/exercises";
+import { injuryWorkoutDates } from "@/lib/injuries";
 import { daysBetween, shiftKey, weekStartKey } from "@/lib/progress-metrics";
 import { presetWorkouts } from "@/lib/seed-data";
 import { SKILL_TEMPLATES } from "@/lib/skills";
 import type { SyncableState } from "@/lib/sync";
 import type {
   BodyMeasurement,
+  Injury,
+  PainLog,
   BodyMetric,
   MuscleId,
   PlannedExercise,
@@ -17,7 +20,7 @@ import type {
   WorkoutLog,
   WorkoutTemplate
 } from "@/lib/types";
-import { buildLogFromSession } from "@/lib/workout-helpers";
+import { buildLogFromSession, plannedExercisesFromTemplate } from "@/lib/workout-helpers";
 
 /**
  * The tour's sample account: "Alex", six months into a sensible programme.
@@ -549,6 +552,72 @@ export function buildDemoState(today: string): DemoState {
     }
   ];
 
+  // A left hip that started 8 weeks ago and is slowly getting better.
+  const hipId = `${PREFIX}injury-hip`;
+  const injuries: Injury[] = [
+    { id: hipId, place: "hip", side: "left", startDate: shiftKey(today, -7 * 8), worseWith: "Deep squats" }
+  ];
+  const painLogs: PainLog[] = [7, 7, 6, 6, 5, 6, 5, 4, 4].map((score, week) => ({
+    id: `${PREFIX}pain-hip-${week}`,
+    injuryId: hipId,
+    date: shiftKey(today, -7 * (8 - week)),
+    score
+  }));
+
+  // Its workout: 3 easy exercises a day for 6 weeks, 2 weeks in. It writes no logs,
+  // so nothing above moves. Separate days from `sessions`, so Home still opens on
+  // the day's lifting session, with this as its own row.
+  const hipTemplateId = `${PREFIX}tpl-hip`;
+  const hipExercises: SessionTemplateExercise[] = [
+    { name: "Clamshell", key: "clamshell", muscleId: "gluteMed" as const, sets: 3, reps: 30, perSide: true },
+    { name: "Glute Bridge", key: "bridge", muscleId: "gluteMax" as const, sets: 3, reps: 10 },
+    { name: "Hip Flexor Stretch", key: "stretch", muscleId: "rectusFemoris" as const, sets: 2, reps: 0, durationSeconds: 30 }
+  ].map(({ key, muscleId, durationSeconds, ...item }) => ({
+    ...item,
+    id: `${PREFIX}tpl-hip-${key}`,
+    workoutId: `${PREFIX}${key}`,
+    muscles: [{ muscleId, engagement: 100 }],
+    weight: 0,
+    restSeconds: 30,
+    ...(durationSeconds ? { metric: "time" as const, durationSeconds } : {})
+  }));
+  const hipTemplate: SessionTemplate = {
+    id: hipTemplateId,
+    name: "Left hip exercises",
+    workoutIds: hipExercises.map((item) => item.workoutId),
+    exercises: hipExercises,
+    summary: { totalSets: 8, totalReps: 120, totalWeight: 0 }
+  };
+  const hipDays = injuryWorkoutDates({ kind: "every", days: 1 }, shiftKey(today, -14), 6);
+  injuries[0].workout = {
+    sessionTemplateId: hipTemplateId,
+    frequency: { kind: "every", days: 1 },
+    startDate: hipDays[0],
+    endDate: hipDays[hipDays.length - 1]
+  };
+  const hipSessions: ScheduledSession[] = hipDays.map((date) => {
+    const done = date < today;
+    return {
+      id: `${PREFIX}hip-${date}`,
+      date,
+      dayIndex: weekday(date),
+      sessionTemplateId: hipTemplateId,
+      sessionName: hipTemplate.name,
+      exercises: plannedExercisesFromTemplate(hipTemplate, { logs: [], setLogs: [] }).map((exercise, index) => ({
+        ...exercise,
+        id: `${PREFIX}hip-${date}-${index}`,
+        sets: exercise.sets.map((set, setIndex) => ({
+          ...set,
+          id: `${PREFIX}hip-${date}-${index}-${setIndex}`,
+          completed: done
+        }))
+      })),
+      type: "workout",
+      status: done ? "completed" : "planned",
+      source: "manual"
+    };
+  });
+
   const scheduleConfig: ScheduleConfig = {
     startDate: calendar.start,
     endDate: shiftKey(today, 28),
@@ -567,12 +636,14 @@ export function buildDemoState(today: string): DemoState {
 
   return {
     templates: DEMO_TEMPLATES,
-    sessionTemplates: sessionTemplates(calendar),
-    scheduledSessions: sessions,
+    sessionTemplates: [...sessionTemplates(calendar), hipTemplate],
+    scheduledSessions: [...sessions, ...hipSessions].sort((a, b) => a.date.localeCompare(b.date)),
     logs,
     setLogs,
     measurements: body,
     skillGoals,
+    injuries,
+    painLogs,
     profile: {
       ...DEMO_PROFILE,
       weightKg: latestWeight,

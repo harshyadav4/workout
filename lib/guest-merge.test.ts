@@ -105,4 +105,16 @@ assert.equal(
   "an account without a schedule takes the guest's"
 );
 
+// An injury is the guest's own, so it is worth asking about, and it moves.
+{
+  const hip = { id: "hip", place: "hip" as const, side: "left" as const, startDate: "2026-10-01" };
+  const pain = { id: "p", injuryId: "hip", date: "2026-10-01", score: 5 };
+  const guest = { ...empty(), injuries: [hip], painLogs: [pain] };
+  assert.equal(countCopy(guest).total, 1, "an injury counts as data");
+  assert.equal(decideGuestMerge({ guest, account: empty(), declined: false }), "move");
+  const incoming = guestAsIncoming(guest);
+  assert.deepEqual(incoming.injuries, [hip]);
+  assert.deepEqual(incoming.painLogs, [pain]);
+}
+
 console.log("guest merge checks passed");

@@ -38,12 +38,14 @@ const demo = buildDemoState(today);
     selectedMuscleId: "lats",
     owner: "user-1"
   };
-  const sample = withSample(state, demo) as typeof state & { logs: unknown[] };
+  const sample = withSample(state, demo) as typeof state & { logs: unknown[]; injuries: unknown[]; painLogs: unknown[] };
 
   assert.ok(sample.templates.some((item) => item.id === "bench-press"), "presets stay");
   assert.ok(!sample.templates.some((item) => item.id === "my-own"), "the user's own exercises leave the screen");
   assert.ok(sample.templates.some((item) => item.id === "db-0685"), "the sample's run comes in");
   assert.equal(sample.logs, demo.logs);
+  assert.equal(sample.injuries, demo.injuries, "your real injuries leave the screen for the sample's");
+  assert.equal(sample.painLogs, demo.painLogs);
   assert.equal(sample.selectedSessionId, undefined, "no selection points at a missing session");
   assert.equal(sample.owner, "user-1", "everything else stays");
 }

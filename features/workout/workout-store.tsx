@@ -6,6 +6,15 @@ import { useStore } from "zustand";
 
 import type { PlanImport } from "@/lib/ai-plan";
 import { upsertMeasurement } from "@/lib/body-metrics";
+import {
+  injuryWorkoutDates,
+  injuryWorkoutDaysLeft,
+  injuryWorkoutIds,
+  isInjurySession,
+  isPainScore,
+  upsertPainLog,
+  withoutInjury
+} from "@/lib/injuries";
 import { releaseUnusedMedia } from "@/lib/media";
 import { reconcile } from "@/lib/reconcile";
 import { isTouring } from "@/features/tour/tour-store";
@@ -13,6 +22,10 @@ import { finishTime } from "@/lib/session-time";
 import { muscles, presetWorkouts } from "@/lib/seed-data";
 import type {
   BodyMeasurement,
+  Injury,
+  InjuryDeletion,
+  InjuryWorkoutFrequency,
+  PainLog,
   BodyMetric,
   Muscle,
   PlannedExercise,
@@ -60,6 +73,12 @@ interface WorkoutState {
   measurements: BodyMeasurement[];
   /** Skills being climbed (lib/skills). Progress is read off setLogs, never stored. */
   skillGoals: SkillGoal[];
+  /** Injuries, healed ones included (lib/injuries). */
+  injuries: Injury[];
+  /** One 0 to 10 score per injury per day. */
+  painLogs: PainLog[];
+  /** What tells this account's other phones an injury was deleted. */
+  deletedInjuries: InjuryDeletion[];
   activeDate: string;
   selectedMuscleId?: string;
   selectedSessionId?: string;
@@ -137,6 +156,18 @@ interface WorkoutState {
   refreshUpcoming: () => void;
   addSkillGoal: (goal: SkillGoal) => void;
   removeSkillGoal: (id: string) => void;
+  /** An injury always starts with a score, on its first day. */
+  addInjury: (injury: Injury, score: number) => void;
+  updateInjury: (id: string, patch: Partial<Omit<Injury, "id">>) => void;
+  logPain: (injuryId: string, score: number, date?: string) => void;
+  markInjuryHealed: (id: string, date?: string) => void;
+  reopenInjury: (id: string) => void;
+  removeInjury: (id: string) => void;
+  /** Label a workout for an injury and put it on the days the frequency gives, starting today. */
+  setInjuryWorkout: (injuryId: string, sessionTemplateId: string, frequency: InjuryWorkoutFrequency, weeks: number) => void;
+  stopInjuryWorkout: (injuryId: string) => void;
+  /** Change one exercise for one day. The saved workout stays as it is. */
+  swapSessionExercise: (sessionId: string, exerciseId: string, exercises: PlannedExercise[]) => void;
   /**
    * A skill moved up a rung: put the new exercise in place of the rung(s)
    * below it in every session that has one. Opt-in from the Skills tab.
@@ -184,17 +215,58 @@ function exerciseFromSessionTemplate(
  * next one opens at what you last lifted. The same state back when nothing
  * moved, so callers can apply it freely without a write or a sync.
  */
-function withFreshUpcoming<S extends Pick<WorkoutState, "scheduledSessions" | "sessionTemplates" | "logs" | "setLogs">>(
+function withFreshUpcoming<S extends Pick<WorkoutState, "injuries" | "scheduledSessions" | "sessionTemplates" | "logs" | "setLogs">>(
   state: S
 ): S {
-  const scheduledSessions = refreshUpcomingSessions(
+  // An injury's workout keeps the numbers typed in it. Nothing logged, and no
+  // rule, may raise what a doctor asked for, even if a normal workout has the
+  // same exercise. It still picks up an edit to the workout.
+  const own = injuryWorkoutIds(state.injuries);
+  const planned = refreshUpcomingSessions(
     state.scheduledSessions,
-    state.sessionTemplates,
+    state.sessionTemplates.filter((template) => !own.has(template.id)),
     { logs: state.logs, setLogs: state.setLogs },
     todayKey()
   );
+  const scheduledSessions =
+    own.size > 0
+      ? refreshUpcomingSessions(
+          planned,
+          state.sessionTemplates.filter((template) => own.has(template.id)),
+          NO_HISTORY,
+          todayKey()
+        )
+      : planned;
   return scheduledSessions === state.scheduledSessions ? state : { ...state, scheduledSessions };
 }
+
+const NO_HISTORY: PerformanceHistory = { logs: [], setLogs: [] };
+
+/** One day of an injury's workout, at the numbers typed in it. */
+function injurySession(template: SessionTemplate, date: string): ScheduledSession {
+  return {
+    id: crypto.randomUUID(),
+    date,
+    dayIndex: weekdayIndex(new Date(`${date}T00:00:00`)),
+    sessionTemplateId: template.id,
+    sessionName: template.name,
+    exercises: plannedExercisesFromTemplate(template, NO_HISTORY),
+    type: "workout",
+    status: "planned",
+    // `manual`, so regenerating the schedule leaves it alone (mergeGeneratedSessions).
+    source: "manual"
+  };
+}
+
+/** A workout's days not started yet, from `from` on, leave the calendar. Done days stay. */
+function withoutPlannedDays(sessions: ScheduledSession[], sessionTemplateId: string, from: string) {
+  return sessions.filter(
+    (session) =>
+      !(session.sessionTemplateId === sessionTemplateId && session.status === "planned" && session.date >= from)
+  );
+}
+
+const byDate = (a: ScheduledSession, b: ScheduledSession) => a.date.localeCompare(b.date);
 
 /** The end of a session being finished now — see finishTime. */
 function sessionEnd(session: ScheduledSession): string {
@@ -241,6 +313,15 @@ function createInitialState(): Omit<
   | "refreshUpcoming"
   | "addSkillGoal"
   | "removeSkillGoal"
+  | "addInjury"
+  | "updateInjury"
+  | "logPain"
+  | "markInjuryHealed"
+  | "reopenInjury"
+  | "removeInjury"
+  | "setInjuryWorkout"
+  | "stopInjuryWorkout"
+  | "swapSessionExercise"
   | "applySkillLevelToPlans"
 > {
   // A new account starts empty and lands in Home's `setup` state. `muscles` and
@@ -258,6 +339,9 @@ function createInitialState(): Omit<
     profile: { name: "", email: "", heightCm: 0, weightKg: 0 },
     measurements: [],
     skillGoals: [],
+    injuries: [],
+    painLogs: [],
+    deletedInjuries: [],
     activeDate: todayKey(),
     selectedMuscleId: undefined,
     selectedSessionId: undefined
@@ -331,6 +415,9 @@ function writeUnchecked(key: string, state: WorkoutState) {
       profile: state.profile,
       measurements: state.measurements,
       skillGoals: state.skillGoals,
+      injuries: state.injuries,
+      painLogs: state.painLogs,
+      deletedInjuries: state.deletedInjuries,
       activeDate: state.activeDate,
       selectedMuscleId: state.selectedMuscleId,
       selectedSessionId: state.selectedSessionId,
@@ -385,6 +472,8 @@ function savedAsIncoming(saved: Partial<WorkoutState>): RemoteState {
     setLogs: saved.setLogs ?? [],
     measurements: saved.measurements ?? [],
     skillGoals: saved.skillGoals,
+    injuries: saved.injuries,
+    painLogs: saved.painLogs,
     profile: saved.profile,
     scheduleConfig: saved.scheduleConfig
   };
@@ -444,12 +533,23 @@ function loadState() {
   return saved ? { ...createInitialState(), ...saved } : createInitialState();
 }
 
-function getTodayScheduledSessions(state: Pick<WorkoutState, "scheduledSessions" | "activeDate">) {
-  return state.scheduledSessions.filter((session) => session.date === state.activeDate);
+/**
+ * The day's workouts to choose between. An injury's workout has its own row on
+ * Today, so it joins them only while it is the one open.
+ */
+function getTodayScheduledSessions(
+  state: Pick<WorkoutState, "scheduledSessions" | "activeDate" | "injuries" | "selectedSessionId">
+) {
+  const own = injuryWorkoutIds(state.injuries);
+  return state.scheduledSessions.filter(
+    (session) =>
+      session.date === state.activeDate &&
+      (!isInjurySession(session, own) || session.id === state.selectedSessionId)
+  );
 }
 
 function getSelectedOrFirstTodaySession(
-  state: Pick<WorkoutState, "scheduledSessions" | "activeDate" | "selectedSessionId">
+  state: Pick<WorkoutState, "scheduledSessions" | "activeDate" | "injuries" | "selectedSessionId">
 ) {
   const todaySessions = getTodayScheduledSessions(state);
 
@@ -537,9 +637,26 @@ export function createWorkoutStore() {
       deleteSessionTemplate: (id) =>
         setAndPersist((state) => {
           const sessionTemplates = state.sessionTemplates.filter((template) => template.id !== id);
+          const linked = injuryWorkoutIds(state.injuries).has(id);
+          // An injury's workout takes its days with it. Left behind, they would
+          // turn into normal workouts on every one of those days.
+          const scheduledSessions = linked
+            ? withoutPlannedDays(state.scheduledSessions, id, todayKey())
+            : state.scheduledSessions;
+          const injuries = linked
+            ? state.injuries.map((injury) =>
+                injury.workout?.sessionTemplateId === id ? { ...injury, workout: undefined } : injury
+              )
+            : state.injuries;
           // Clearing a template's mediaPath is what makes the sync layer delete
           // the stored GIF — see `removedMediaPaths` in lib/sync.ts.
-          return { ...state, sessionTemplates, templates: releaseUnusedMedia(state.templates, sessionTemplates, state.scheduledSessions) };
+          return {
+            ...state,
+            injuries,
+            scheduledSessions,
+            sessionTemplates,
+            templates: releaseUnusedMedia(state.templates, sessionTemplates, scheduledSessions)
+          };
         }),
       importAiPlan: ({ templates, sessions, scheduleConfig }) =>
         setAndPersist((state) => {
@@ -576,7 +693,8 @@ export function createWorkoutStore() {
               base.scheduledSessions,
               buildScheduleSessions(scheduleConfig, sessionTemplates, (template) =>
                 plannedExercisesFromTemplate(template, base)
-              )
+              ),
+              injuryWorkoutIds(state.injuries)
             ),
             selectedSessionId: undefined
           };
@@ -727,7 +845,8 @@ export function createWorkoutStore() {
             state.scheduledSessions,
             buildScheduleSessions(config, state.sessionTemplates, (template) =>
               plannedExercisesFromTemplate(template, state)
-            )
+            ),
+            injuryWorkoutIds(state.injuries)
           ),
           selectedSessionId: undefined
         })),
@@ -862,6 +981,24 @@ export function createWorkoutStore() {
             return state;
           }
 
+          // An injury's workout writes no logs, so it reaches no total, record,
+          // streak or rank. What was done stays on the session, to show a doctor.
+          if (isInjurySession(selectedSession, injuryWorkoutIds(state.injuries))) {
+            return {
+              ...state,
+              selectedSessionId: undefined,
+              scheduledSessions: state.scheduledSessions.map((session) =>
+                session.id === selectedSession.id
+                  ? {
+                      ...session,
+                      status: "completed" as const,
+                      finishedAt: session.startedAt ? sessionEnd(session) : undefined
+                    }
+                  : session
+              )
+            };
+          }
+
           // Bodyweight movements score reps × (you + added), so the profile weight
           // is part of the volume figure.
           const logged = buildLogFromSession(
@@ -893,8 +1030,9 @@ export function createWorkoutStore() {
           ...state,
           activeDate: date,
           selectedSessionId:
-            state.scheduledSessions.find((session) => session.date === date)?.id ??
-            state.selectedSessionId
+            state.scheduledSessions.find(
+              (session) => session.date === date && !isInjurySession(session, injuryWorkoutIds(state.injuries))
+            )?.id ?? state.selectedSessionId
         })),
       setProfile: (patch) =>
         setAndPersist((state) => ({
@@ -997,10 +1135,146 @@ export function createWorkoutStore() {
       hydrateRemote: (payload) =>
         setAndPersist((state) => withFreshUpcoming({ ...state, ...reconcile(state, payload) })),
       refreshUpcoming: () => setAndPersist((state) => withFreshUpcoming(state)),
+      setInjuryWorkout: (injuryId, sessionTemplateId, frequency, weeks) =>
+        setAndPersist((state) => {
+          const injury = state.injuries.find((item) => item.id === injuryId);
+          const template = state.sessionTemplates.find((item) => item.id === sessionTemplateId);
+          const today = todayKey();
+          const dates = injuryWorkoutDates(frequency, today, weeks);
+          if (!injury || !template || dates.length === 0) {
+            return state;
+          }
+          // Changing how often replaces the days ahead. A day already done stays done.
+          let sessions = withoutPlannedDays(state.scheduledSessions, sessionTemplateId, today);
+          const previous = injury.workout?.sessionTemplateId;
+          if (previous && previous !== sessionTemplateId) {
+            sessions = withoutPlannedDays(sessions, previous, today);
+          }
+          const taken = new Set(
+            sessions.filter((session) => session.sessionTemplateId === sessionTemplateId).map((session) => session.date)
+          );
+          return {
+            ...state,
+            injuries: state.injuries.map((item) =>
+              item.id === injuryId
+                ? {
+                    ...item,
+                    workout: { sessionTemplateId, frequency, startDate: today, endDate: dates[dates.length - 1] }
+                  }
+                : item
+            ),
+            scheduledSessions: [
+              ...sessions,
+              ...dates.filter((date) => !taken.has(date)).map((date) => injurySession(template, date))
+            ].sort(byDate)
+          };
+        }),
+      stopInjuryWorkout: (injuryId) =>
+        setAndPersist((state) => {
+          const templateId = state.injuries.find((item) => item.id === injuryId)?.workout?.sessionTemplateId;
+          return {
+            ...state,
+            injuries: state.injuries.map((item) => (item.id === injuryId ? { ...item, workout: undefined } : item)),
+            scheduledSessions: templateId
+              ? withoutPlannedDays(state.scheduledSessions, templateId, todayKey())
+              : state.scheduledSessions
+          };
+        }),
+      swapSessionExercise: (sessionId, exerciseId, exercises) =>
+        setAndPersist((state) => ({
+          ...state,
+          scheduledSessions: state.scheduledSessions.map((session) =>
+            session.id === sessionId
+              ? {
+                  ...session,
+                  exercises: session.exercises.flatMap((exercise) => (exercise.id === exerciseId ? exercises : [exercise]))
+                }
+              : session
+          )
+        })),
       addSkillGoal: (goal) =>
         setAndPersist((state) => ({ ...state, skillGoals: [...state.skillGoals, goal] })),
       removeSkillGoal: (id) =>
         setAndPersist((state) => ({ ...state, skillGoals: state.skillGoals.filter((goal) => goal.id !== id) })),
+      addInjury: (injury, score) =>
+        setAndPersist((state) =>
+          isPainScore(score)
+            ? {
+                ...state,
+                injuries: [...state.injuries, injury],
+                painLogs: upsertPainLog(state.painLogs, {
+                  id: crypto.randomUUID(),
+                  injuryId: injury.id,
+                  date: injury.startDate,
+                  score
+                })
+              }
+            : state
+        ),
+      updateInjury: (id, patch) =>
+        setAndPersist((state) => ({
+          ...state,
+          injuries: state.injuries.map((injury) => (injury.id === id ? { ...injury, ...patch } : injury))
+        })),
+      logPain: (injuryId, score, date = todayKey()) =>
+        setAndPersist((state) =>
+          isPainScore(score) && state.injuries.some((injury) => injury.id === injuryId)
+            ? {
+                ...state,
+                painLogs: upsertPainLog(state.painLogs, { id: crypto.randomUUID(), injuryId, date, score })
+              }
+            : state
+        ),
+      // Healing stops its workout: days still ahead go, and finished ones stay.
+      markInjuryHealed: (id, date = todayKey()) =>
+        setAndPersist((state) => {
+          const templateId = state.injuries.find((injury) => injury.id === id)?.workout?.sessionTemplateId;
+          return {
+            ...state,
+            injuries: state.injuries.map((injury) => (injury.id === id ? { ...injury, healedDate: date } : injury)),
+            scheduledSessions: templateId
+              ? withoutPlannedDays(state.scheduledSessions, templateId, date)
+              : state.scheduledSessions
+          };
+        }),
+      // Undo of the above, or "It has come back": its days return, up to its last day.
+      reopenInjury: (id) =>
+        setAndPersist((state) => {
+          const workout = state.injuries.find((injury) => injury.id === id)?.workout;
+          const template = state.sessionTemplates.find((item) => item.id === workout?.sessionTemplateId);
+          const today = todayKey();
+          const dates = workout && template ? injuryWorkoutDaysLeft(workout, today) : [];
+          const taken = new Set(
+            state.scheduledSessions
+              .filter((session) => session.sessionTemplateId === template?.id)
+              .map((session) => session.date)
+          );
+          return {
+            ...state,
+            injuries: state.injuries.map((injury) =>
+              injury.id === id ? { ...injury, healedDate: undefined } : injury
+            ),
+            scheduledSessions: template
+              ? [
+                  ...state.scheduledSessions,
+                  ...dates.filter((date) => !taken.has(date)).map((date) => injurySession(template, date))
+                ].sort(byDate)
+              : state.scheduledSessions
+          };
+        }),
+      // A guest has no other phone to tell, so only an account keeps the deletion.
+      removeInjury: (id) =>
+        setAndPersist((state) => ({
+          ...state,
+          ...withoutInjury(state.injuries, state.painLogs, id),
+          scheduledSessions: (() => {
+            const templateId = state.injuries.find((injury) => injury.id === id)?.workout?.sessionTemplateId;
+            return templateId ? withoutPlannedDays(state.scheduledSessions, templateId, todayKey()) : state.scheduledSessions;
+          })(),
+          deletedInjuries: state.owner
+            ? [...state.deletedInjuries, { id, deletedAt: new Date().toISOString() }]
+            : state.deletedInjuries
+        })),
       applySkillLevelToPlans: ({ replaceWorkoutIds, level, template }) => {
         let replaced = 0;
         setAndPersist((state) => {
@@ -1160,26 +1434,45 @@ export function useWorkoutStoreApi() {
 export function useTodaySessions() {
   const scheduledSessions = useWorkoutStore((state) => state.scheduledSessions);
   const activeDate = useWorkoutStore((state) => state.activeDate);
+  const injuries = useWorkoutStore((state) => state.injuries);
+  const selectedSessionId = useWorkoutStore((state) => state.selectedSessionId);
 
   return useMemo(
-    () => getTodayScheduledSessions({ scheduledSessions, activeDate }),
-    [activeDate, scheduledSessions]
+    () => getTodayScheduledSessions({ scheduledSessions, activeDate, injuries, selectedSessionId }),
+    [activeDate, injuries, scheduledSessions, selectedSessionId]
   );
+}
+
+/**
+ * The calendar without any injury's workout: what Rank, Consistency and the time
+ * charts count. A daily routine must not raise them, and a missed day must not
+ * lower them while someone is hurt.
+ */
+export function useMainSessions() {
+  const scheduledSessions = useWorkoutStore((state) => state.scheduledSessions);
+  const injuries = useWorkoutStore((state) => state.injuries);
+
+  return useMemo(() => {
+    const own = injuryWorkoutIds(injuries);
+    return own.size > 0 ? scheduledSessions.filter((session) => !isInjurySession(session, own)) : scheduledSessions;
+  }, [injuries, scheduledSessions]);
 }
 
 export function useSelectedTodaySession() {
   const scheduledSessions = useWorkoutStore((state) => state.scheduledSessions);
   const activeDate = useWorkoutStore((state) => state.activeDate);
   const selectedSessionId = useWorkoutStore((state) => state.selectedSessionId);
+  const injuries = useWorkoutStore((state) => state.injuries);
 
   return useMemo(
     () =>
       getSelectedOrFirstTodaySession({
         scheduledSessions,
         activeDate,
+        injuries,
         selectedSessionId
       }),
-    [activeDate, scheduledSessions, selectedSessionId]
+    [activeDate, injuries, scheduledSessions, selectedSessionId]
   );
 }
 

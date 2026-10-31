@@ -22,6 +22,7 @@ interface CopyLike {
   scheduledSessions: { type: string }[];
   templates?: { isPreset: boolean }[];
   skillGoals?: unknown[];
+  injuries?: unknown[];
 }
 
 export interface GuestCounts {
@@ -39,7 +40,8 @@ export function countCopy(copy: CopyLike): GuestCounts {
   const extra =
     copy.scheduledSessions.filter((session) => session.type === "workout").length +
     (copy.templates ?? []).filter((template) => !template.isPreset).length +
-    (copy.skillGoals ?? []).length;
+    (copy.skillGoals ?? []).length +
+    (copy.injuries ?? []).length;
   return { sessions, weighIns, plans, total: sessions + weighIns + plans + extra };
 }
 
@@ -106,6 +108,8 @@ export function guestAsIncoming(
     setLogs: guest.setLogs,
     measurements: guest.measurements,
     skillGoals: guest.skillGoals,
+    injuries: guest.injuries,
+    painLogs: guest.painLogs,
     profile,
     // The account's schedule wins when it has one. The guest copy goes in as
     // the "remote" side of `reconcile`, which takes remote ?? local — so the

@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/features/auth/use-auth";
 import { useTour } from "@/features/tour/tour-store";
 import { RankBadge, RankUpNotice } from "@/features/home/hunter-rank";
-import { useSelectedTodaySession, useWorkoutStore } from "@/features/workout/workout-store";
+import { useMainSessions, useSelectedTodaySession, useWorkoutStore } from "@/features/workout/workout-store";
 import { resolveDayState } from "@/lib/schedule";
 
 // Date keys are plain YYYY-MM-DD days, so format in UTC — the day never shifts
@@ -48,7 +48,7 @@ export function TodayHeader() {
   const profileName = useWorkoutStore((state) => state.profile.name);
   const [greeting, setGreeting] = useState("Today");
   const session = useSelectedTodaySession();
-  const scheduled = useWorkoutStore((state) => state.scheduledSessions);
+  const scheduled = useMainSessions();
   // Mid-workout the top of the screen is the work: no greeting above it.
   const logging = resolveDayState({ today: activeDate, session, sessions: scheduled, hasPlan: true }).kind === "logging";
 

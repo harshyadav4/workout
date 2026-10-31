@@ -22,6 +22,7 @@ import { usePendingRemoval } from "@/components/ui/use-pending-removal";
 import { SessionPreview } from "@/features/planner/session-preview";
 import { MuscleMapCard } from "@/features/home/muscle-map-card";
 import { useExercisesFromSessionTemplate, useWorkoutStore } from "@/features/workout/workout-store";
+import { activeInjuries, injuryWorkoutIds, injuryWorkoutLine, isInjurySession } from "@/lib/injuries";
 import { formatDayKey } from "@/lib/progress-metrics";
 import { REST_SLOT, buildScheduleSessions, daysOfScheduleLeft, maxScheduleEnd } from "@/lib/schedule";
 import { muscles } from "@/lib/seed-data";
@@ -59,6 +60,7 @@ interface PlanScheduleProps {
 export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
   const sessionTemplates = useWorkoutStore((state) => state.sessionTemplates);
   const scheduledSessions = useWorkoutStore((state) => state.scheduledSessions);
+  const injuries = useWorkoutStore((state) => state.injuries);
   const scheduleConfig = useWorkoutStore((state) => state.scheduleConfig);
   const generateSchedule = useWorkoutStore((state) => state.generateSchedule);
   const removeScheduledSession = useWorkoutStore((state) => state.removeScheduledSession);
@@ -113,6 +115,10 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
     [scheduledSessions, removal.hidden]
   );
   const sessionsForDay = shownSessions.filter((session) => session.date === selectedDate);
+  // An injury's workout runs beside the plan. A day lists it, but it does not make
+  // a rest day look like a training day, and it is not offered as a plan workout.
+  const ownWorkouts = useMemo(() => injuryWorkoutIds(injuries), [injuries]);
+  const planTemplates = sessionTemplates.filter((template) => !ownWorkouts.has(template.id));
   // A past day is history: what you did (or skipped) stays as it was. Adding,
   // moving or removing there would rewrite the record the charts read from.
   const isPastDay = selectedDate < today;
@@ -121,9 +127,9 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
   const dayWorkoutIds = useMemo(
     () =>
       sessionsForDay
-        .filter((session) => session.type === "workout")
+        .filter((session) => session.type === "workout" && !isInjurySession(session, ownWorkouts))
         .flatMap((session) => session.exercises.map((exercise) => exercise.workoutId)),
-    [sessionsForDay]
+    [ownWorkouts, sessionsForDay]
   );
   const dayHighlights = useMemo(
     () => buildMuscleHighlightsFromWorkoutIds(dayWorkoutIds, templates),
@@ -162,7 +168,7 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
   };
 
   const dotFor = (key: string) => {
-    const forDay = shownSessions.filter((session) => session.date === key);
+    const forDay = shownSessions.filter((session) => session.date === key && !isInjurySession(session, ownWorkouts));
     return forDay.find((session) => session.type === "workout") ?? forDay[0];
   };
 
@@ -274,7 +280,13 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
     );
   }
 
-  const upcoming = shownSessions.filter((session) => session.date >= today);
+  const upcoming = shownSessions.filter((session) => session.date >= today && !isInjurySession(session, ownWorkouts));
+  // Once each: a daily one would otherwise fill the list with the same row.
+  const runningWorkouts = activeInjuries(injuries).flatMap((injury) => {
+    const workout = injury.workout;
+    const template = workout && sessionTemplates.find((item) => item.id === workout.sessionTemplateId);
+    return workout && template && workout.endDate >= today ? [{ name: template.name, workout }] : [];
+  });
 
   return (
     <div className="space-y-5">
@@ -442,11 +454,14 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
         />
       ) : null}
 
-      {upcoming.length > 0 ? (
+      {upcoming.length + runningWorkouts.length > 0 ? (
         <ListGroup
           title="Upcoming"
           aside={upcoming.length > UPCOMING_ROWS ? `Next ${UPCOMING_ROWS} of ${upcoming.length}` : undefined}
         >
+          {runningWorkouts.map(({ name, workout }) => (
+            <ListRow key={workout.sessionTemplateId} label={name} value={injuryWorkoutLine(workout)} />
+          ))}
           {upcoming.slice(0, UPCOMING_ROWS).map((session) => (
             <ListRow
               key={session.id}
@@ -576,7 +591,7 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
                       options={[
                         { value: "", label: "Off" },
                         { value: "rest", label: "Rest day" },
-                        ...sessionTemplates.map((template) => ({
+                        ...planTemplates.map((template) => ({
                           value: template.id,
                           label: template.name
                         }))

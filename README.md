@@ -146,6 +146,10 @@ npm run dev
 
 ## Supabase setup
 
+> **Run `0016_injuries.sql` for injuries to sync.** It adds `injuries`, `pain_logs` and
+> `injury_deletions`. Without it injuries stay on the device and everything else syncs as before.
+> The next time the app opens after it has run, it sends them.
+
 > **Run `0015_diet_micronutrients.sql` for a meal's foods to sync.** Without it meals still sync, and
 > their foods and micronutrients stay on the device.
 
@@ -195,7 +199,7 @@ npm run dev
 
 1. Create a Supabase project.
 2. Run the migrations in `supabase/migrations/` in order — `0001_init.sql` through
-   `0014_diet.sql`. `0009` makes template ids per user (older projects collide on shared
+   `0016_injuries.sql`. `0009` makes template ids per user (older projects collide on shared
    ids like `db-0025`); `0010` adds the two Web Push tables.
 3. Enable the Google provider under **Authentication → Providers**.
 4. Add your local dev origin and deployed domain to the allowed redirect URLs.
@@ -297,6 +301,8 @@ Six tables, all user-owned, all with RLS using both `using` and `with check`:
 - `workout_logs` — one row per exercise per session, with real columns because it is read as
   an aggregated series
 - `body_measurements` — 11 sites, left and right kept separate
+- `injuries`, `pain_logs` — one 0 to 10 score per injury per day
+- `injury_deletions` — only the id of a deleted injury, so it stays deleted on every phone
 
 `session_templates.progression` (0004) holds the rule that decides a session's opening weights;
 NULL means no rule, which is what every session saved before it meant.

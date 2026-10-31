@@ -165,6 +165,20 @@ assert.deepEqual(mergeGeneratedSessions(existing, []), [existing[0], existing[1]
   );
 }
 
+// A workout beside the plan, like an injury's, is kept but does not claim its
+// date. Before this, a daily one cost every generated workout in its range.
+{
+  const beside = { ...session("2026-07-22", "Left hip exercises", "planned"), source: "manual" as const, sessionTemplateId: "hip" };
+  const onThatDay = session("2026-07-22", "Legs", "planned");
+  const kept = mergeGeneratedSessions([beside], [onThatDay], new Set(["hip"]));
+  assert.deepEqual(kept.map((item) => item.sessionName).sort(), ["Left hip exercises", "Legs"], "both stay");
+  assert.deepEqual(
+    mergeGeneratedSessions([beside], [onThatDay]).map((item) => item.sessionName),
+    ["Left hip exercises"],
+    "without the rule, the date is taken"
+  );
+}
+
 console.log("schedule merge checks passed");
 
 // --- resolveDayState ---

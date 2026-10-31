@@ -85,6 +85,7 @@ export function DeletionBanner() {
       state.logs.length > 0 ||
       state.measurements.length > 0 ||
       state.sessionTemplates.length > 0 ||
+      state.injuries.length > 0 ||
       state.templates.some((template) => !template.isPreset)
   );
   const { lastSyncedAt, error } = useSyncStatus();
@@ -333,7 +334,7 @@ export function DataDeletion() {
           }
         />
         <ul className="mt-1 space-y-1 text-sm text-muted-foreground">
-          <li>Deletes workouts, plans, records, weigh-ins, measurements, skills and your exercises.</li>
+          <li>Deletes workouts, plans, records, weigh-ins, measurements, skills, injuries and your exercises.</li>
           <li>Deletes from this phone and your account.</li>
           <li>
             <span className="font-semibold text-foreground">You have {DELETION_GRACE_DAYS} days to restore it.</span> Then you
@@ -396,7 +397,7 @@ export function ClearThisPhone() {
         titleClassName="text-danger"
       >
         <ul className="space-y-1 text-sm text-muted-foreground">
-          <li>Deletes your workouts, plans, records and weigh-ins.</li>
+          <li>Deletes your workouts, plans, records, weigh-ins and injuries.</li>
           <li>No other copy exists.</li>
           <li className="font-semibold text-foreground">You cannot undo this.</li>
         </ul>

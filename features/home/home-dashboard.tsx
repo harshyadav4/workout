@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { usePendingRemoval } from "@/components/ui/use-pending-removal";
 import { Card } from "@/components/ui/card";
+import { ListSheet } from "@/components/ui/list";
 import { HORIZON_WIDTH, HorizonArc } from "@/components/ui/progress-arc";
 import { SignInNudge } from "@/features/auth/sign-in-nudge";
 import { ExerciseLedger } from "@/features/home/exercise-ledger";
@@ -18,6 +19,8 @@ import { QuickStart, WorkoutPicker } from "@/features/home/quick-start";
 import { useScreenWakeLock } from "@/features/home/use-wake-lock";
 import { RestDial, useRestTimer } from "@/features/home/rest-timer";
 import { SessionRecap } from "@/features/home/session-recap";
+import { InjuryWorkoutRows } from "@/features/injuries/injury-workout-rows";
+import { injuriesLoadedBy, injuryWorkoutIds, isInjurySession, mayLoadLine } from "@/lib/injuries";
 import { StreakCard, WeekArc } from "@/features/home/streak-card";
 import { InstallCard } from "@/features/pwa/install-card";
 import { RemindersPrompt } from "@/features/pwa/reminders-prompt";
@@ -244,12 +247,15 @@ export function HomeDashboard() {
   const addExerciseToSession = useWorkoutStore((state) => state.addExerciseToSession);
   const removeSetFromSession = useWorkoutStore((state) => state.removeSetFromSession);
   const removeExerciseFromSession = useWorkoutStore((state) => state.removeExerciseFromSession);
+  const swapSessionExercise = useWorkoutStore((state) => state.swapSessionExercise);
+  const injuries = useWorkoutStore((state) => state.injuries);
   // Removals hide at once and commit after the Undo bar (components/ui/undo-bar).
   const removal = usePendingRemoval();
   const logTodayWorkout = useWorkoutStore((state) => state.logTodayWorkout);
   const rest = useRestTimer();
   const live = useLiveTimer();
   const [addingExercise, setAddingExercise] = useState(false);
+  const [swapping, setSwapping] = useState<PlannedExercise>();
   const [confirmingFinish, setConfirmingFinish] = useState(false);
 
   const [pickedSetId, setPickedSetId] = useState<string>();
@@ -271,10 +277,11 @@ export function HomeDashboard() {
       resolveDayState({
         today: activeDate,
         session: selectedSession,
-        sessions: scheduledSessions,
+        // "Next" means the next normal workout, not tomorrow's injury exercises.
+        sessions: scheduledSessions.filter((item) => !isInjurySession(item, injuryWorkoutIds(injuries))),
         hasPlan: sessionTemplates.length > 0 || scheduledSessions.length > 0
       }),
-    [activeDate, scheduledSessions, selectedSession, sessionTemplates.length]
+    [activeDate, injuries, scheduledSessions, selectedSession, sessionTemplates.length]
   );
 
   // Before the early returns below, because hooks cannot live after one. The
@@ -451,6 +458,13 @@ export function HomeDashboard() {
 
   const exerciseCount = (count: number) => `${count} exercise${count === 1 ? "" : "s"}`;
 
+  /** A hint on the row and a way to swap for today. It never blocks the workout. */
+  const loadWarning = (exercise: PlannedExercise, sessionTemplateId?: string) => {
+    const muscles = templates.find((item) => item.id === exercise.workoutId)?.muscles ?? [];
+    const [loaded] = injuriesLoadedBy(muscles, injuries, sessionTemplateId);
+    return loaded ? { warning: mayLoadLine(loaded), onSwap: () => setSwapping(exercise) } : {};
+  };
+
   if (day.kind === "setup") {
     return (
       <section className="space-y-4">
@@ -500,6 +514,7 @@ export function HomeDashboard() {
             </Button>
           )}
         </DayHero>
+        <InjuryWorkoutRows />
         {/* Not on a rest day — the plan says recover, and offering a session
             there argues with it. */}
         {isRest ? null : <QuickStart />}
@@ -600,6 +615,8 @@ export function HomeDashboard() {
         </DayHero>
       )}
 
+      {isLogging ? null : <InjuryWorkoutRows />}
+
       {/* Once done, the recap above lists every set with its numbers; this
           ledger would only repeat it as pills. */}
       {day.session.exercises.length > 0 && !isDone ? (
@@ -624,6 +641,7 @@ export function HomeDashboard() {
                     ? () => removeExercise(exercise)
                     : undefined
                 }
+                {...(day.kind === "ready" ? loadWarning(exercise, day.session.sessionTemplateId) : {})}
                 timer={{
                   setId: live.setId,
                   startedAt: live.startedAt,
@@ -694,6 +712,27 @@ export function HomeDashboard() {
       ) : null}
 
       {isDone ? <NextUp session={next} /> : null}
+
+      <ListSheet
+        open={Boolean(swapping)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSwapping(undefined);
+          }
+        }}
+        title={swapping ? `Swap ${swapping.templateName}` : ""}
+        description="For today only. Your workout stays as it is."
+      >
+        {swapping ? (
+          <WorkoutPicker
+            confirmLabel="Swap"
+            onConfirm={(exercises) => {
+              swapSessionExercise(day.session.id, swapping.id, exercises);
+              setSwapping(undefined);
+            }}
+          />
+        ) : null}
+      </ListSheet>
 
       {/* Not mid-session: a card between the day card and the ledger pushes the
           thing you are tapping down the screen, and a session in progress does

@@ -19,6 +19,7 @@
 - Progress: three cards (Strength, Consistency, Muscles), wins, records, 1-rep max estimates, weekly sets per muscle group, workouts per week, and a bodyweight trend with a goal date.
 - Cardio: runs, rides and swims, with distance, pace and records.
 - Skills: calisthenics skill levels.
+- Injuries: tap where it hurts on the body map, log a 0 to 10 pain score once a week, and see the trend. A workout from your doctor runs beside the normal plan on the days they said, every day, every 2 days or days you pick, for 2 to 8 weeks. Arise warns when an exercise may load the injury and suggests seeing a physio if pain is no better after 3 weeks. It does not diagnose.
 - Diet: meals built from 542 Indian foods, meal plans by hand or with AI, a diet calendar, and Intake with Eating, Money and Body goals cards.
 - Hunter rank: a game-style rank from E to S.
 - Guided tour on sample data.

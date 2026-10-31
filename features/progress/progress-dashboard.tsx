@@ -69,7 +69,8 @@ import {
   buildStrengthRatios,
   buildWeeklySessions
 } from "@/lib/progress-extras";
-import { useWorkoutStore } from "@/features/workout/workout-store";
+import { PainPanels } from "@/features/injuries/pain-panels";
+import { useMainSessions, useWorkoutStore } from "@/features/workout/workout-store";
 import {
   attributeToMuscle,
   bucketFor,
@@ -156,7 +157,7 @@ function ProgressDashboardView() {
   const logs = useWorkoutStore((state) => state.logs);
   const setLogs = useWorkoutStore((state) => state.setLogs);
   const cardio = useMemo(() => cardioSessions(setLogs, logs), [setLogs, logs]);
-  const scheduled = useWorkoutStore((state) => state.scheduledSessions);
+  const scheduled = useMainSessions();
   const timed = useMemo(() => timedSessions(scheduled), [scheduled]);
   const measurements = useWorkoutStore((state) => state.measurements);
   const profile = useWorkoutStore((state) => state.profile);
@@ -529,6 +530,9 @@ function ProgressDashboardView() {
       </SectionColors>
     ) : shownCard === "body" ? (
       <SectionColors section="body">
+        {/* First, when there is any: the one thing here that may need acting on today. */}
+        <PainPanels />
+
         {/* Today on the whole history: "what can I train now" does not change
             with the range chip. */}
         <div data-tour="progress-recovery">
