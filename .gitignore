@@ -27,3 +27,6 @@ design-preview/colour/
 design-preview/fonts/
 design-preview/colour-directions.html
 design-preview/font-choices.html
+
+# Written by every build (scripts/write-offline-list.mjs)
+public/offline-files.json

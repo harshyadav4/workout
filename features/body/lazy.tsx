@@ -2,6 +2,8 @@
 
 import dynamic from "next/dynamic";
 
+import type { BodyMapProps } from "@/features/body/body-map-shared";
+
 /**
  * The body map's two drawings, loaded when first drawn rather than with the
  * page. The back alone is 130 KB of paths, and with a plain import the
@@ -14,5 +16,24 @@ import dynamic from "next/dynamic";
  */
 const Placeholder = () => <div className="mx-auto h-[16.5rem] w-auto" aria-hidden />;
 
-export const FrontBody = dynamic(() => import("@/features/body/front"), { loading: Placeholder });
-export const BackBody = dynamic(() => import("@/features/body/back"), { loading: Placeholder });
+/**
+ * The chunk could not load: no signal, and the app has not saved it yet
+ * (public/sw.js saves it once per release). One plain line says so. The box above
+ * only stands in while loading, and left alone it stayed as a blank space.
+ */
+const MapNeedsInternet = (_props: BodyMapProps) => (
+  <p className="px-2 py-6 text-center text-[13px] text-muted-foreground">
+    The muscle map needs the internet the first time.
+  </p>
+);
+/** Front says it. Saying it again a few pixels across would be noise. */
+const NoDrawing = (_props: BodyMapProps) => null;
+
+export const FrontBody = dynamic<BodyMapProps>(
+  () => import("@/features/body/front").catch(() => ({ default: MapNeedsInternet })),
+  { loading: Placeholder }
+);
+export const BackBody = dynamic<BodyMapProps>(
+  () => import("@/features/body/back").catch(() => ({ default: NoDrawing })),
+  { loading: Placeholder }
+);
