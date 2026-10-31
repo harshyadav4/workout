@@ -5,6 +5,7 @@
  *
  * Deliberately small:
  *   - pages:          network first, last good copy when offline
+ *   - Next's tab data: network first, the tab's saved data when offline
  *   - /_next/static:  cache first (file names are content hashes, never stale)
  *   - exercises.json, foods.json, icons: stale while revalidate
  *   - /api/demo:      cache first (library demos never change under their
@@ -17,7 +18,13 @@
  * screen first needed it, and each release renames the files. So a tab or a
  * muscle map not opened since the last release was missing with no signal.
  *
- * Bump VERSION to drop every old cache on the next visit.
+ * Next asks for a tab's data (a request with an `RSC` header), not its page, when
+ * the dock changes tab. With no answer it reloads the whole page, which flickers,
+ * and an installed iPhone app seems to come back from that reload a status bar short.
+ *
+ * Bump VERSION only to drop every old cache on the next visit. A bump costs every
+ * phone its saved code until the next save has finished, so a phone that loses
+ * signal in that time cannot open the app. A new release does not need a bump.
  */
 const VERSION = "v7";
 const SHELL = `gymflow-shell-${VERSION}`;
@@ -32,6 +39,9 @@ const PRECACHE = [...PAGES, "/manifest.webmanifest", "/icon-192.png"];
 const OFFLINE_LIST = "/offline-files.json";
 const CODE = /\.(js|css)$/;
 
+// An address no page has, so the page lookups below can never answer with this.
+const tabDataKey = (path) => `${path}?tab-data`;
+
 /**
  * Every code file first, then the tabs. A tab's page names this release's files,
  * so it must never be saved before they are. Any failure leaves the list unsaved,
@@ -45,32 +55,51 @@ async function saveOffline() {
   if (!Array.isArray(files) || files.length === 0) return;
 
   const code = await caches.open(STATIC);
+  const shell = await caches.open(SHELL);
   const saved = await code.match(OFFLINE_LIST);
-  if (saved && (await saved.text()) === text) return;
+  // The tab data as well: an older worker saved this release without it.
+  if (saved && (await saved.text()) === text && (await shell.match(tabDataKey("/")))) return;
 
   // One at a time: this runs behind whatever the person is doing.
-  for (const file of files) {
-    if (await code.match(file)) continue;
-    const download = await fetch(file);
-    if (!download.ok) throw new Error(`Could not save ${file}`);
-    await code.put(file, download);
-  }
+  const saveFiles = async () => {
+    for (const file of files) {
+      if (await code.match(file)) continue;
+      const download = await fetch(file);
+      if (!download.ok) throw new Error(`Could not save ${file}`);
+      await code.put(file, download);
+    }
 
-  const shell = await caches.open(SHELL);
-  for (const page of PAGES) {
-    const download = await fetch(page);
-    if (!download.ok) throw new Error(`Could not save ${page}`);
-    await shell.put(page, download);
-  }
+    for (const page of PAGES) {
+      const download = await fetch(page);
+      if (!download.ok) throw new Error(`Could not save ${page}`);
+      await shell.put(page, download);
+
+      const data = await fetch(page, { headers: { RSC: "1" } });
+      if (!data.ok) throw new Error(`Could not save the data of ${page}`);
+      await shell.put(tabDataKey(page), data);
+    }
+  };
 
   // The last release's code goes, or each release would add to the phone's storage.
   const current = new Set(files);
-  for (const request of await code.keys()) {
-    const { pathname } = new URL(request.url);
-    if (pathname.startsWith("/_next/static/") && CODE.test(pathname) && !current.has(pathname)) {
-      await code.delete(request);
+  const dropOldCode = async () => {
+    for (const request of await code.keys()) {
+      const { pathname } = new URL(request.url);
+      if (pathname.startsWith("/_next/static/") && CODE.test(pathname) && !current.has(pathname)) {
+        await code.delete(request);
+      }
     }
+  };
+
+  try {
+    await saveFiles();
+  } catch (error) {
+    // A full phone: the old code goes first after all. A file saved already is skipped.
+    if (error?.name !== "QuotaExceededError") throw error;
+    await dropOldCode();
+    await saveFiles();
   }
+  await dropOldCode();
 
   await code.put(OFFLINE_LIST, new Response(text));
 }
@@ -91,8 +120,11 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(SHELL)
-      // One failed page must not abort the install.
-      .then((cache) => Promise.all(PRECACHE.map((url) => cache.add(url).catch(() => undefined))))
+      // One failed page must not abort the install. A saved page stays: the next
+      // release's page names code not saved yet, and saveOffline replaces it in order.
+      .then((cache) =>
+        Promise.all(PRECACHE.map(async (url) => (await cache.match(url)) || cache.add(url).catch(() => undefined)))
+      )
       .then(() => self.skipWaiting())
   );
 });
@@ -125,6 +157,15 @@ self.addEventListener("fetch", (event) => {
   }
   if (url.pathname.startsWith("/api/")) return;
 
+  // A tab change. A prefetch gets nothing here: its answer has another shape, and
+  // when one fails Next simply asks again on the tap.
+  if (request.headers.has("RSC") && !request.headers.has("Next-Router-Prefetch")) {
+    event.respondWith(
+      fetch(request).catch(async () => (await caches.match(tabDataKey(url.pathname))) || Response.error())
+    );
+    return;
+  }
+
   if (request.mode === "navigate") {
     event.respondWith(
       fetch(request)
@@ -135,7 +176,14 @@ self.addEventListener("fetch", (event) => {
           }
           return response;
         })
-        .catch(async () => (await caches.match(request)) || (await caches.match("/")) || Response.error())
+        .catch(
+          async () =>
+            (await caches.match(request)) ||
+            // "/plan?mode=build" is still the Plan page, not Today.
+            (await caches.match(url.pathname)) ||
+            (await caches.match("/")) ||
+            Response.error()
+        )
     );
     return;
   }

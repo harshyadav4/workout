@@ -272,23 +272,183 @@ state().switchToGuest();
   );
 
   // Stopping it, or deleting the workout, takes its days and never turns them into normal workouts.
+  // Done days too: with no label, one would take the place of today's workout.
   state().stopInjuryWorkout("w");
   assert.equal(state().injuries.find((item) => item.id === "w")?.workout, undefined);
-  assert.deepEqual(hipDays().map((session) => session.status), ["completed"]);
+  assert.deepEqual(hipDays(), []);
 
   state().setInjuryWorkout("w", "hip-work", { kind: "weekdays", weekdays: [0, 1, 2, 3, 4, 5, 6] }, 2);
   state().deleteSessionTemplate("hip-work");
   assert.equal(state().injuries.find((item) => item.id === "w")?.workout, undefined, "the label goes with the workout");
-  assert.deepEqual(hipDays().map((session) => session.status), ["completed"]);
+  assert.deepEqual(hipDays(), []);
 
   // Deleting the injury takes its days too.
   state().createSessionTemplate(hipWork);
   state().setInjuryWorkout("w", "hip-work", { kind: "every", days: 1 }, 2);
   assert.ok(hipDays().length > 1);
   state().removeInjury("w");
-  assert.deepEqual(hipDays().map((session) => session.status), ["completed"], "the planned days go");
+  assert.deepEqual(hipDays(), [], "its days go");
   state().setInjuryWorkout("gone", "hip-work", { kind: "every", days: 1 }, 2);
-  assert.deepEqual(hipDays().map((session) => session.status), ["completed"], "no such injury changes nothing");
+  assert.deepEqual(hipDays(), [], "no such injury changes nothing");
+
+  // Swap lasts through Start and through opening the app again.
+  {
+    const day = legsDays().find((session) => session.date === shiftKey(today, 3));
+    assert.ok(day);
+    state().swapSessionExercise(day.id, day.exercises[0].id, [
+      { id: "swap", workoutId: "press", templateName: "Leg Press", sets: [] }
+    ]);
+    const name = () => legsDays().find((session) => session.id === day.id)?.exercises[0].templateName;
+    state().refreshUpcoming();
+    assert.equal(name(), "Leg Press", "a refresh keeps the swap");
+    state().startSession(day.id);
+    assert.equal(name(), "Leg Press", "and so does Start");
+    assert.equal(
+      legsDays().find((session) => session.date === shiftKey(today, 4))?.exercises[0].templateName,
+      "Squat",
+      "and it is still one day only"
+    );
+  }
+
+  // Move: an injury's day goes alone, and normal workouts do not move with it.
+  {
+    state().createSessionTemplate({ ...hipWork, id: "move-work", name: "Move exercises" });
+    state().addInjury({ id: "mv", place: "calf", side: "left", startDate: today }, 5);
+    state().setInjuryWorkout("mv", "move-work", { kind: "every", days: 1 }, 2);
+    const day = (date: string) => state().scheduledSessions.filter((session) => session.date === date);
+    const named = (date: string) => day(date).map((session) => session.sessionName).sort();
+    const from = shiftKey(today, 5);
+    const clear = shiftKey(today, 30);
+    const legsThere = day(from).find((session) => session.sessionTemplateId === "legs");
+    const hipThere = day(from).find((session) => session.sessionTemplateId === "move-work");
+    assert.ok(legsThere && hipThere);
+
+    const refused = state().moveScheduledSession(hipThere.id, shiftKey(today, 6));
+    assert.equal(refused.ok, false, "that workout is already on the next day");
+
+    const moved = state().moveScheduledSession(hipThere.id, clear);
+    assert.equal(moved.ok, true);
+    assert.deepEqual(named(from), ["Legs"], "the normal workout stays, with no rest day in its place");
+    assert.deepEqual(named(clear), ["Move exercises"]);
+
+    // A normal workout swaps with the normal workout, not with the injury's day beside it.
+    const later = shiftKey(today, 6);
+    const laterLegs = day(later).find((session) => session.sessionTemplateId === "legs");
+    assert.ok(laterLegs);
+    assert.equal(state().moveScheduledSession(legsThere.id, later).ok, true);
+    assert.equal(day(later).filter((session) => session.sessionTemplateId === "move-work").length, 1, "the injury's day stays");
+    assert.ok(day(from).some((session) => session.id === laterLegs.id), "the two normal workouts changed places");
+    assert.equal(day(from).some((session) => session.sessionTemplateId === "move-work"), false);
+
+    state().removeInjury("mv");
+    store.setState({ deletedInjuries: [] });
+  }
+
+  // A day still open when the label goes must not become a normal workout, and
+  // neither must a missed one or a done one.
+  const yesterday = shiftKey(today, -1);
+  const kneeDays = () => state().scheduledSessions.filter((session) => session.sessionTemplateId === "knee-work");
+  const logsBefore = state().logs.length;
+  for (const [name, end] of [
+    ["deleting the injury", () => state().removeInjury("open")],
+    ["stopping the workout", () => state().stopInjuryWorkout("open")],
+    ["deleting the workout", () => state().deleteSessionTemplate("knee-work")],
+    ["moving the label to another workout", () => state().setInjuryWorkout("open", "legs", { kind: "every", days: 1 }, 2)]
+  ] as const) {
+    state().createSessionTemplate({ ...hipWork, id: "knee-work", name: "Knee exercises" });
+    state().addInjury({ id: "open", place: "knee", side: "left", startDate: today }, 5);
+    state().setInjuryWorkout("open", "knee-work", { kind: "every", days: 1 }, 2);
+    state().scheduleSession({ date: yesterday, sessionTemplateId: "knee-work", sessionName: "Knee exercises", exercises: [] });
+    const day = kneeDays().find((session) => session.date === today);
+    assert.ok(day);
+    state().startSession(day.id);
+    const first = kneeDays().find((session) => session.id === day.id)?.exercises[0];
+    assert.ok(first);
+    state().updateSessionSet(day.id, first.id, first.sets[0].id, { completed: true, reps: 10 });
+    assert.equal(state().selectedSessionId, day.id);
+
+    end();
+    assert.deepEqual(kneeDays(), [], `${name} takes every day of it`);
+    assert.equal(state().selectedSessionId, undefined, `${name} leaves nothing selected`);
+    assert.equal(state().logs.length, logsBefore, `${name} writes no logs`);
+    state().removeInjury("open");
+    store.setState({ deletedInjuries: [] });
+  }
+}
+
+// --- healed on this phone, and not yet on the account ----------------------------
+
+{
+  state().switchToAccount("someone");
+  const blankRead = {
+    templates: [],
+    sessionTemplates: [],
+    scheduledSessions: [],
+    logs: [],
+    setLogs: [],
+    measurements: [],
+    painLogs: [],
+    deletedInjuries: []
+  };
+  const elbow: Injury = { id: "elbow", place: "elbow", side: "left", startDate: "2026-10-01" };
+  state().addInjury(elbow, 5);
+
+  state().markInjuryHealed("elbow", "2026-10-20");
+  assert.equal(state().injuries[0].unsent, true, "the phone remembers the account has not heard");
+  flushPersist();
+  assert.equal(createWorkoutStore().getState().injuries[0].unsent, true, "through a restart");
+  state().hydrateRemote({ ...blankRead, injuries: [elbow] });
+  assert.equal(state().injuries[0].healedDate, "2026-10-20", "a read from before the heal does not undo it");
+  state().hydrateRemote({ ...blankRead, injuries: [{ ...elbow, healedDate: "2026-10-20" }] });
+  assert.equal(state().injuries[0].unsent, undefined, "the account has it now");
+
+  // Once the account has spoken, it wins again.
+  state().hydrateRemote({ ...blankRead, injuries: [elbow] });
+  assert.equal(state().injuries[0].healedDate, undefined, "another phone said it has come back");
+
+  // A push that worked clears the mark, so a later word from the other phone counts.
+  state().markInjuryHealed("elbow", "2026-10-21");
+  const pushed = state().injuries;
+  state().markInjuriesSent(pushed);
+  assert.equal(state().injuries[0].unsent, undefined, "the account has it");
+  assert.equal(state().injuries[0].healedDate, "2026-10-21", "and it stays healed");
+  const unchanged = state().injuries;
+  state().markInjuriesSent(state().injuries);
+  assert.equal(state().injuries, unchanged, "nothing to clear is no change, so it starts no push");
+
+  // A change made while the push was on its way keeps its mark.
+  state().reopenInjury("elbow");
+  state().markInjuriesSent(pushed);
+  assert.equal(state().injuries[0].unsent, true);
+
+  // Setting or stopping a workout carries the mark too.
+  state().createSessionTemplate({
+    id: "elbow-work",
+    name: "Elbow exercises",
+    workoutIds: ["curl"],
+    exercises: [],
+    summary: { totalSets: 0, totalReps: 0, totalWeight: 0 }
+  });
+  state().markInjuriesSent(state().injuries);
+  state().setInjuryWorkout("elbow", "elbow-work", { kind: "every", days: 1 }, 2);
+  assert.equal(state().injuries[0].unsent, true, "a new workout");
+  state().markInjuriesSent(state().injuries);
+  state().stopInjuryWorkout("elbow");
+  assert.equal(state().injuries[0].unsent, true, "a stopped one");
+
+  // A backup adds what it holds and removes nothing.
+  state().setInjuryWorkout("elbow", "elbow-work", { kind: "every", days: 1 }, 2);
+  state().markInjuriesSent(state().injuries);
+  const days = () => state().scheduledSessions.filter((session) => session.sessionTemplateId === "elbow-work").length;
+  const held = days();
+  assert.ok(held > 0);
+  state().hydrateRemote({ ...blankRead, injuries: [elbow] }, "copy");
+  assert.equal(state().injuries[0].workout?.sessionTemplateId, "elbow-work", "an older file does not take the workout");
+  assert.equal(days(), held, "or its days");
+
+  state().removeInjury("elbow");
+  store.setState({ deletedInjuries: [] });
+  state().switchToGuest();
 }
 
 // --- a phone from before this feature -------------------------------------------

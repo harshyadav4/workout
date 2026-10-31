@@ -166,6 +166,7 @@ export function SupabaseSync() {
             return;
           }
           syncedRef.current = next;
+          store.getState().markInjuriesSent(next.injuries ?? []);
           if (loadFailedRef.current) {
             // Not "synced": the device has never read this account. Clearing
             // the load error here let the deletion banner treat an unread
@@ -267,7 +268,7 @@ export function SupabaseSync() {
             // An empty account: nothing to mix with, so no question.
             store
               .getState()
-              .hydrateRemote(guestAsIncoming(guest, store.getState().profile, store.getState().scheduleConfig));
+              .hydrateRemote(guestAsIncoming(guest, store.getState().profile, store.getState().scheduleConfig), "copy");
             clearGuestCopy();
           } else if (guest && decision === "ask") {
             askGuestMerge(userId, describeCounts(countCopy(guest)));

@@ -286,13 +286,18 @@ export type MoveResult =
  * generator refills, which would silently duplicate the session the user just
  * moved. A rest day is also what the user actually means — the session left,
  * so that day is now off.
+ *
+ * A workout that runs beside the plan, like an injury's, is outside all of this.
+ * It moves alone, and it never takes part in another workout's swap.
  */
 export function moveSession(
   sessions: ScheduledSession[],
   sessionId: string,
   toDate: string,
   /** Today's key. A day before it is history, and Plan hides every control there. */
-  today?: string
+  today?: string,
+  /** The same workouts `mergeGeneratedSessions` calls beside the plan. */
+  besideThePlan: ReadonlySet<string> = new Set()
 ): MoveResult {
   const moving = sessions.find((session) => session.id === sessionId);
 
@@ -313,8 +318,25 @@ export function moveSession(
     return { ok: false, reason: "That workout is done. It stays on its day." };
   }
 
+  const isBeside = (session: ScheduledSession) =>
+    Boolean(session.sessionTemplateId) && besideThePlan.has(session.sessionTemplateId as string);
+
+  if (isBeside(moving)) {
+    if (sessions.some((session) => session.date === toDate && session.sessionTemplateId === moving.sessionTemplateId)) {
+      return { ok: false, reason: "That workout is already on that day." };
+    }
+    return {
+      ok: true,
+      sessions: sessions
+        .map((session) =>
+          session.id === sessionId ? { ...session, date: toDate, dayIndex: weekdayOf(toDate) } : session
+        )
+        .sort((a, b) => a.date.localeCompare(b.date))
+    };
+  }
+
   const displaced = sessions.find(
-    (session) => session.date === toDate && session.id !== sessionId
+    (session) => session.date === toDate && session.id !== sessionId && !isBeside(session)
   );
 
   if (displaced?.status === "completed") {

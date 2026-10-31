@@ -334,7 +334,7 @@ function BackupRow() {
             <Button
               className="flex-1"
               onClick={() => {
-                hydrateRemote(staged.state);
+                hydrateRemote(staged.state, "copy");
                 if (stagedDiet) {
                   dietStore.getState().hydrateDiet(stagedDiet.state);
                 }

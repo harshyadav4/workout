@@ -149,19 +149,19 @@ export function BodyPicker({ value, onChange }: { value?: BodyPick; onChange: (p
         <Figure view="front" pick={value} marked={view === "front"} onTap={tap} />
         <Figure view="back" pick={value} marked={view === "back"} onTap={tap} />
       </div>
-      <div className="mt-1 flex min-h-12 items-center justify-between gap-2.5">
+      {/* Side moves under the name when both cannot share a line. */}
+      <div className="mt-1 flex min-h-12 flex-wrap items-center gap-x-2.5 gap-y-1">
         <p
           aria-live="polite"
-          className={value ? "font-heading min-w-0 flex-1 text-[21px] leading-tight" : "min-w-0 flex-1 text-[15px] text-muted-foreground"}
+          className={value ? "font-heading flex-[1_1_9rem] text-[23px] leading-tight" : "flex-[1_1_9rem] text-[15px] text-muted-foreground"}
         >
           {value ? injuryName(value) : "Nothing picked yet"}
         </p>
         {value && !middle ? (
           <Segmented
             quiet
-            size="sm"
             aria-label="Side"
-            className="min-w-[150px] shrink basis-[186px]"
+            className="grow basis-[186px]"
             options={SIDES}
             value={value.side ?? "left"}
             onChange={(side) => onChange({ place: value.place, side })}

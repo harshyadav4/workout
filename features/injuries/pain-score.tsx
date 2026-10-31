@@ -17,7 +17,7 @@ export function PainScore({
 }) {
   return (
     <div>
-      <div role="group" aria-label={label} className="grid grid-cols-6 gap-1.5">
+      <div role="group" aria-label={label} className="grid grid-cols-6 gap-0.5 min-[360px]:gap-1.5">
         {SCORES.map((score) => (
           <button
             key={score}

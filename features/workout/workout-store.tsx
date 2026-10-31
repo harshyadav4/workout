@@ -16,7 +16,7 @@ import {
   withoutInjury
 } from "@/lib/injuries";
 import { releaseUnusedMedia } from "@/lib/media";
-import { reconcile } from "@/lib/reconcile";
+import { reconcile, type IncomingFrom } from "@/lib/reconcile";
 import { isTouring } from "@/features/tour/tour-store";
 import { finishTime } from "@/lib/session-time";
 import { muscles, presetWorkouts } from "@/lib/seed-data";
@@ -151,7 +151,9 @@ interface WorkoutState {
    */
   restoreArchive: (archive: RemoteState, mode: "merge" | "replace") => void;
   logMeasurement: (metric: BodyMetric, value: number, date?: string) => void;
-  hydrateRemote: (payload: RemoteState) => void;
+  hydrateRemote: (payload: RemoteState, from?: IncomingFrom) => void;
+  /** These rows reached the account. A row changed since then keeps its mark. */
+  markInjuriesSent: (sent: Injury[]) => void;
   /** Re-plan sessions not started yet from the latest logs (see refreshUpcomingSessions). */
   refreshUpcoming: () => void;
   addSkillGoal: (goal: SkillGoal) => void;
@@ -258,6 +260,9 @@ function injurySession(template: SessionTemplate, date: string): ScheduledSessio
   };
 }
 
+/** A guest has no account to tell, so only an account keeps the mark (`mergeInjury`). */
+const unsentMark = (state: Pick<WorkoutState, "owner">) => (state.owner ? { unsent: true } : {});
+
 /** A workout's days not started yet, from `from` on, leave the calendar. Done days stay. */
 function withoutPlannedDays(sessions: ScheduledSession[], sessionTemplateId: string, from: string) {
   return sessions.filter(
@@ -267,6 +272,23 @@ function withoutPlannedDays(sessions: ScheduledSession[], sessionTemplateId: str
 }
 
 const byDate = (a: ScheduledSession, b: ScheduledSession) => a.date.localeCompare(b.date);
+
+/**
+ * A workout stops belonging to an injury. The label is all that keeps its days out
+ * of Today and the totals, so all of them go, done ones too. They hold no logs. Left
+ * behind, a missed day counts as a missed workout, a done one takes the place of
+ * today's workout, and finishing an open one writes normal logs.
+ */
+function endInjuryDays<S extends Pick<WorkoutState, "scheduledSessions" | "selectedSessionId">>(
+  state: S,
+  sessionTemplateId: string
+): Pick<WorkoutState, "scheduledSessions" | "selectedSessionId"> {
+  const selected = state.scheduledSessions.find((session) => session.id === state.selectedSessionId);
+  return {
+    selectedSessionId: selected?.sessionTemplateId === sessionTemplateId ? undefined : state.selectedSessionId,
+    scheduledSessions: state.scheduledSessions.filter((session) => session.sessionTemplateId !== sessionTemplateId)
+  };
+}
 
 /** The end of a session being finished now — see finishTime. */
 function sessionEnd(session: ScheduledSession): string {
@@ -310,6 +332,7 @@ function createInitialState(): Omit<
   | "restoreArchive"
   | "logMeasurement"
   | "hydrateRemote"
+  | "markInjuriesSent"
   | "refreshUpcoming"
   | "addSkillGoal"
   | "removeSkillGoal"
@@ -638,22 +661,22 @@ export function createWorkoutStore() {
         setAndPersist((state) => {
           const sessionTemplates = state.sessionTemplates.filter((template) => template.id !== id);
           const linked = injuryWorkoutIds(state.injuries).has(id);
-          // An injury's workout takes its days with it. Left behind, they would
-          // turn into normal workouts on every one of those days.
-          const scheduledSessions = linked
-            ? withoutPlannedDays(state.scheduledSessions, id, todayKey())
-            : state.scheduledSessions;
+          // An injury's workout takes its days with it.
+          const ended = linked
+            ? endInjuryDays(state, id)
+            : { scheduledSessions: state.scheduledSessions, selectedSessionId: state.selectedSessionId };
+          const { scheduledSessions } = ended;
           const injuries = linked
             ? state.injuries.map((injury) =>
-                injury.workout?.sessionTemplateId === id ? { ...injury, workout: undefined } : injury
+                injury.workout?.sessionTemplateId === id ? { ...injury, workout: undefined, ...unsentMark(state) } : injury
               )
             : state.injuries;
           // Clearing a template's mediaPath is what makes the sync layer delete
           // the stored GIF — see `removedMediaPaths` in lib/sync.ts.
           return {
             ...state,
+            ...ended,
             injuries,
-            scheduledSessions,
             sessionTemplates,
             templates: releaseUnusedMedia(state.templates, sessionTemplates, scheduledSessions)
           };
@@ -805,7 +828,8 @@ export function createWorkoutStore() {
       // tested. A refusal leaves the state exactly as it was — the caller reads
       // the reason off the same result to show it.
       moveScheduledSession: (id, toDate) => {
-        const result = moveSession(get().scheduledSessions, id, toDate, todayKey());
+        const state = get();
+        const result = moveSession(state.scheduledSessions, id, toDate, todayKey(), injuryWorkoutIds(state.injuries));
         if (result.ok) {
           setAndPersist((state) => ({ ...state, scheduledSessions: result.sessions }));
         }
@@ -1132,8 +1156,19 @@ export function createWorkoutStore() {
       // Was a replace-outright, which destroyed every local write that had not
       // reached Supabase yet — the failure `lib/reconcile.ts` exists to end.
       // Logs from another device can move the plan, so re-plan after merging.
-      hydrateRemote: (payload) =>
-        setAndPersist((state) => withFreshUpcoming({ ...state, ...reconcile(state, payload) })),
+      hydrateRemote: (payload, from) =>
+        setAndPersist((state) => withFreshUpcoming({ ...state, ...reconcile(state, payload, from) })),
+      markInjuriesSent: (sent) =>
+        setAndPersist((state) => {
+          const reached = new Set(sent);
+          if (!state.injuries.some((injury) => injury.unsent && reached.has(injury))) {
+            return state;
+          }
+          return {
+            ...state,
+            injuries: state.injuries.map((injury) => (reached.has(injury) ? { ...injury, unsent: undefined } : injury))
+          };
+        }),
       refreshUpcoming: () => setAndPersist((state) => withFreshUpcoming(state)),
       setInjuryWorkout: (injuryId, sessionTemplateId, frequency, weeks) =>
         setAndPersist((state) => {
@@ -1145,21 +1180,21 @@ export function createWorkoutStore() {
             return state;
           }
           // Changing how often replaces the days ahead. A day already done stays done.
-          let sessions = withoutPlannedDays(state.scheduledSessions, sessionTemplateId, today);
           const previous = injury.workout?.sessionTemplateId;
-          if (previous && previous !== sessionTemplateId) {
-            sessions = withoutPlannedDays(sessions, previous, today);
-          }
+          const ended = previous && previous !== sessionTemplateId ? endInjuryDays(state, previous) : state;
+          const sessions = withoutPlannedDays(ended.scheduledSessions, sessionTemplateId, today);
           const taken = new Set(
             sessions.filter((session) => session.sessionTemplateId === sessionTemplateId).map((session) => session.date)
           );
           return {
             ...state,
+            selectedSessionId: ended.selectedSessionId,
             injuries: state.injuries.map((item) =>
               item.id === injuryId
                 ? {
                     ...item,
-                    workout: { sessionTemplateId, frequency, startDate: today, endDate: dates[dates.length - 1] }
+                    workout: { sessionTemplateId, frequency, startDate: today, endDate: dates[dates.length - 1] },
+                    ...unsentMark(state)
                   }
                 : item
             ),
@@ -1174,10 +1209,10 @@ export function createWorkoutStore() {
           const templateId = state.injuries.find((item) => item.id === injuryId)?.workout?.sessionTemplateId;
           return {
             ...state,
-            injuries: state.injuries.map((item) => (item.id === injuryId ? { ...item, workout: undefined } : item)),
-            scheduledSessions: templateId
-              ? withoutPlannedDays(state.scheduledSessions, templateId, todayKey())
-              : state.scheduledSessions
+            ...(templateId ? endInjuryDays(state, templateId) : {}),
+            injuries: state.injuries.map((item) =>
+              item.id === injuryId ? { ...item, workout: undefined, ...unsentMark(state) } : item
+            )
           };
         }),
       swapSessionExercise: (sessionId, exerciseId, exercises) =>
@@ -1187,7 +1222,9 @@ export function createWorkoutStore() {
             session.id === sessionId
               ? {
                   ...session,
-                  exercises: session.exercises.flatMap((exercise) => (exercise.id === exerciseId ? exercises : [exercise]))
+                  exercises: session.exercises.flatMap((exercise) =>
+                    exercise.id === exerciseId ? exercises.map((item) => ({ ...item, swapped: true })) : [exercise]
+                  )
                 }
               : session
           )
@@ -1231,7 +1268,9 @@ export function createWorkoutStore() {
           const templateId = state.injuries.find((injury) => injury.id === id)?.workout?.sessionTemplateId;
           return {
             ...state,
-            injuries: state.injuries.map((injury) => (injury.id === id ? { ...injury, healedDate: date } : injury)),
+            injuries: state.injuries.map((injury) =>
+              injury.id === id ? { ...injury, healedDate: date, ...unsentMark(state) } : injury
+            ),
             scheduledSessions: templateId
               ? withoutPlannedDays(state.scheduledSessions, templateId, date)
               : state.scheduledSessions
@@ -1252,7 +1291,7 @@ export function createWorkoutStore() {
           return {
             ...state,
             injuries: state.injuries.map((injury) =>
-              injury.id === id ? { ...injury, healedDate: undefined } : injury
+              injury.id === id ? { ...injury, healedDate: undefined, ...unsentMark(state) } : injury
             ),
             scheduledSessions: template
               ? [
@@ -1264,17 +1303,17 @@ export function createWorkoutStore() {
         }),
       // A guest has no other phone to tell, so only an account keeps the deletion.
       removeInjury: (id) =>
-        setAndPersist((state) => ({
-          ...state,
-          ...withoutInjury(state.injuries, state.painLogs, id),
-          scheduledSessions: (() => {
-            const templateId = state.injuries.find((injury) => injury.id === id)?.workout?.sessionTemplateId;
-            return templateId ? withoutPlannedDays(state.scheduledSessions, templateId, todayKey()) : state.scheduledSessions;
-          })(),
-          deletedInjuries: state.owner
-            ? [...state.deletedInjuries, { id, deletedAt: new Date().toISOString() }]
-            : state.deletedInjuries
-        })),
+        setAndPersist((state) => {
+          const templateId = state.injuries.find((injury) => injury.id === id)?.workout?.sessionTemplateId;
+          return {
+            ...state,
+            ...(templateId ? endInjuryDays(state, templateId) : {}),
+            ...withoutInjury(state.injuries, state.painLogs, id),
+            deletedInjuries: state.owner
+              ? [...state.deletedInjuries, { id, deletedAt: new Date().toISOString() }]
+              : state.deletedInjuries
+          };
+        }),
       applySkillLevelToPlans: ({ replaceWorkoutIds, level, template }) => {
         let replaced = 0;
         setAndPersist((state) => {

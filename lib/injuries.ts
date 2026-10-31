@@ -210,7 +210,8 @@ export function loadsInjury(targets: WorkoutMuscleTarget[], injury: Pick<Injury,
 
 /**
  * The injuries an exercise may load. An injury's own workout gives no warning:
- * a clamshell from the doctor must not say "May load your hip".
+ * a clamshell from the doctor must not say "May load your hip". Neither does an
+ * injury with a stop sign: the app told them it will suggest nothing for it.
  */
 export function injuriesLoadedBy(
   targets: WorkoutMuscleTarget[],
@@ -219,7 +220,7 @@ export function injuriesLoadedBy(
 ): Injury[] {
   return activeInjuries(injuries).filter((injury) => {
     const ownWorkout = Boolean(sessionTemplateId) && injury.workout?.sessionTemplateId === sessionTemplateId;
-    return !ownWorkout && loadsInjury(targets, injury);
+    return !ownWorkout && !injury.stopSign && loadsInjury(targets, injury);
   });
 }
 
@@ -288,45 +289,103 @@ export function injuryWorkoutProgress(workout: InjuryWorkout, sessions: Schedule
   return { done: own.filter((session) => session.status === "completed").length, total: own.length };
 }
 
+const sameWorkout = (a?: InjuryWorkout, b?: InjuryWorkout) => JSON.stringify(a) === JSON.stringify(b);
+
 /**
- * Planned days of an injury's workout that only this phone still holds, after the
- * account has moved on: the injury healed or was deleted, the workout stopped, or
- * its days changed. The merge keeps any row that one side holds, so these would
- * otherwise go straight back to the account and every other phone.
+ * One row, from the account and from this phone. The account wins, except for a
+ * heal, an undo of one, or a workout that it may not have heard yet. Without that
+ * exception, each of those made with no signal is undone when the app next opens
+ * online. `readInjury` builds a workout in one key order, so the comparison is safe.
+ */
+export function mergeInjury(mine: Injury, theirs: Injury): Injury {
+  if (!mine.unsent || (mine.healedDate === theirs.healedDate && sameWorkout(mine.workout, theirs.workout))) {
+    return theirs;
+  }
+  return { ...theirs, healedDate: mine.healedDate, workout: mine.workout, unsent: true };
+}
+
+/**
+ * Days of an injury's workout that must not survive a merge, which keeps any row
+ * that one side holds. Left in, they go straight back to the account and every
+ * other phone, and with no injury to own them they become normal workouts.
  *
- * Only the account's word counts. An injury it has not heard of yet is work done
- * offline, and a day the account also holds is not this phone's alone.
+ * Whichever side changed the injury last has the right days. That is the account,
+ * unless this phone holds the injury as `unsent`. An injury the account has not
+ * heard of at all is work done offline, so it is left alone. `merged` is the
+ * injuries after `mergeInjury`.
  */
 export function staleInjuryDays(
-  localInjuries: Injury[],
-  localSessions: ScheduledSession[],
-  remoteInjuries: Injury[] | undefined,
-  remoteSessions: ScheduledSession[],
+  local: { injuries: Injury[]; sessions: ScheduledSession[] },
+  account: { injuries: Injury[] | undefined; sessions: ScheduledSession[] },
+  merged: Injury[],
   deletedIds: ReadonlySet<string>
 ): Set<string> {
   const stale = new Set<string>();
-  if (!remoteInjuries) {
+  const accountInjuries = account.injuries;
+  if (!accountInjuries) {
     return stale;
   }
-  const onAccount = new Set(remoteSessions.map((session) => session.id));
-  for (const injury of localInjuries) {
-    const templateId = injury.workout?.sessionTemplateId;
-    const there = remoteInjuries.find((item) => item.id === injury.id);
-    if (!templateId || (!there && !deletedIds.has(injury.id))) {
-      continue;
-    }
-    const running = there?.workout?.sessionTemplateId === templateId && !there.healedDate ? there.workout : undefined;
-    const allowed = new Set(running ? injuryWorkoutDaysLeft(running, running.startDate) : []);
-    for (const session of localSessions) {
-      if (
-        session.sessionTemplateId === templateId &&
-        session.status === "planned" &&
-        !onAccount.has(session.id) &&
-        !allowed.has(session.date)
-      ) {
+  const onPhone = new Set(local.sessions.map((session) => session.id));
+  const onAccount = new Set(account.sessions.map((session) => session.id));
+  const everyDay = [...local.sessions, ...account.sessions];
+  const drop = (templateId: string, isStale: (session: ScheduledSession) => boolean) => {
+    for (const session of everyDay) {
+      if (session.sessionTemplateId === templateId && isStale(session)) {
         stale.add(session.id);
       }
     }
+  };
+  const onTheAccount = (id: string) => accountInjuries.find((item) => item.id === id);
+
+  // The workout outlives its injury as a normal one, so a side that has moved on
+  // may hold new days of it. Only the side that is behind loses days.
+  for (const id of deletedIds) {
+    const mine = local.injuries.find((item) => item.id === id);
+    const theirs = onTheAccount(id);
+    if (mine?.workout) {
+      drop(mine.workout.sessionTemplateId, (session) => !onAccount.has(session.id));
+    } else if (!mine && theirs?.workout) {
+      drop(theirs.workout.sessionTemplateId, (session) => !onPhone.has(session.id));
+    }
+  }
+
+  // Changed on this phone alone: its days stand, and those it removed stay removed.
+  for (const injury of merged) {
+    if (!injury.unsent || deletedIds.has(injury.id)) {
+      continue;
+    }
+    const before = onTheAccount(injury.id)?.workout?.sessionTemplateId;
+    const now = injury.workout?.sessionTemplateId;
+    if (before && before !== now) {
+      drop(before, (session) => !onPhone.has(session.id));
+    }
+    if (now) {
+      drop(now, (session) => session.status === "planned" && !onPhone.has(session.id));
+    }
+  }
+
+  // Changed on another phone: the injury healed, the workout stopped, or its days
+  // changed. New days get new ids, so a date alone says when an old day and its
+  // replacement are the same day.
+  const accountDays = new Set(account.sessions.map((session) => `${session.sessionTemplateId}:${session.date}`));
+  for (const injury of local.injuries) {
+    const templateId = injury.workout?.sessionTemplateId;
+    const now = merged.find((item) => item.id === injury.id);
+    if (!templateId || !now || now.unsent || deletedIds.has(injury.id) || !onTheAccount(injury.id)) {
+      continue;
+    }
+    const owned = now.workout?.sessionTemplateId === templateId;
+    const running = owned && !now.healedDate ? now.workout : undefined;
+    const allowed = new Set(running ? injuryWorkoutDaysLeft(running, running.startDate) : []);
+    drop(
+      templateId,
+      (session) =>
+        !onAccount.has(session.id) &&
+        // A stopped workout takes all its days, as on the phone that stopped it.
+        (!owned ||
+          (session.status === "planned" &&
+            (!allowed.has(session.date) || accountDays.has(`${templateId}:${session.date}`))))
+    );
   }
   return stale;
 }

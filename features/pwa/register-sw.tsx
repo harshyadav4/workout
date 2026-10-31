@@ -11,6 +11,9 @@ const SAVE_OFFLINE_AFTER_MS = 3000;
  * the worker to save the whole app for offline, which does nothing if this
  * release is already saved. Not on Data Saver: the person asked for less.
  *
+ * It asks again when a new worker takes over. `ready` can answer with the old
+ * worker while the new one installs, and that one may not know how to save.
+ *
  * Also asks once for persistent storage. The training lives in localStorage
  * on the phone; without this the browser may clear it when space runs low
  * (Safari also clears after weeks unused, unless the app is installed).
@@ -32,19 +35,28 @@ export function RegisterServiceWorker() {
       return;
     }
     let timer: ReturnType<typeof setTimeout> | undefined;
+    const askToSave = () => {
+      const { connection } = navigator as Navigator & { connection?: { saveData?: boolean } };
+      if (connection?.saveData) {
+        return;
+      }
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        void navigator.serviceWorker.ready.then((registration) => registration.active?.postMessage({ type: "save-offline" }));
+      }, SAVE_OFFLINE_AFTER_MS);
+    };
+    navigator.serviceWorker.addEventListener("controllerchange", askToSave);
     navigator.serviceWorker
       .register("/sw.js", { scope: "/" })
       .then(() => navigator.serviceWorker.ready)
-      .then((registration) => {
-        const { connection } = navigator as Navigator & { connection?: { saveData?: boolean } };
-        if (!connection?.saveData) {
-          timer = setTimeout(() => registration.active?.postMessage({ type: "save-offline" }), SAVE_OFFLINE_AFTER_MS);
-        }
-      })
+      .then(askToSave)
       .catch(() => {
         // An app without offline support still works; nothing to tell the user.
       });
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      navigator.serviceWorker.removeEventListener("controllerchange", askToSave);
+    };
   }, []);
 
   return null;

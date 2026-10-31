@@ -53,6 +53,8 @@ export function PainChart({ logs, today, height = 118 }: { logs: PainLog[]; toda
   };
 
   const shown = active === undefined ? undefined : points[active];
+  // The bubble slides over its own point as it nears an edge, so it stays inside.
+  const across = shown ? x(shown.date) / WIDTH : 0;
 
   return (
     <div className="relative">
@@ -99,8 +101,12 @@ export function PainChart({ logs, today, height = 118 }: { logs: PainLog[]; toda
       </svg>
       {shown ? (
         <div
-          className="plaque-solid pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-[130%] whitespace-nowrap rounded-xl px-2.5 py-1 text-[12.5px] font-medium tabular-nums"
-          style={{ left: `${(x(shown.date) / WIDTH) * 100}%`, top: `${(y(shown.score) / height) * 100}%` }}
+          className="plaque-solid pointer-events-none absolute z-10 whitespace-nowrap rounded-xl px-2.5 py-1 text-[12.5px] font-medium tabular-nums"
+          style={{
+            left: `${across * 100}%`,
+            top: `${(y(shown.score) / height) * 100}%`,
+            transform: `translate(${-across * 100}%, -130%)`
+          }}
         >
           {formatDayKey(shown.date)} · {shown.score} of 10
         </div>

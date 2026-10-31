@@ -151,6 +151,8 @@ export interface PlannedExercise {
   progressionNote?: string;
   /** Total reps across both sides, when the parent exercise is `perSide`. */
   perSide?: boolean;
+  /** Put in for this one day by Swap, so the day no longer follows its workout. */
+  swapped?: boolean;
 }
 
 export interface WorkoutLog {
@@ -360,6 +362,11 @@ export interface Injury {
   stopSign?: boolean;
   /** Absent while it still hurts. */
   healedDate?: string;
+  /**
+   * This phone changed `healedDate` or `workout`, and the account has not confirmed
+   * it yet, so an older copy of the row does not undo it. Never sent.
+   */
+  unsent?: boolean;
   workout?: InjuryWorkout;
 }
 

@@ -61,7 +61,7 @@ export function GuestMergePrompt() {
     if (guest) {
       store
         .getState()
-        .hydrateRemote(guestAsIncoming(guest, store.getState().profile, store.getState().scheduleConfig));
+        .hydrateRemote(guestAsIncoming(guest, store.getState().profile, store.getState().scheduleConfig), "copy");
       clearGuestCopy();
     }
     onAdd?.forEach((run) => run());

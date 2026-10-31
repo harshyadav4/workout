@@ -60,7 +60,12 @@ export function PlanDashboard() {
     <section className="space-y-4" {...swipe}>
       <Segmented quiet role="tablist" aria-label="Plan mode" data-tour="plan-modes" options={MODES} value={mode} onChange={setMode} />
 
-      {mode === "build" ? <PlanBuild sharedText={sharedText} forInjury={forInjury} /> : <PlanSchedule onGoBuild={() => setMode("build")} />}
+      {mode === "build" ? <PlanBuild
+          sharedText={sharedText}
+          forInjury={forInjury}
+          onForInjuryOpened={() => setForInjury(undefined)}
+          onSharedTextDone={() => setSharedText(undefined)}
+        /> : <PlanSchedule onGoBuild={() => setMode("build")} />}
     </section>
   );
 }

@@ -135,7 +135,8 @@ export function exerciseEntrySetId(exercise: PlannedExercise): string | undefine
  * morning still showed next week at the 40 kg it was created with.
  *
  * Only sessions with nothing in them yet are touched: started, finished,
- * rest, or a session with a set ticked off are left exactly as they are.
+ * rest, a session with a set ticked off, or a day someone swapped an exercise on
+ * are left exactly as they are. Re-planned, that day would lose the swap.
  * Ids are kept where the shape still matches, and a session whose numbers did
  * not move is returned as the same object — sync uploads changed rows only, so
  * opening the app does not re-send the whole calendar.
@@ -150,7 +151,9 @@ export function refreshUpcomingSessions(
 
   const next = sessions.map((session) => {
     const template = templates.find((item) => item.id === session.sessionTemplateId);
-    const untouched = session.exercises.every((exercise) => exercise.sets.every((setItem) => !setItem.completed));
+    const untouched = session.exercises.every(
+      (exercise) => !exercise.swapped && exercise.sets.every((setItem) => !setItem.completed)
+    );
     if (
       !template ||
       session.type !== "workout" ||

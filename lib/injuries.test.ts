@@ -209,6 +209,7 @@ assert.equal(shouldSeePhysio(injury(), []), false);
   });
   assert.deepEqual(injuriesLoadedBy(squat, [hip, healed], "legs"), [hip], "healed injuries give no warning");
   assert.deepEqual(injuriesLoadedBy(squat, [hip], "hip-work"), [], "never on the injury's own workout");
+  assert.deepEqual(injuriesLoadedBy(squat, [{ ...hip, stopSign: true }], "legs"), [], "a stop sign means no suggestions");
 }
 
 // --- how often ------------------------------------------------------------------

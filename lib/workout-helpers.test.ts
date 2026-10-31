@@ -796,6 +796,19 @@ const scheduledAt = (date: string, status: "planned" | "active" | "completed" = 
 const calendar = [scheduledAt("2026-10-25"), scheduledAt("2026-10-26", "active"), scheduledAt("2026-10-28")];
 const loggedToday = { logs: [], setLogs: [row("today", "2026-10-26", 0, 30, 5)] };
 
+// A day someone swapped an exercise on keeps it, through any refresh.
+{
+  const swapped = calendar.map((session) => ({
+    ...session,
+    exercises: session.exercises.map((exercise) => ({ ...exercise, workoutId: "other", swapped: true }))
+  }));
+  assert.equal(
+    refreshUpcomingSessions(swapped, [upcomingTemplate], loggedToday, "2026-10-26"),
+    swapped,
+    "a swapped day is left alone"
+  );
+}
+
 const refreshed = refreshUpcomingSessions(calendar, [upcomingTemplate], loggedToday, "2026-10-26");
 assert.equal(refreshed[2].exercises[0].sets[0].weight, 30, "a session ahead opens at what was logged today");
 assert.equal(refreshed[2].exercises[0].id, calendar[2].exercises[0].id, "keeping its ids");

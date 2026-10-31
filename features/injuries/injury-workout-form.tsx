@@ -56,7 +56,7 @@ export function InjuryWorkoutForm({
       <p className={FIELD_LABEL}>How often?</p>
       <Segmented quiet aria-label="How often" options={OFTEN} value={often} onChange={setOften} />
       {often === "pick" ? (
-        <div role="group" aria-label="Days" className="mt-2 grid grid-cols-7 gap-1">
+        <div role="group" aria-label="Days" className="mt-2 grid grid-cols-4 gap-1 min-[375px]:grid-cols-7">
           {DAYS.map(([day, letter, name]) => {
             const on = weekdays.includes(day);
             return (

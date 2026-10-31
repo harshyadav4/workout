@@ -1,4 +1,4 @@
-import { staleInjuryDays } from "@/lib/injuries";
+import { mergeInjury, staleInjuryDays } from "@/lib/injuries";
 import type { RemoteState, SyncableState } from "@/lib/sync";
 import type { BodyMeasurement, PainLog, ScheduledSession } from "@/lib/types";
 
@@ -110,7 +110,14 @@ function furtherAlong(mine: ScheduledSession, theirs: ScheduledSession): Schedul
   return loggedSets(mine) > loggedSets(theirs) ? mine : theirs;
 }
 
-export function reconcile(local: SyncableState, remote: RemoteState): SyncableState {
+/**
+ * `copy`: a backup file or a guest's data, not the account. It adds what it holds
+ * and removes nothing, so it says nothing about which days are out of date, and on
+ * an injury both sides hold, this phone's row stays.
+ */
+export type IncomingFrom = "account" | "copy";
+
+export function reconcile(local: SyncableState, remote: RemoteState, from: IncomingFrom = "account"): SyncableState {
   // Either side's deletion wins over either side's row, and the row's scores go
   // with it. The account then loses any such row too: the baseline still holds
   // it and the merged state does not, so the next push deletes it.
@@ -118,17 +125,21 @@ export function reconcile(local: SyncableState, remote: RemoteState): SyncableSt
     ? unionById(local.deletedInjuries ?? [], remote.deletedInjuries)
     : local.deletedInjuries;
   const deletedIds = new Set((deletedInjuries ?? []).map((item) => item.id));
-  const injuries = remote.injuries ? unionById(local.injuries ?? [], remote.injuries) : local.injuries;
+  const injuries = remote.injuries
+    ? unionById(local.injuries ?? [], remote.injuries, from === "account" ? mergeInjury : (mine) => mine)
+    : local.injuries;
   const painLogs = remote.painLogs
     ? unionByInjuryAndDate(local.painLogs ?? [], remote.painLogs).sort(byDateAscending)
     : local.painLogs;
-  const staleDays = staleInjuryDays(
-    local.injuries ?? [],
-    local.scheduledSessions,
-    remote.injuries,
-    remote.scheduledSessions,
-    deletedIds
-  );
+  const staleDays =
+    from === "account"
+      ? staleInjuryDays(
+          { injuries: local.injuries ?? [], sessions: local.scheduledSessions },
+          { injuries: remote.injuries, sessions: remote.scheduledSessions },
+          injuries ?? [],
+          deletedIds
+        )
+      : new Set<string>();
 
   // Presets ship with the app and are never stored, so the remote list holds
   // only what the user added. This branch was already right in `hydrateRemote`

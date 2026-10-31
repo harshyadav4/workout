@@ -367,12 +367,13 @@ button {
 }
 
 /*
- * Changing tabs: the new page fades in over a few frames (`.page-enter` on
- * the page's main, components/layout/mobile-shell.tsx). Opacity only, so
- * nothing moves and code that measures the new page right after a push (the
- * tour does) reads true positions. The old page is never held on screen —
- * a View Transition used to freeze a snapshot of it until the new route was
- * in, and on a slow load that read as "I tapped Plan and still see Today".
+ * Something new fades in over a few frames: the undo bar
+ * (components/ui/undo-bar.tsx). Opacity only, so nothing moves.
+ *
+ * Not a page on a tab change. Fading the whole page from nothing showed a blank
+ * screen on every tap, and that read as a flicker. A View Transition was no
+ * better: it froze the old page until the new route was in, and on a slow load
+ * that read as "I tapped Plan and still see Today".
  * Never under reduced motion.
  */
 @media (prefers-reduced-motion: no-preference) {

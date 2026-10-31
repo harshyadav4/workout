@@ -379,6 +379,315 @@ async function main() {
     );
     assert.equal(silent.scheduledSessions.length, 1);
 
+    // Every 2 days on one phone: new ids on some of the same dates. The other phone
+    // must not end up with two workouts on one day.
+    {
+      const old = (date: string): ScheduledSession => ({ ...day(date), id: `old-${date}`, sessionTemplateId: "f1" });
+      const fresh = (date: string): ScheduledSession => ({ ...day(date), id: `new-${date}`, sessionTemplateId: "f1" });
+      const often: Injury = { ...shoulder, id: "f", place: "elbow", workout: workout({ sessionTemplateId: "f1" }) };
+      const others = (list: ScheduledSession[]) => list.filter((item) => item.sessionTemplateId !== "f1");
+      phoneA = await open(phoneA.state);
+      phoneA = await save(phoneA, {
+        ...phoneA.state,
+        injuries: [...(phoneA.state.injuries ?? []), often],
+        scheduledSessions: [...phoneA.state.scheduledSessions, ...days.map(old)]
+      });
+      phoneB = await open(phoneB.state);
+      phoneA = await open(phoneA.state);
+      phoneA = await save(phoneA, {
+        ...phoneA.state,
+        injuries: phoneA.state.injuries?.map((item) =>
+          item.id === "f"
+            ? { ...item, workout: workout({ sessionTemplateId: "f1", frequency: { kind: "every", days: 2 }, endDate: "2026-11-03" }) }
+            : item
+        ),
+        scheduledSessions: [...others(phoneA.state.scheduledSessions), fresh("2026-11-01"), fresh("2026-11-03")]
+      });
+      phoneB = await open(phoneB.state);
+      assert.deepEqual(
+        phoneB.state.scheduledSessions.filter((item) => item.sessionTemplateId === "f1").map((item) => item.id),
+        ["new-2026-11-01", "new-2026-11-03"],
+        "one workout a day, the account's"
+      );
+      phoneB = await save(phoneB, { ...phoneB.state });
+      assert.equal(rowsOf("scheduled_sessions").filter((row) => row.session_template_id === "f1").length, 2, "and none go back");
+    }
+
+    // Deleted with no signal, app closed, opened online: the account still holds it all.
+    {
+      const planned = (date: string): ScheduledSession => ({ ...day(date), id: `off-${date}`, sessionTemplateId: "o1" });
+      const done: ScheduledSession = { ...planned("2026-11-01"), status: "completed" };
+      const gone: Injury = { ...shoulder, id: "o", place: "calf", workout: workout({ sessionTemplateId: "o1" }) };
+      phoneA = await open(phoneA.state);
+      phoneA = await save(phoneA, {
+        ...phoneA.state,
+        injuries: [...(phoneA.state.injuries ?? []), gone],
+        scheduledSessions: [...phoneA.state.scheduledSessions, done, planned("2026-11-02"), planned("2026-11-03")]
+      });
+      const offline = removeOnPhone(
+        {
+          ...phoneA.state,
+          scheduledSessions: phoneA.state.scheduledSessions.filter((item) => item.sessionTemplateId !== "o1")
+        },
+        "o",
+        { id: "o", deletedAt: "2026-11-02T10:00:00.000Z" }
+      );
+      phoneA = await open(offline);
+      const kept = () => phoneA.state.scheduledSessions.filter((item) => item.sessionTemplateId === "o1").map((item) => item.id);
+      assert.deepEqual(kept(), [], "its days do not come back as normal workouts");
+      phoneA = await save(phoneA, { ...phoneA.state });
+      assert.deepEqual(
+        rowsOf("scheduled_sessions").filter((row) => row.session_template_id === "o1").map((row) => row.id),
+        [],
+        "they leave the account too"
+      );
+      assert.equal(rowsOf("injuries").some((row) => row.id === "o"), false);
+      phoneB = await open(phoneB.state);
+      assert.equal(phoneB.state.scheduledSessions.filter((item) => item.sessionTemplateId === "o1").length, 0, "and the other phone");
+      // A day still open on the other phone goes as well: with no label, finishing it would write normal logs.
+      const open1: ScheduledSession = { ...planned("2026-11-05"), id: "open-day", status: "active" };
+      const merged = reconcile(
+        { ...phoneB.state, injuries: [...(phoneB.state.injuries ?? []), gone], scheduledSessions: [...phoneB.state.scheduledSessions, open1] },
+        await loadUserState()
+      );
+      assert.equal(merged.scheduledSessions.some((item) => item.id === "open-day"), false);
+    }
+
+    // Stopped on one phone. The other phone's days go too, a day done there among them.
+    {
+      const stopping: Injury = { ...shoulder, id: "s", place: "forearm", workout: workout({ sessionTemplateId: "s1w" }) };
+      const days2 = ["2026-11-01", "2026-11-02"].map((date): ScheduledSession => ({ ...day(date), id: `s-${date}`, sessionTemplateId: "s1w" }));
+      phoneA = await open(phoneA.state);
+      phoneA = await save(phoneA, {
+        ...phoneA.state,
+        injuries: [...(phoneA.state.injuries ?? []), stopping],
+        scheduledSessions: [...phoneA.state.scheduledSessions, ...days2]
+      });
+      phoneB = await open(phoneB.state);
+      phoneB = await open({
+        ...phoneB.state,
+        scheduledSessions: phoneB.state.scheduledSessions.map((item) => (item.id === "s-2026-11-01" ? { ...item, status: "completed" as const } : item))
+      });
+      phoneA = await open(phoneA.state);
+      phoneA = await save(phoneA, {
+        ...phoneA.state,
+        injuries: phoneA.state.injuries?.map((item) => (item.id === "s" ? { ...item, workout: undefined } : item)),
+        scheduledSessions: phoneA.state.scheduledSessions.filter((item) => item.sessionTemplateId !== "s1w")
+      });
+      phoneB = await open(phoneB.state);
+      assert.equal(phoneB.state.scheduledSessions.some((item) => item.sessionTemplateId === "s1w"), false, "no day of it is left");
+      phoneB = await save(phoneB, { ...phoneB.state });
+      assert.equal(rowsOf("scheduled_sessions").some((row) => row.session_template_id === "s1w"), false, "and none goes back");
+    }
+
+    // Healed with no signal, app closed, opened online.
+    {
+      const planned = (date: string): ScheduledSession => ({ ...day(date), id: `heal-${date}`, sessionTemplateId: "h1" });
+      const healing: Injury = { ...shoulder, id: "healing", place: "shin", workout: workout({ sessionTemplateId: "h1" }) };
+      const statusOf = (list: Injury[] | undefined) => list?.find((item) => item.id === "healing");
+      const dayIds = (list: ScheduledSession[]) => list.filter((item) => item.sessionTemplateId === "h1").map((item) => item.id).sort();
+      const all = ["2026-11-01", "2026-11-02", "2026-11-03"].map(planned);
+      phoneA = await open(phoneA.state);
+      phoneA = await save(phoneA, {
+        ...phoneA.state,
+        injuries: [...(phoneA.state.injuries ?? []), healing],
+        scheduledSessions: [...phoneA.state.scheduledSessions, ...all]
+      });
+      phoneB = await open(phoneB.state);
+
+      phoneB = await open({
+        ...phoneB.state,
+        injuries: phoneB.state.injuries?.map((item) =>
+          item.id === "healing" ? { ...item, healedDate: "2026-11-02", unsent: true } : item
+        ),
+        scheduledSessions: phoneB.state.scheduledSessions.filter((item) => !["heal-2026-11-02", "heal-2026-11-03"].includes(item.id))
+      });
+      assert.equal(statusOf(phoneB.state.injuries)?.healedDate, "2026-11-02", "healed stays healed");
+      assert.deepEqual(dayIds(phoneB.state.scheduledSessions), ["heal-2026-11-01"], "and its days ahead stay gone");
+      phoneB = await save(phoneB, { ...phoneB.state });
+      assert.equal(rowsOf("injuries").find((row) => row.id === "healing")?.healed_date, "2026-11-02", "the account hears it");
+      assert.deepEqual(rowsOf("scheduled_sessions").filter((row) => row.session_template_id === "h1").map((row) => row.id), ["heal-2026-11-01"]);
+
+      // Read back, the phone has nothing left to tell, so another phone may now reopen it.
+      phoneB = await open(phoneB.state);
+      assert.equal(statusOf(phoneB.state.injuries)?.unsent, undefined);
+      phoneA = await open(phoneA.state);
+      assert.equal(statusOf(phoneA.state.injuries)?.healedDate, "2026-11-02");
+      assert.deepEqual(dayIds(phoneA.state.scheduledSessions), ["heal-2026-11-01"]);
+      phoneA = await save(phoneA, {
+        ...phoneA.state,
+        injuries: phoneA.state.injuries?.map((item) => (item.id === "healing" ? { ...item, healedDate: undefined } : item)),
+        scheduledSessions: [...phoneA.state.scheduledSessions, { ...planned("2026-11-03"), id: "back" }]
+      });
+      phoneB = await open(phoneB.state);
+      assert.equal(statusOf(phoneB.state.injuries)?.healedDate, undefined, "it has come back, on both phones");
+      assert.deepEqual(dayIds(phoneB.state.scheduledSessions), ["back", "heal-2026-11-01"]);
+      phoneB = await save(phoneB, { ...phoneB.state });
+      assert.equal(rowsOf("injuries").find((row) => row.id === "healing")?.healed_date, null, "and the other phone does not undo that");
+
+      // The same the other way: it comes back with no signal, on a healed row.
+      phoneA = await open(phoneA.state);
+      phoneA = await save(phoneA, {
+        ...phoneA.state,
+        injuries: phoneA.state.injuries?.map((item) => (item.id === "healing" ? { ...item, healedDate: "2026-11-03" } : item)),
+        scheduledSessions: phoneA.state.scheduledSessions.filter((item) => item.id !== "back")
+      });
+      phoneA = await open({
+        ...phoneA.state,
+        injuries: phoneA.state.injuries?.map((item) =>
+          item.id === "healing" ? { ...item, healedDate: undefined, unsent: true } : item
+        ),
+        scheduledSessions: [...phoneA.state.scheduledSessions, { ...planned("2026-11-04"), id: "back-offline" }]
+      });
+      assert.equal(statusOf(phoneA.state.injuries)?.healedDate, undefined, "the last word on this phone holds");
+      assert.ok(phoneA.state.scheduledSessions.some((item) => item.id === "back-offline"), "with its new day");
+      phoneA = await save(phoneA, { ...phoneA.state });
+      assert.equal(rowsOf("injuries").find((row) => row.id === "healing")?.healed_date, null);
+    }
+
+    // A doctor's workout set up with no signal on an injury the account already has,
+    // one day done, app closed, opened online. It all stays, and it all goes up.
+    {
+      const planned = (date: string): ScheduledSession => ({ ...day(date), id: `w-${date}`, sessionTemplateId: "w1" });
+      const plain: Injury = { ...shoulder, id: "ws", place: "biceps", workout: undefined };
+      const ownDays = (list: ScheduledSession[]) => list.filter((item) => item.sessionTemplateId === "w1").map((item) => item.id).sort();
+      phoneA = await open(phoneA.state);
+      phoneA = await save(phoneA, { ...phoneA.state, injuries: [...(phoneA.state.injuries ?? []), plain] });
+      phoneA = await open({
+        ...phoneA.state,
+        injuries: phoneA.state.injuries?.map((item) =>
+          item.id === "ws" ? { ...item, workout: workout({ sessionTemplateId: "w1" }), unsent: true } : item
+        ),
+        scheduledSessions: [
+          ...phoneA.state.scheduledSessions,
+          { ...planned("2026-11-01"), status: "completed" },
+          planned("2026-11-02"),
+          planned("2026-11-03")
+        ]
+      });
+      const held = phoneA.state.injuries?.find((item) => item.id === "ws");
+      assert.equal(held?.workout?.sessionTemplateId, "w1", "the workout is not lost");
+      assert.deepEqual(ownDays(phoneA.state.scheduledSessions), ["w-2026-11-01", "w-2026-11-02", "w-2026-11-03"], "nor its days");
+      phoneA = await save(phoneA, { ...phoneA.state });
+      assert.equal((rowsOf("injuries").find((row) => row.id === "ws")?.workout as { sessionTemplateId?: string })?.sessionTemplateId, "w1");
+      phoneB = await open(phoneB.state);
+      assert.equal(phoneB.state.injuries?.find((item) => item.id === "ws")?.workout?.sessionTemplateId, "w1", "the other phone hears");
+      assert.equal(ownDays(phoneB.state.scheduledSessions).length, 3);
+
+      // Changed to every 2 days with no signal: this phone's days stand, with no old day beside them.
+      phoneA = await open({
+        ...phoneA.state,
+        injuries: phoneA.state.injuries?.map((item) =>
+          item.id === "ws"
+            ? { ...item, workout: workout({ sessionTemplateId: "w1", frequency: { kind: "every", days: 2 }, endDate: "2026-11-05" }), unsent: true }
+            : item
+        ),
+        scheduledSessions: [
+          ...phoneA.state.scheduledSessions.filter((item) => !["w-2026-11-02", "w-2026-11-03"].includes(item.id)),
+          { ...planned("2026-11-03"), id: "w2-2026-11-03" },
+          { ...planned("2026-11-05"), id: "w2-2026-11-05" }
+        ]
+      });
+      assert.deepEqual(ownDays(phoneA.state.scheduledSessions), ["w-2026-11-01", "w2-2026-11-03", "w2-2026-11-05"], "one workout a day");
+      phoneA = await save(phoneA, { ...phoneA.state });
+      assert.deepEqual(
+        rowsOf("scheduled_sessions").filter((row) => row.session_template_id === "w1").map((row) => row.id).sort(),
+        ["w-2026-11-01", "w2-2026-11-03", "w2-2026-11-05"],
+        "and the account agrees"
+      );
+
+      // Stopped with no signal: the account's days go too.
+      phoneA = await open({
+        ...phoneA.state,
+        injuries: phoneA.state.injuries?.map((item) => (item.id === "ws" ? { ...item, workout: undefined, unsent: true } : item)),
+        scheduledSessions: phoneA.state.scheduledSessions.filter((item) => item.sessionTemplateId !== "w1")
+      });
+      assert.equal(phoneA.state.injuries?.find((item) => item.id === "ws")?.workout, undefined, "it stays stopped");
+      assert.deepEqual(ownDays(phoneA.state.scheduledSessions), [], "with no day left");
+      phoneA = await save(phoneA, { ...phoneA.state });
+      assert.equal(rowsOf("scheduled_sessions").some((row) => row.session_template_id === "w1"), false);
+    }
+
+    // A push cut off after the days and before the injury's row. The mark repairs it.
+    {
+      const plain: Injury = { ...shoulder, id: "cut", place: "groin", workout: undefined };
+      const dayCut: ScheduledSession = { ...day("2026-11-02"), id: "cut-day", sessionTemplateId: "c1" };
+      phoneA = await open(phoneA.state);
+      phoneA = await save(phoneA, { ...phoneA.state, injuries: [...(phoneA.state.injuries ?? []), plain] });
+      await pushChanges(USER, blank({ profile: phoneA.state.profile }), blank({ profile: phoneA.state.profile, scheduledSessions: [dayCut] }));
+      phoneA = await open({
+        ...phoneA.state,
+        injuries: phoneA.state.injuries?.map((item) =>
+          item.id === "cut" ? { ...item, workout: workout({ sessionTemplateId: "c1" }), unsent: true } : item
+        ),
+        scheduledSessions: [...phoneA.state.scheduledSessions, dayCut]
+      });
+      assert.equal(phoneA.state.injuries?.find((item) => item.id === "cut")?.workout?.sessionTemplateId, "c1", "the label survives");
+      assert.ok(phoneA.state.scheduledSessions.some((item) => item.id === "cut-day"));
+      phoneA = await save(phoneA, { ...phoneA.state });
+      assert.ok(rowsOf("injuries").find((row) => row.id === "cut")?.workout, "and reaches the account");
+    }
+
+    // The workout outlives its injury. Once it is a normal workout, its days are safe.
+    {
+      const later: Injury = { ...shoulder, id: "later", place: "quad", workout: workout({ sessionTemplateId: "n1" }) };
+      const oldDay: ScheduledSession = { ...day("2026-11-01"), id: "old-injury-day", sessionTemplateId: "n1" };
+      const normal = (id: string, status: ScheduledSession["status"] = "planned"): ScheduledSession => ({
+        ...day("2026-11-06"),
+        id,
+        sessionTemplateId: "n1",
+        status
+      });
+      phoneA = await open(phoneA.state);
+      phoneA = await save(phoneA, {
+        ...phoneA.state,
+        injuries: [...(phoneA.state.injuries ?? []), later],
+        scheduledSessions: [...phoneA.state.scheduledSessions, oldDay]
+      });
+      phoneB = await open(phoneB.state);
+
+      // The first phone deletes it, then does the workout as a normal one.
+      phoneA = await open(phoneA.state);
+      phoneA = await save(phoneA, {
+        ...removeOnPhone(phoneA.state, "later", { id: "later", deletedAt: "2026-11-05T10:00:00.000Z" }),
+        scheduledSessions: [...phoneA.state.scheduledSessions.filter((item) => item.id !== "old-injury-day"), normal("normal-done", "completed")]
+      });
+
+      // The second phone still holds the old injury, and opens.
+      phoneB = await open(phoneB.state);
+      const held = phoneB.state.scheduledSessions.filter((item) => item.sessionTemplateId === "n1").map((item) => item.id);
+      assert.deepEqual(held, ["normal-done"], "its old day goes, and the normal workout stays");
+      phoneB = await save(phoneB, { ...phoneB.state });
+      assert.deepEqual(
+        rowsOf("scheduled_sessions").filter((row) => row.session_template_id === "n1").map((row) => row.id),
+        ["normal-done"],
+        "and the out-of-date phone takes nothing from the account"
+      );
+
+      // Deleted with no signal, then planned as a normal workout on the same phone.
+      const again: Injury = { ...shoulder, id: "again", place: "ankle", workout: workout({ sessionTemplateId: "n2" }) };
+      const old2: ScheduledSession = { ...day("2026-11-01"), id: "old2", sessionTemplateId: "n2" };
+      phoneA = await open(phoneA.state);
+      phoneA = await save(phoneA, {
+        ...phoneA.state,
+        injuries: [...(phoneA.state.injuries ?? []), again],
+        scheduledSessions: [...phoneA.state.scheduledSessions, old2]
+      });
+      phoneA = await open({
+        ...removeOnPhone(phoneA.state, "again", { id: "again", deletedAt: "2026-11-05T10:00:00.000Z" }),
+        scheduledSessions: [
+          ...phoneA.state.scheduledSessions.filter((item) => item.id !== "old2"),
+          { ...normal("normal-planned"), sessionTemplateId: "n2" }
+        ]
+      });
+      assert.deepEqual(
+        phoneA.state.scheduledSessions.filter((item) => item.sessionTemplateId === "n2").map((item) => item.id),
+        ["normal-planned"],
+        "the account's old day goes, and the new one stays"
+      );
+      phoneA = await save(phoneA, { ...phoneA.state });
+    }
+
     tables.set("scheduled_sessions", []);
     tables.set("injuries", rowsOf("injuries").filter((row) => row.id === "knee"));
     phoneA = await open(blank());
@@ -411,7 +720,42 @@ async function main() {
     await clearUserRows(USER);
     assert.equal(rowsOf("body_measurements").length, 0, "delete all my data still works");
 
+    // A second phone could read the day and not the injury, and would treat it as a
+    // normal workout. So a day of an injury's workout waits on this phone.
+    const mine: Injury = {
+      ...knee,
+      id: "held",
+      workout: { sessionTemplateId: "doctor", frequency: { kind: "every", days: 1 }, startDate: "2026-11-01", endDate: "2026-11-02" }
+    };
+    const session = (id: string, sessionTemplateId: string): ScheduledSession => ({
+      id,
+      date: "2026-11-01",
+      dayIndex: 0,
+      sessionTemplateId,
+      sessionName: id,
+      exercises: [],
+      type: "workout",
+      status: "planned",
+      source: "manual"
+    });
+    const before = reconcile(blank({ injuries: [mine], scheduledSessions: [session("doctor-day", "doctor"), session("legs-day", "legs")] }), await loadUserState());
+    await pushChanges(USER, remoteBaseline(await loadUserState()), snapshotState(before));
+    assert.deepEqual(rowsOf("scheduled_sessions").map((row) => row.id), ["legs-day"], "only the normal workout goes up");
+
+    // A later change on the same run does not send it either, and asks nothing of the missing tables.
+    await pushChanges(USER, snapshotState(before), {
+      ...snapshotState(before),
+      scheduledSessions: before.scheduledSessions.map((item) => ({ ...item, sessionName: `${item.sessionName} edited` }))
+    });
+    assert.deepEqual(rowsOf("scheduled_sessions").map((row) => row.id), ["legs-day"], "still held back");
+
+    // 0016 has run. The next open sends the injury and its day together.
     missing.clear();
+    const after = await loadUserState();
+    await pushChanges(USER, remoteBaseline(after), snapshotState(reconcile(before, after)));
+    assert.deepEqual(rowsOf("scheduled_sessions").map((row) => row.id).sort(), ["doctor-day", "legs-day"], "the day goes up");
+    assert.deepEqual(rowsOf("injuries").map((row) => row.id), ["held"], "with its injury");
+
     tables.clear();
     kept.forEach((rows, table) => tables.set(table, rows));
   }

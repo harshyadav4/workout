@@ -24,7 +24,7 @@ export function MobileShell({
       <div className="app-sky print:hidden" aria-hidden />
       <div className="app-glow print:hidden" aria-hidden />
       {header ? <header className="mb-5 px-1">{header}</header> : <h1 className="sr-only">{title}</h1>}
-      <main className="page-enter space-y-4">
+      <main className="space-y-4">
         {/* While old data is archived, every page says so and offers it back. */}
         <DeletionBanner />
         {children}

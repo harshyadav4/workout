@@ -176,6 +176,12 @@ export function InjuriesRow() {
     removal.remove(injury.id, `${injuryName(injury)} deleted`, () => removeInjury(injury.id));
   };
 
+  /** All its days go with it, done ones too, so this can come back as well. */
+  const stop = (injury: Injury) => {
+    setOpen(false);
+    removal.remove(`workout-${injury.id}`, "Workout stopped", () => stopInjuryWorkout(injury.id));
+  };
+
   const heal = (injury: Injury) => {
     markInjuryHealed(injury.id);
     setOpen(false);
@@ -371,10 +377,7 @@ export function InjuriesRow() {
           <button
             type="button"
             className="mt-1 h-11 w-full text-sm font-medium text-muted-foreground"
-            onClick={() => {
-              stopInjuryWorkout(opened.id);
-              setView({ name: "injury", id: opened.id });
-            }}
+            onClick={() => stop(opened)}
           >
             Stop this workout
           </button>

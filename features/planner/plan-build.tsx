@@ -171,12 +171,18 @@ function normalizeName(name: string): string {
 
 export function PlanBuild({
   sharedText,
-  forInjury
+  forInjury,
+  onForInjuryOpened,
+  onSharedTextDone
 }: {
   /** Text shared into the app from Android's share sheet: an AI answer to import. */
   sharedText?: string;
   /** An injury's id: open Add workout straight away, with its label set. */
   forInjury?: string;
+  /** Asked once: leaving Build and coming back must not open the sheet again. */
+  onForInjuryOpened?: () => void;
+  /** The same for shared text, once its sheet has closed. */
+  onSharedTextDone?: () => void;
 } = {}) {
   const unit = useDistanceUnit();
   const muscles = useWorkoutStore((state) => state.muscles);
@@ -267,6 +273,7 @@ export function PlanBuild({
     // A doctor's exercise rarely has a weight, so none is suggested.
     setBuilderExercises((current) => current.map((exercise) => ({ ...exercise, weight: 0 })));
     setDrawerOpen(true);
+    onForInjuryOpened?.();
     // Only when asked to: the injury list changes for other reasons.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [forInjury]);
@@ -1039,7 +1046,16 @@ export function PlanBuild({
           <Sparkles className="h-4 w-4" />
           Build with AI
         </Button>
-        <AiImportSheet open={aiOpen} onOpenChange={setAiOpen} initialText={sharedText} />
+        <AiImportSheet
+          open={aiOpen}
+          onOpenChange={(open) => {
+            setAiOpen(open);
+            if (!open) {
+              onSharedTextDone?.();
+            }
+          }}
+          initialText={sharedText}
+        />
       </div>
 
       {hasPlan ? (

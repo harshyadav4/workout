@@ -201,7 +201,9 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
     setConfirmation(null);
   };
 
-  const rotationEffective = rotationOrder.length ? rotationOrder : sessionTemplates.map((item) => item.id);
+  const rotationEffective = (rotationOrder.length ? rotationOrder : sessionTemplates.map((item) => item.id)).filter(
+    (id) => !ownWorkouts.has(id)
+  );
   const hasWorkouts = mode === "weekly" ? Object.keys(weekly).length > 0 : rotationEffective.length > 0;
   const validRange = Boolean(startDate) && Boolean(endDate) && startDate <= endDate;
   const canGenerate = hasWorkouts && validRange;
@@ -218,11 +220,15 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
         ? "The end date is before the start date."
         : null;
 
-  // Only days the new plan actually covers get replaced — planned days outside
-  // [startDate, endDate] are left alone, so they must not be counted here.
+  // Only what the generator made can be replaced. A day moved by hand stays, and so
+  // does each day of an injury's workout (`mergeGeneratedSessions`). Days outside
+  // [startDate, endDate] are not counted here.
   const plannedCount = scheduledSessions.filter(
     (session) =>
-      session.status === "planned" && session.date >= startDate && session.date <= endDate
+      session.status === "planned" &&
+      session.source === "repeat" &&
+      session.date >= startDate &&
+      session.date <= endDate
   ).length;
   const keptCount = scheduledSessions.filter((session) => session.status !== "planned").length;
 
@@ -422,7 +428,9 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
             No workouts this day.
           </p>
         ) : null}
-        {isPastDay ? null : <ListRow icon={Plus} label="Add workout" noChevron onClick={() => setAdding(true)} />}
+        {isPastDay || planTemplates.length === 0 ? null : (
+          <ListRow icon={Plus} label="Add workout" noChevron onClick={() => setAdding(true)} />
+        )}
       </ListGroup>
 
       {isPastDay ? <p className="-mt-3 px-1 text-[13px] text-muted-foreground">Past days stay as your history.</p> : null}
@@ -460,7 +468,7 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
           aside={upcoming.length > UPCOMING_ROWS ? `Next ${UPCOMING_ROWS} of ${upcoming.length}` : undefined}
         >
           {runningWorkouts.map(({ name, workout }) => (
-            <ListRow key={workout.sessionTemplateId} label={name} value={injuryWorkoutLine(workout)} />
+            <ListRow key={workout.sessionTemplateId} label={name} hint={injuryWorkoutLine(workout)} />
           ))}
           {upcoming.slice(0, UPCOMING_ROWS).map((session) => (
             <ListRow
@@ -499,7 +507,7 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
         description={`To ${selectedDay.dayLabel} ${selectedDay.dayNumber}.`}
       >
         <SheetRows>
-          {sessionTemplates.map((template) => {
+          {planTemplates.map((template) => {
             // The store refuses a second one of the same name on a day.
             const onDay = scheduledSessions.some(
               (session) => session.date === selectedDate && session.sessionName === template.name
@@ -636,7 +644,7 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
                   </p>
                 )}
                 <div className="flex flex-wrap gap-2">
-                  {sessionTemplates
+                  {planTemplates
                     .filter((template) => !rotationOrder.includes(template.id))
                     .map((template) => (
                       <button

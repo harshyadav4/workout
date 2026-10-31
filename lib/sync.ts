@@ -1,4 +1,4 @@
-import { readInjury } from "@/lib/injuries";
+import { injuryWorkoutIds, isInjurySession, readInjury } from "@/lib/injuries";
 import { supabase } from "@/lib/supabase";
 import type {
   BodyMeasurement,
@@ -309,6 +309,13 @@ export function rowToInjuryDeletion(row: Row): InjuryDeletion {
  * that went out before its migration ran. 42P01 from Postgres, PGRST205 from
  * PostgREST's schema cache.
  */
+/**
+ * Migration 0016 has not run on this account yet. Read again on every open. Until
+ * it runs, the days of an injury's workout wait on this phone: another phone could
+ * read such a day and not its injury, and would treat it as a normal workout.
+ */
+let injuryTablesMissing = false;
+
 export function isMissingTable(error: { code?: string } | null | undefined): boolean {
   return error?.code === "42P01" || error?.code === "PGRST205";
 }
@@ -400,6 +407,7 @@ export async function loadUserState(): Promise<RemoteState> {
   // The three arrive together with 0016. Anything less says nothing about
   // injuries, and "nothing" must not read as "you have none".
   const injuryTablesThere = !injuries.error && !painLogs.error && !injuryDeletions.error;
+  injuryTablesMissing = !injuryTablesThere;
 
   return {
     templates: (templates.data ?? []).map(rowToTemplate),
@@ -736,7 +744,11 @@ export async function pushChanges(
   await writeTable("session_templates", previous.sessionTemplates, next.sessionTemplates, (item) =>
     sessionTemplateToRow(item, userId)
   );
-  await writeTable("scheduled_sessions", previous.scheduledSessions, next.scheduledSessions, (item) =>
+  // The baseline from the next open knows nothing of a held day, so that open sends it.
+  const heldBack = injuryTablesMissing ? injuryWorkoutIds(next.injuries ?? []) : undefined;
+  const sendable = (sessions: ScheduledSession[]) =>
+    heldBack ? sessions.filter((session) => !isInjurySession(session, heldBack)) : sessions;
+  await writeTable("scheduled_sessions", sendable(previous.scheduledSessions), sendable(next.scheduledSessions), (item) =>
     sessionToRow(item, userId)
   );
   await writeTable("workout_logs", previous.logs, next.logs, (item) => logToRow(item, userId));
@@ -786,6 +798,7 @@ export async function pushChanges(
     if (!isMissingTable(error as { code?: string })) {
       throw error;
     }
+    injuryTablesMissing = true;
     console.warn("[sync] injury tables missing — run migration 0016");
   }
 

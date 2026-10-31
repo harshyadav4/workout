@@ -42,7 +42,7 @@ function isOn(href: string, pathname: string) {
  *
  * The tab lights the moment it is tapped, before the new page is in: the
  * route can take a beat to load, and a dock that waits for it makes the tap
- * feel missed. The page itself fades in when it lands (`.page-enter`).
+ * feel missed. The page itself just appears: a fade here read as a flicker.
  */
 export function BottomNav() {
   const pathname = usePathname();

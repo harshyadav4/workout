@@ -25,6 +25,25 @@ assert.equal(sideOfHalf("front", false), "left");
 assert.equal(sideOfHalf("back", true), "left");
 assert.equal(sideOfHalf("back", false), "right");
 
+// The far ends of a long muscle name that muscle's place, not its neighbour's.
+for (const [view, x, y, expected] of [
+  ["front", 74, 135, "Abs"],
+  ["front", 89, 133, "Abs"],
+  ["front", 74, 90, "Abs"],
+  ["front", 90, 90, "Abs"],
+  ["front", 59, 100, "Right chest"],
+  ["front", 105, 100, "Left chest"],
+  ["front", 57, 87, "Right chest"],
+  ["front", 45, 88, "Right biceps"],
+  ["back", 31, 28, "Upper back"],
+  ["back", 21, 37, "Left triceps"],
+  ["back", 26, 28, "Left shoulder"],
+  ["back", 30, 128, "Left calf"],
+  ["back", 30, 139, "Left ankle"]
+] as [BodyView, number, number, string][]) {
+  assert.equal(name(view, x, y), expected, `${view} ${x},${y}`);
+}
+
 // A tap right on each place names it.
 const cases: [BodyView, number, number, string][] = [
   ["front", 60, 146, "Right hip"],

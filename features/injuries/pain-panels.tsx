@@ -24,6 +24,10 @@ export function PainPanels() {
     return null;
   }
 
+  // Each injury that needs it gets the line. Only the first is a notice: one at a time.
+  const needsPhysio = ({ injury }: (typeof shown)[number]) => !injury.stopSign && shouldSeePhysio(injury, painLogs);
+  const firstPhysio = shown.find(needsPhysio)?.injury.id;
+
   return (
     <>
       <SectionRule label="Pain" hint="your own 0 to 10 score" />
@@ -42,9 +46,9 @@ export function PainPanels() {
               </>
             }
           >
-            <p className="text-[30px] font-medium leading-tight tracking-tight tabular-nums">
+            <p className="plot-n">
               {latest.score}{" "}
-              <span className="text-sm font-normal tracking-normal text-muted-foreground">
+              <span className="text-sm font-normal text-muted-foreground">
                 of 10{words ? ` · ${words}` : ""}
               </span>
             </p>
@@ -55,8 +59,10 @@ export function PainPanels() {
             ) : (
               <p className="mt-1 text-sm text-muted-foreground">Log it each week, and your trend shows here.</p>
             )}
-            {!injury.stopSign && shouldSeePhysio(injury, painLogs) ? (
-              <p className="notice-line mt-3 font-medium">It is worth seeing a physio about this.</p>
+            {needsPhysio({ injury, logs }) ? (
+              <p className={injury.id === firstPhysio ? "notice-line mt-3 font-medium" : "mt-3 text-sm font-medium"}>
+                It is worth seeing a physio about this.
+              </p>
             ) : null}
           </Panel>
         );

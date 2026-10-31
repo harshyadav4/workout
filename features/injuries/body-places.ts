@@ -33,20 +33,25 @@ interface PlaceOnBody {
 export const PLACES_ON_BODY: Record<InjuryPlace, PlaceOnBody> = {
   neck: { front: [[81.5, 40]], back: [[38.5, 17]], frontMuscles: ["traps"] },
   upperBack: {
-    back: [[38.5, 33], [29, 42], [48, 42]],
+    back: [[38.5, 33], [29, 42], [48, 42], [31, 27], [46, 27]],
     backMuscles: ["traps", "rhomboids", "lats"]
   },
   lowerBack: { back: [[38.5, 57]], backMuscles: ["erectors"] },
-  abs: { front: [[81.5, 112]], frontMuscles: ["abs", "obliques"] },
+  // The first point of a place holds its mark. The rest only catch taps, because a
+  // long muscle's far end is nearer to the next place's point than to its own.
+  abs: {
+    front: [[81.5, 112], [81.5, 90], [81.5, 134], [63, 124], [100, 124]],
+    frontMuscles: ["abs", "obliques"]
+  },
   shoulder: {
     front: [[47, 62]],
     back: [[22, 29.5]],
     frontMuscles: ["deltFront", "deltSide"],
     backMuscles: ["deltRear"]
   },
-  chest: { front: [[64, 70]], frontMuscles: ["pecUpper", "pecLower"] },
+  chest: { front: [[64, 70], [60, 92]], frontMuscles: ["pecUpper", "pecLower"] },
   biceps: { front: [[45, 88]], frontMuscles: ["biceps", "brachialis"] },
-  triceps: { back: [[18, 43]], backMuscles: ["tricepsLong", "tricepsLateral"] },
+  triceps: { back: [[18, 43], [21, 37]], backMuscles: ["tricepsLong", "tricepsLateral"] },
   elbow: { front: [[37, 106]], back: [[15, 52]] },
   forearm: {
     front: [[28, 122]],
@@ -65,7 +70,7 @@ export const PLACES_ON_BODY: Record<InjuryPlace, PlaceOnBody> = {
   hamstring: { back: [[30, 90]], backMuscles: ["hamsOuter", "hamsInner"] },
   knee: { front: [[69, 223]], back: [[30, 102]] },
   shin: { front: [[67, 257]], frontMuscles: ["tibialis", "soleus", "gastrocnemius"] },
-  calf: { back: [[30, 116]], backMuscles: ["gastrocnemius", "soleus"] },
+  calf: { back: [[30, 116], [30, 128]], backMuscles: ["gastrocnemius", "soleus"] },
   ankle: { front: [[72, 297]], back: [[30, 139]] }
 };
 

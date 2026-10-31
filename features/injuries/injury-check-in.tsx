@@ -75,37 +75,40 @@ export function InjuryCheckInNotice() {
     </ListSheet>
   );
 
-  if (!due) {
-    return asking ? sheet : null;
-  }
-
+  // The sheet stays in one place in the tree. A score ends the notice while the
+  // sheet still has more to say, and a sheet moved in the tree closes itself.
   return (
-    <div className="notice-line" data-closed={closed}>
-      <p className="min-w-0 flex-1">
-        {painQuestion(due, "this week")}{" "}
-        <button
-          type="button"
-          className="font-semibold underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          onClick={() => {
-            setScore(undefined);
-            setAsking(due);
-          }}
-        >
-          Log it
-        </button>
-      </p>
-      <button
-        type="button"
-        aria-label="Hide this for a week"
-        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
-        onClick={() => {
-          skipPainQuestion(due.id, today);
-          setClosed((count) => count + 1);
-        }}
-      >
-        <X className="h-4 w-4" aria-hidden />
-      </button>
+    <>
+      {due ? (
+        <div className="notice-line" data-closed={closed}>
+          <p className="min-w-0 flex-1">
+            {painQuestion(due, "this week")}{" "}
+            {/* A 44 px target that takes no more room in the line than its words. */}
+            <button
+              type="button"
+              className="-mx-1.5 -my-3 inline-block px-1.5 py-3 font-semibold underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              onClick={() => {
+                setScore(undefined);
+                setAsking(due);
+              }}
+            >
+              Log it
+            </button>
+          </p>
+          <button
+            type="button"
+            aria-label="Hide this for a week"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
+            onClick={() => {
+              skipPainQuestion(due.id, today);
+              setClosed((count) => count + 1);
+            }}
+          >
+            <X className="h-4 w-4" aria-hidden />
+          </button>
+        </div>
+      ) : null}
       {sheet}
-    </div>
+    </>
   );
 }
