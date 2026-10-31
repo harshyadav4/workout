@@ -21,24 +21,30 @@ a calendar, and Home is the cursor pointing at today's entry.
 
 ## Design
 
-The look is a set of tokens and three materials, all in `app/globals.css`:
+The look is a set of tokens and surfaces, all in `app/globals.css`:
 
-- **Two skins.** Graphite (dark) is the palette in `:root`; Paper (light) is the `light` class.
-  Every colour the UI touches is a token, so a skin is a block of numbers and nothing else.
-- **Materials.** `.plaque` (a card: lit top edge, shadow underneath), `.key` (the mana-blue button that
-  presses down: a cyan-to-deep-blue gradient with a blue glow, like lit fluid), `.key-quiet` (the same in the surface's own colour), `.well` (a pressed-in area:
-  inputs, chips not yet logged, the set drums). Each has a per-skin shadow in `--shadow-*`.
-- **One accent.** `primary` is the mana-blue fill in both skins, matching the Arise logo. `brand`
-  is the accent *as text and rings*: the same mana blue on Graphite, a deep ink blue on Paper, where
-  the bright one on white would fail. Charts are blue too; they stay apart from the keys by being
-  flat lines and fills, while a key is the only thing with the gradient and the glow. The body-map
-  heat is crimson.
-- **Two typefaces.** Inter for everything you read, Bricolage Grotesque (`font-display`) for
-  everything you care about: session names, the number on the ring, the weight on the bar.
+- **Two themes.** Dusk (dark) is the palette in `:root`; Dawn (light) is the `light` class.
+  Every colour the UI touches is a token, so a theme is a block of numbers and nothing else.
+- **Surfaces.** One level only. `.plaque` is a see-through surface in the page, so the sky
+  carries through it. `.plaque-solid` is for anything floating (menus, bars, the tour's bubble).
+  `.well` is a field or an empty track. `.key-quiet` is a quiet button.
+- **Main button.** Plain `--primary`: white on Dusk, ink on Dawn, with no
+  gradient and no glow.
+- **Warm light.** `--l1`, `--l2` and `--l3` mark only progress. Each card on Progress and
+  on Intake keeps its own colour (`--s-*`) for all its charts. Red means a limit passed or a delete,
+  and it stays quiet.
+- **One arc.** One thin arc shows progress: the rank on You, the week on Today, the sets in a workout,
+  the calories on Diet (`components/ui/progress-arc.tsx`).
+- **Two typefaces.** Instrument Sans for everything, and Outfit (`font-heading`) for a screen's few
+  large words. Its weight and tracking live in one rule in `app/globals.css`. `font-display` maps to
+  the sans. Both can change, with the colours, in You → Theme (`lib/theme-custom.ts`, `app/fonts.ts`).
+- **Lists and sheets.** A page is rows, and a form lives in a bottom sheet (`components/ui/list.tsx`).
 - **One moment.** Logging a set springs the chip, fills the ring, and — behind a switch on the
   You page — plays a synthesised click and a 12 ms haptic (`lib/feedback.ts`). Off by default.
+- **Assets.** Icons, launch screens and their checks come from `scripts/build-icons.ts`; the share
+  image is `app/opengraph-image.tsx`.
 
-`design-preview/not-boring-direction.html` is the mock the direction was chosen from.
+`design-preview/arise-new-design.html` is the mock the design was chosen from.
 
 ## Mobile-first choices
 
@@ -325,8 +331,8 @@ meal keeps the numbers it was eaten at. There is no separate log, so Progress re
 the days. A plan copies a meal's numbers: an edited meal reaches a plan when that plan is next saved.
 Diet reads bodyweight and training from the workout side, and only reads them.
 
-The Science tab on Intake (`lib/diet-science.ts`) runs published rules over the meals you ticked,
-each with its source behind the ⓘ. It starts with the path to your target weight: your weigh-ins,
+Science on Intake (`lib/diet-science.ts`) runs published rules over the meals you ticked,
+each with its source behind the ⓘ. The Body goals card starts with the path to your target weight: your weigh-ins,
 where your weight goes at what you eat, and the standard pace. Maintenance comes from your food and
 scale when there is enough data, and from the Mifflin-St Jeor formula until then.
 

@@ -9,18 +9,21 @@ import { TourLink } from "@/features/tour/tour-link";
 
 export default function HomePage() {
   return (
-    <MobileShell title="Today" wallpaper="today" header={<AreaView workout={<TodayHeader />} diet={<DietTodayHeader />} />}>
+    <MobileShell title="Today" header={<AreaView workout={<TodayHeader />} diet={<DietTodayHeader />} />}>
       <AreaView
         diet={<DietToday />}
         workout={
       <div className="space-y-4">
-        <SystemSkillsNotice />
-        {/* Three sessions in, still only on this phone: one quiet line. */}
-        <SignInNudge place="home" />
-        {/* The first week on this phone: the tour again, one tap away. */}
-        <TourLink />
+        {/* At most one notice above the workout: the first with something to say. */}
+        <div className="one-notice">
+          <SystemSkillsNotice />
+          {/* Three sessions in, still only on this phone: one quiet line. */}
+          <SignInNudge place="home" />
+          {/* The first week on this phone: the tour again, one tap away. */}
+          <TourLink />
+        </div>
         <HomeDashboard />
-        {/* Under the last card, where the wallpaper shows: the third door. */}
+        {/* Under the last card: the third door. */}
         <SkillsGate className="pt-2" />
       </div>
         }

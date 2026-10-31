@@ -49,8 +49,8 @@ export function MeasurementPrompt() {
   const anyEntered = due.some((metric) => drafts[metric]?.trim());
 
   return (
-    <div className="mt-4 rounded-xl bg-muted p-4">
-      <p className="font-display text-lg font-bold tracking-tight">Add your measurements</p>
+    <div className="mt-4 border-t border-sep pt-4">
+      <p className="font-heading text-[24px] leading-tight">Add your measurements</p>
       <p className="mt-1 text-sm text-muted-foreground">
         Fill in only the ones you have.
       </p>

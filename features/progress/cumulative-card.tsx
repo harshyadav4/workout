@@ -62,9 +62,9 @@ export function CumulativeCard({
         </>
       }
     >
-      <p className="font-display text-[2.5rem] font-extrabold leading-none tracking-tight tabular-nums">
+      <p className="plot-n">
         {formatVolume(total)}
-        <span className="ml-1.5 align-baseline text-base font-medium text-muted-foreground">
+        <span className="ml-1.5 text-[15px] font-normal text-muted-foreground">
           kg
         </span>
       </p>
@@ -73,7 +73,7 @@ export function CumulativeCard({
         <EmptyChart>Not enough data yet.</EmptyChart>
       ) : (
         <ResponsiveContainer width="100%" height={150}>
-          <AreaChart data={points} margin={{ top: 18, right: 10, bottom: 0, left: -14 }}>
+          <AreaChart data={points} margin={{ top: 18, right: 10, bottom: 0, left: -4 }}>
             <defs>
               <linearGradient id="cumulative-wash" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor={CHART.accent} stopOpacity={0.26} />
@@ -88,7 +88,7 @@ export function CumulativeCard({
               <ReferenceArea
                 x1={highlight[0].key}
                 x2={highlight[highlight.length - 1].key}
-                fill="rgba(255,255,255,0.04)"
+                fill={CHART.wash}
                 stroke="none"
               />
             ) : null}

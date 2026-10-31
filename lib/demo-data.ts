@@ -43,8 +43,8 @@ export const DEMO_PROFILE = {
   email: "alex@example.com",
   heightCm: 178,
   goalWeightKg: 76,
-  // The Science tab's sex-specific cards (body fat, standards, DOTS, calories)
-  // need these; without them the tour would show a tab of "set X on You".
+  // The science cards that depend on sex (body fat, standards, DOTS, calories)
+  // need these; without them the tour would show cards saying "set X on You".
   birthYear: 1994,
   sex: "male"
 } as const;

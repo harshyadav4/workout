@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useStore } from "zustand";
 import { createStore } from "zustand/vanilla";
 
-import { RecoveryPotion } from "@/features/home/recovery-potion";
+import { SessionRing } from "@/features/home/session-ring";
 import { cancelRestPush, scheduleRestPush } from "@/features/pwa/push";
 import { scheduleRestAlert, subscribeRestAlerts } from "@/features/pwa/rest-alerts";
 import { isTouring, subscribeTour } from "@/features/tour/tour-store";
@@ -42,7 +42,7 @@ export function formatRest(seconds: number): string {
  */
 interface RestStore {
   endsAt?: number;
-  /** The whole rest, so the dial can show how far the mana has refilled. */
+  /** The whole rest, so the dial can show how far the rest has run. */
   total: number;
   /** What the notification says is next ("Next: Bench press, set 3 of 4, 8 × 60 kg"). */
   body?: string;
@@ -221,15 +221,15 @@ function secondsLeft(endsAt: number): number {
 interface RestDialProps {
   /** The rest's deadline (ms since the epoch). */
   endsAt: number;
-  /** The whole rest in seconds; the mana bar is how much of it has passed. */
+  /** The whole rest in seconds; how far the rest has run. */
   total: number;
   onExtend: (deltaSeconds: number) => void;
   onSkip: () => void;
 }
 
 /**
- * The countdown as a small dial on the session strip, with a recovery potion
- * beside the number that refills as the rest runs out — full means go. Tap it and the
+ * The countdown as a small dial on the session strip, with a thin ring beside
+ * the number that fills as the rest runs out — full means go. Tap it and the
  * controls unfold under the strip: fifteen off, fifteen on, skip. It does not
  * dismiss itself at zero — a phone in a pocket misses the buzz, and the dial
  * is the only other signal.
@@ -248,34 +248,22 @@ export function RestDial({ endsAt, total, onExtend, onSkip }: RestDialProps) {
         aria-label={done ? "Rest is done. Show rest controls" : `${formatRest(remaining)} of rest left. Show rest controls`}
         onClick={() => setOpen((current) => !current)}
         className={cn(
-          "well flex h-14 min-w-[5.75rem] shrink-0 items-center justify-center gap-2 rounded-lg px-2.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-          done ? "ring-1 ring-brand" : ""
+          "key-quiet flex h-11 shrink-0 items-center justify-center gap-2 rounded-full pl-2 pr-3.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          done && "ring-1 ring-[var(--l2)]"
         )}
       >
-        <RecoveryPotion level={refilled} className="h-9 w-[27px]" />
-        <span className="flex flex-col items-start">
-          <span
-            className={cn(
-              "font-display text-xl font-bold leading-none tabular-nums tracking-tight",
-              done ? "text-foreground" : "text-brand"
-            )}
-            role="status"
-            aria-live="polite"
-          >
-            {formatRest(remaining)}
-          </span>
-          <span className="mt-1 text-[10px] font-semibold text-muted-foreground">
-            {done ? "done" : "resting"}
-          </span>
+        <SessionRing value={refilled} size={26} stroke={2.5} />
+        <span className="text-[17px] font-medium tabular-nums tracking-[-0.01em]" role="status" aria-live="polite">
+          {done ? "Go" : formatRest(remaining)}
         </span>
       </button>
       {open ? (
-        <div className="col-span-full mt-1 flex gap-2">
+        <div className="col-span-full mt-2 flex gap-2">
           <button
             type="button"
             aria-label={`Take ${STEP_SECONDS} seconds off the rest`}
             onClick={() => onExtend(-STEP_SECONDS)}
-            className="key-quiet flex h-11 flex-1 items-center justify-center gap-1.5 rounded-lg text-sm font-semibold"
+            className="key-quiet flex h-11 flex-1 items-center justify-center gap-1.5 rounded-full text-sm font-semibold"
           >
             <Minus className="h-4 w-4" /> 15s
           </button>
@@ -283,7 +271,7 @@ export function RestDial({ endsAt, total, onExtend, onSkip }: RestDialProps) {
             type="button"
             aria-label={`Add ${STEP_SECONDS} seconds to the rest`}
             onClick={() => onExtend(STEP_SECONDS)}
-            className="key-quiet flex h-11 flex-1 items-center justify-center gap-1.5 rounded-lg text-sm font-semibold"
+            className="key-quiet flex h-11 flex-1 items-center justify-center gap-1.5 rounded-full text-sm font-semibold"
           >
             <Plus className="h-4 w-4" /> 15s
           </button>
@@ -294,7 +282,7 @@ export function RestDial({ endsAt, total, onExtend, onSkip }: RestDialProps) {
               setOpen(false);
               onSkip();
             }}
-            className="key-quiet flex h-11 flex-1 items-center justify-center gap-1.5 rounded-lg text-sm font-semibold"
+            className="key-quiet flex h-11 flex-1 items-center justify-center gap-1.5 rounded-full text-sm font-semibold"
           >
             <X className="h-4 w-4" /> Skip
           </button>

@@ -23,7 +23,7 @@ import { formatDayKey } from "@/lib/progress-metrics";
 import { cn } from "@/lib/utils";
 
 /**
- * The Body group of the Science tab. Numbers wear text tokens; a tone word
+ * The Body group of the Progress science cards. Numbers wear text tokens; a tone word
  * beside each one carries the reading, so nothing rests on colour alone.
  */
 
@@ -68,7 +68,7 @@ export function ShapeRatiosCard({ ratios }: { ratios: ShapeRatio[] }) {
       {ratios.length === 0 ? (
         <EmptyChart>Add your height, a weigh-in and a waist measurement on You.</EmptyChart>
       ) : (
-        <ul className="divide-y divide-border">
+        <ul className="rows">
           {ratios.map((row) => (
             <Row key={row.id} label={row.label} value={row.value.toFixed(row.digits)} verdict={row.verdict} tone={row.tone} date={row.date} />
           ))}
@@ -97,7 +97,7 @@ export function SymmetryCard({ rows }: { rows: SymmetryRow[] }) {
       {rows.length === 0 ? (
         <EmptyChart>Measure both arms, thighs or calves on You.</EmptyChart>
       ) : (
-        <ul className="divide-y divide-border">
+        <ul className="rows">
           {rows.map((row) => (
             <Row
               key={row.pair}
@@ -163,7 +163,7 @@ export function WeightRateCard({ rate, goalWeightKg, currentKg }: { rate?: Weigh
             </span>
           </div>
           <div
-            className="relative mt-1.5 h-2.5 rounded-full bg-muted"
+            className="relative mt-1.5 h-2 rounded-full bg-track"
             role="img"
             aria-label={`${Math.abs(rate.percentPerWeek).toFixed(2)} % a week, ${BAND_WORDS[rate.band]} (${SAFE_BAND.low} to ${SAFE_BAND.high})`}
           >
@@ -195,7 +195,7 @@ export function RecompCard({ recomp }: { recomp?: Recomposition }) {
       {!recomp ? (
         <EmptyChart>Two waist measurements at least four weeks apart, each with a weigh-in that week.</EmptyChart>
       ) : (
-        <ul className="divide-y divide-border">
+        <ul className="rows">
           <Row label="Waist" value={`${formatSigned(recomp.waistChangeCm, 1)} cm`} verdict={recomp.waistChangeCm <= -RECOMP_WAIST_CM ? "down" : recomp.waistChangeCm >= RECOMP_WAIST_CM ? "up" : "about the same"} tone={recomp.waistChangeCm <= -RECOMP_WAIST_CM ? "good" : "neutral"} />
           <Row label="Weight" value={`${formatSigned(recomp.weightChangePercent, 1)} %`} verdict={Math.abs(recomp.weightChangePercent) <= RECOMP_WEIGHT_PERCENT ? "held" : recomp.weightChangePercent < 0 ? "down" : "up"} />
           <li className={cn("pt-2 text-xs", recomp.detected ? "text-success" : "text-muted-foreground")}>
@@ -232,10 +232,10 @@ export function CompositionCard({ composition, needs }: { composition?: Composit
       ) : (
         <>
           <div className="flex items-baseline gap-2">
-            <span className="font-display text-4xl font-bold tracking-tight tabular-nums">{composition.bodyFatPercent.toFixed(1)}</span>
+            <span className="plot-n">{composition.bodyFatPercent.toFixed(1)}</span>
             <span className="text-sm text-muted-foreground">% body fat · ±{NAVY_ERROR_PERCENT}</span>
           </div>
-          <ul className="mt-2 divide-y divide-border">
+          <ul className="mt-2 rows">
             <Row label="Lean mass" value={`${composition.leanMassKg.toFixed(1)} kg`} verdict="everything that is not fat" />
             <Row label="Fat mass" value={`${composition.fatMassKg.toFixed(1)} kg`} verdict="estimated" />
             <Row

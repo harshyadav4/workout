@@ -1,10 +1,11 @@
 "use client";
 
+import { Target } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { ListSheetRow } from "@/components/ui/list";
 import { useDietStore } from "@/features/diet/diet-store";
 import type { DietSettings } from "@/lib/diet-types";
 import { useWorkoutStore } from "@/features/workout/workout-store";
@@ -33,8 +34,18 @@ const FIELDS: { key: keyof DietSettings; label: string; placeholder: string }[] 
   { key: "fatTargetG", label: "Fat a day (g)", placeholder: "65" }
 ];
 
+/** The row on You, on the Diet side, where the workout side has its goal weight. */
+export function DietTargetsRow() {
+  const kcal = useDietStore((state) => state.settings.kcalTarget);
+  return (
+    <ListSheetRow icon={Target} label="Diet targets" value={kcal ? `${kcal} kcal` : "Not set"}>
+      {(close) => <DietTargetsForm onDone={close} />}
+    </ListSheetRow>
+  );
+}
+
 /** The daily targets. They only draw lines and fill bars: nothing is enforced. */
-export function DietTargetsCard() {
+function DietTargetsForm({ onDone }: { onDone: () => void }) {
   const settings = useDietStore((state) => state.settings);
   const setDietSettings = useDietStore((state) => state.setDietSettings);
   const weightKg = useWorkoutStore((state) => state.profile.weightKg);
@@ -48,7 +59,6 @@ export function DietTargetsCard() {
         [...FIELDS, ...BODY_FIELDS].map(({ key }) => [key, settings[key] ? String(settings[key]) : ""])
       ) as Record<keyof DietSettings, string>
   );
-  const [saved, setSaved] = useState(false);
 
   const suggestion = weightKg > 0 ? Math.round(weightKg * SUGGESTED_G_PER_KG) : undefined;
   const dirty = [...FIELDS, ...BODY_FIELDS].some((field) => parseTarget(draft[field.key]) !== settings[field.key]);
@@ -82,59 +92,50 @@ export function DietTargetsCard() {
         onChange={(event) => {
           const { value } = event.target;
           setDraft((current) => ({ ...current, [key]: value }));
-          setSaved(false);
         }}
       />
     </label>
   );
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Diet targets</CardTitle>
-        <CardDescription>
-          {suggestion
-            ? `Lifters often aim for ${PROTEIN_G_PER_KG.low} to ${PROTEIN_G_PER_KG.high} g of protein per kg. At your weight, ${suggestion} g is a fair start.`
-            : `Lifters often aim for ${PROTEIN_G_PER_KG.low} to ${PROTEIN_G_PER_KG.high} g of protein per kg of bodyweight.`}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="grid grid-cols-2 gap-3">{FIELDS.map(field)}</div>
+    <div className="space-y-3">
+      <p className="text-sm text-muted-foreground">
+        {suggestion
+          ? `Lifters often aim for ${PROTEIN_G_PER_KG.low} to ${PROTEIN_G_PER_KG.high} g of protein per kg. At your weight, ${suggestion} g is a fair start.`
+          : `Lifters often aim for ${PROTEIN_G_PER_KG.low} to ${PROTEIN_G_PER_KG.high} g of protein per kg of bodyweight.`}
+      </p>
+      <div className="grid grid-cols-2 gap-3">{FIELDS.map(field)}</div>
 
-        <div className="border-t border-border pt-3">
-          <p className="text-sm font-semibold">Body goal</p>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            Weight alone counts muscle and fat together. Set the lean mass you want, how lean you want to be, or both. Science then shows
-            your roadmap. Lean mass is everything except fat, so it includes muscle, bone and water.
+      <div className="border-t border-sep pt-3">
+        <p className="text-sm font-semibold">Body goal</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          Weight alone counts muscle and fat together. Set the lean mass you want, how lean you want to be, or both. Body goals on Intake then
+          shows your roadmap. Lean mass is everything except fat, so it includes muscle, bone and water.
+        </p>
+        <div className="mt-2 grid grid-cols-2 gap-3">{BODY_FIELDS.map(field)}</div>
+        {composition && suggested ? (
+          <p className="mt-2 text-xs text-muted-foreground">
+            You are about {composition.leanMassKg.toFixed(1)} kg lean at {composition.bodyFatPercent.toFixed(0)} % body fat.{" "}
+            {suggested.capped
+              ? `${suggested.leanKg} kg is near the natural limit for your height.`
+              : `A year of training could add about ${suggested.kgPerYear} kg, so ${suggested.leanKg} kg is a fair goal.`}{" "}
+            <button
+              type="button"
+              className="font-semibold text-brand"
+              onClick={() => setDraft((current) => ({ ...current, leanGoalKg: String(suggested.leanKg) }))}
+            >
+              Use {suggested.leanKg} kg
+            </button>
           </p>
-          <div className="mt-2 grid grid-cols-2 gap-3">{BODY_FIELDS.map(field)}</div>
-          {composition && suggested ? (
-            <p className="mt-2 text-xs text-muted-foreground">
-              You are about {composition.leanMassKg.toFixed(1)} kg lean at {composition.bodyFatPercent.toFixed(0)} % body fat.{" "}
-              {suggested.capped
-                ? `${suggested.leanKg} kg is near the natural limit for your height.`
-                : `A year of training could add about ${suggested.kgPerYear} kg, so ${suggested.leanKg} kg is a fair goal.`}{" "}
-              <button
-                type="button"
-                className="font-semibold text-brand"
-                onClick={() => {
-                  setDraft((current) => ({ ...current, leanGoalKg: String(suggested.leanKg) }));
-                  setSaved(false);
-                }}
-              >
-                Use {suggested.leanKg} kg
-              </button>
-            </p>
-          ) : (
-            <p className="mt-2 text-xs text-muted-foreground">Add your sex, height, waist and neck on You, and the app works out your lean mass and a fair goal.</p>
-          )}
-        </div>
+        ) : (
+          <p className="mt-2 text-xs text-muted-foreground">Add your sex, height, waist and neck on You, and the app works out your lean mass and a fair goal.</p>
+        )}
+      </div>
 
-        <Button
-          variant="secondary"
-          className="w-full"
-          disabled={!dirty}
-          onClick={() => {
+      <Button
+        className="w-full"
+        onClick={() => {
+          if (dirty) {
             setDietSettings({
               kcalTarget: parseTarget(draft.kcalTarget),
               proteinTargetG: parseTarget(draft.proteinTargetG),
@@ -143,12 +144,12 @@ export function DietTargetsCard() {
               leanGoalKg: parseTarget(draft.leanGoalKg),
               bodyFatGoalPercent: parseTarget(draft.bodyFatGoalPercent)
             });
-            setSaved(true);
-          }}
-        >
-          {saved && !dirty ? "Saved" : "Save targets"}
-        </Button>
-      </CardContent>
-    </Card>
+          }
+          onDone();
+        }}
+      >
+        {dirty ? "Save targets" : "Done"}
+      </Button>
+    </div>
   );
 }

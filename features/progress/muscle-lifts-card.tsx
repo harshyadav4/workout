@@ -68,16 +68,16 @@ export function MuscleLiftsCard({
           const gained = (trend?.changePercent ?? 0) >= 0;
 
           return (
-            <div key={row.workoutId} className="rounded-lg bg-muted">
+            <div key={row.workoutId}>
               <button
                 type="button"
                 aria-expanded={open}
                 onClick={() => setOpenId(open ? undefined : row.workoutId)}
-                className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex w-full items-center gap-3 py-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <span className="min-w-0 flex-1">
                   <span className="flex items-baseline gap-2">
-                    <span className="truncate text-sm font-medium">{row.name}</span>
+                    <span className="truncate text-[15px] font-medium">{row.name}</span>
                     <span
                       className={cn(
                         "shrink-0 text-[10px] font-semibold",
@@ -103,7 +103,7 @@ export function MuscleLiftsCard({
               </button>
 
               {open ? (
-                <div className="px-2 pb-2">
+                <div className="pb-3">
                   <TopSetChart points={buildTopSetSeries(logs, row.workoutId)} />
                 </div>
               ) : null}

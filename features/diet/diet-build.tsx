@@ -1,21 +1,21 @@
 "use client";
 
-import { ChevronLeft, Pencil, Plus, Sparkles, Trash2, X } from "lucide-react";
+import { ChevronLeft, Plus, Sparkles, X } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DRAWER_CONTENT, SHEET_FOOT } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { ListGroup, ListRow, SheetRows } from "@/components/ui/list";
 import { ThemedSelect } from "@/components/ui/select";
 import { SwipeRow } from "@/components/ui/swipe-row";
 import { usePendingRemoval } from "@/components/ui/use-pending-removal";
 import { DietAiImportSheet } from "@/features/diet/diet-ai-import";
 import { useDietStore } from "@/features/diet/diet-store";
 import { EMPTY_MEAL, MealForm, type MealDraft } from "@/features/diet/meal-form";
-import { MealNumbers } from "@/features/diet/meal-numbers";
+import { MealLine, MealNumbers, planLine } from "@/features/diet/meal-numbers";
 import type { Meal, MealPlan } from "@/lib/diet-types";
-import { formatMealTime, itemFromMeal, summarizeItems } from "@/lib/meal-schedule";
+import { itemFromMeal, summarizeItems } from "@/lib/meal-schedule";
 
 /** Where a new row lands, by how many are already there: breakfast, lunch, snack, dinner. */
 const DEFAULT_TIMES = ["08:30", "13:30", "17:30", "20:30"];
@@ -39,7 +39,10 @@ export function DietBuild() {
   const createMealPlan = useDietStore((state) => state.createMealPlan);
   const updateMealPlan = useDietStore((state) => state.updateMealPlan);
   const deleteMealPlan = useDietStore((state) => state.deleteMealPlan);
+  // Deleted meals and plans hide at once and go after the Undo bar.
   const removal = usePendingRemoval();
+  const removeMeal = (meal: Meal) => removal.remove(meal.id, `${meal.name} deleted`, () => deleteMeal(meal.id));
+  const removePlan = (plan: MealPlan) => removal.remove(plan.id, `${plan.name} deleted`, () => deleteMealPlan(plan.id));
 
   const [aiOpen, setAiOpen] = useState(false);
 
@@ -50,6 +53,12 @@ export function DietBuild() {
 
   const openNewMeal = () => {
     setEditingMeal(null);
+    setMealLibrary(false);
+    setMealOpen(true);
+  };
+
+  const openEditMeal = (meal: Meal) => {
+    setEditingMeal(meal);
     setMealLibrary(false);
     setMealOpen(true);
   };
@@ -74,8 +83,14 @@ export function DietBuild() {
   const [newMealInPlan, setNewMealInPlan] = useState(false);
   const [planLibrary, setPlanLibrary] = useState(false);
 
+  // Any change to the rows answers the error it may have been fixing.
+  const changeRows = (change: (current: PlanRow[]) => PlanRow[]) => {
+    setRows(change);
+    setPlanError(undefined);
+  };
+
   const addRow = (mealId: string) =>
-    setRows((current) => [
+    changeRows((current) => [
       ...current,
       { id: crypto.randomUUID(), mealId, time: DEFAULT_TIMES[current.length] ?? "20:30" }
     ]);
@@ -144,137 +159,73 @@ export function DietBuild() {
   const shownPlans = mealPlans.filter((plan) => !removal.hidden.has(plan.id));
 
   return (
-    <div className="space-y-4">
-      <Card data-tour="diet-plan-build">
-        <div className="space-y-2">
-          {meals.length === 0 && mealPlans.length === 0 ? (
-            <div className="pb-3">
-              <h2 className="font-display text-[28px] font-extrabold leading-[1.1] tracking-tight">
-                Plan your food once. Use it every day.
-              </h2>
-              <p className="mt-3 text-sm text-muted-foreground">
-                Add your meals, group them into a day, then put that day on your calendar.
-              </p>
-            </div>
-          ) : null}
-          <Button size="lg" className="w-full" onClick={openNewPlan}>
-            <Plus className="h-5 w-5" strokeWidth={2.5} />
-            Add meal plan
-          </Button>
-          <Button variant="secondary" className="w-full" onClick={openNewMeal}>
-            <Plus className="h-4 w-4" />
-            Add meal
-          </Button>
-          <Button variant="secondary" className="w-full" onClick={() => setAiOpen(true)}>
-            <Sparkles className="h-4 w-4 text-brand" />
-            Build with AI
-          </Button>
+    <div className="space-y-5">
+      {/* Onboarding copy, not a permanent header: once there is something to manage
+          it only pushes the plans down. */}
+      {meals.length === 0 && mealPlans.length === 0 ? (
+        <div className="px-1 pt-3">
+          <h2 className="font-heading text-[34px] leading-[1.08]">
+            Plan your food once. Use it every day.
+          </h2>
+          <p className="mt-2.5 text-[15px] text-muted-foreground">
+            Add your meals, group them into a day, then put that day on your calendar.
+          </p>
         </div>
-      </Card>
+      ) : null}
+
+      <div className="grid grid-cols-2 gap-2" data-tour="diet-plan-build">
+        <Button className="w-full px-3" onClick={openNewPlan}>
+          <Plus className="h-4 w-4" strokeWidth={2.5} />
+          Add meal plan
+        </Button>
+        <Button variant="secondary" className="w-full px-3" onClick={() => setAiOpen(true)}>
+          <Sparkles className="h-4 w-4" />
+          Build with AI
+        </Button>
+      </div>
 
       {shownPlans.length > 0 ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Your meal plans</CardTitle>
-            <CardDescription>Put them on days in Schedule.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {shownPlans.map((plan) => {
-              const remove = () => removal.remove(plan.id, `${plan.name} deleted`, () => deleteMealPlan(plan.id));
-              return (
-                <SwipeRow key={plan.id} className="rounded-xl" onDelete={remove}>
-                  <div className="rounded-xl bg-muted p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="min-w-0 truncate font-display text-xl font-bold tracking-tight">{plan.name}</p>
-                      <div className="flex shrink-0 items-center gap-1.5">
-                        <button
-                          type="button"
-                          aria-label={`Edit ${plan.name}`}
-                          className="key-quiet flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground"
-                          onClick={() => openEditPlan(plan)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </button>
-                        <button
-                          type="button"
-                          aria-label={`Delete ${plan.name}`}
-                          className="key-quiet flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground"
-                          onClick={remove}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-                    <MealNumbers totals={plan.summary} className="mt-1" />
-                    <ul className="mt-3 space-y-1.5">
-                      {plan.items.map((item) => (
-                        <li key={item.id} className="flex items-baseline justify-between gap-3 text-sm">
-                          <span className="min-w-0">{item.name}</span>
-                          <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{formatMealTime(item.time)}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </SwipeRow>
-              );
-            })}
-          </CardContent>
-        </Card>
+        <ListGroup title="Your meal plans">
+          {shownPlans.map((plan) => (
+            <SwipeRow key={plan.id} className="list-row" onDelete={() => removePlan(plan)}>
+              <ListRow
+                label={<span className="font-heading text-[23px] leading-tight">{plan.name}</span>}
+                hint={<span className="tabular-nums">{planLine(plan)}</span>}
+                onClick={() => openEditPlan(plan)}
+              />
+            </SwipeRow>
+          ))}
+        </ListGroup>
       ) : null}
 
-      {shownMeals.length > 0 ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Your meals</CardTitle>
-            <CardDescription>Editing a meal changes a plan when you next save that plan.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {shownMeals.map((meal) => {
-              const remove = () => removal.remove(meal.id, `${meal.name} deleted`, () => deleteMeal(meal.id));
-              return (
-                <SwipeRow key={meal.id} className="rounded-xl" onDelete={remove}>
-                  <div className="flex items-center justify-between gap-3 rounded-xl bg-muted py-2.5 pl-4 pr-2">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold">{meal.name}</p>
-                      <MealNumbers totals={meal} className="mt-0.5" />
-                    </div>
-                    <div className="flex shrink-0 items-center gap-1">
-                      <button
-                        type="button"
-                        aria-label={`Edit ${meal.name}`}
-                        className="flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground active:bg-secondary"
-                        onClick={() => {
-                          setEditingMeal(meal);
-                          setMealLibrary(false);
-                          setMealOpen(true);
-                        }}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        aria-label={`Delete ${meal.name}`}
-                        className="flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground active:bg-secondary"
-                        onClick={remove}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                </SwipeRow>
-              );
-            })}
-          </CardContent>
-        </Card>
-      ) : null}
+      <ListGroup title="Your meals">
+        <ListRow icon={Plus} label="Add meal" noChevron onClick={openNewMeal} />
+        {shownMeals.map((meal) => (
+          <SwipeRow key={meal.id} className="list-row" onDelete={() => removeMeal(meal)}>
+            <ListRow
+              label={meal.name}
+              hint={
+                <span className="tabular-nums">
+                  <MealLine totals={meal} />
+                </span>
+              }
+              onClick={() => openEditMeal(meal)}
+            />
+          </SwipeRow>
+        ))}
+      </ListGroup>
 
       {/* The meal dialog. Remounted per meal, so the form starts from that meal. */}
       <Dialog open={mealOpen} onOpenChange={setMealOpen}>
-        <DialogContent className="max-h-[88dvh] overflow-y-auto" hideClose={mealLibrary}>
+        <DialogContent className={`${DRAWER_CONTENT} max-h-[88dvh] overflow-y-auto`} hideClose={mealLibrary}>
           {mealLibrary ? null : (
-            <DialogHeader>
+            <DialogHeader className="pr-9">
               <DialogTitle>{editingMeal ? "Edit meal" : "Add meal"}</DialogTitle>
-              <DialogDescription>Add foods from the library, or type the numbers. Add the cost for one serving.</DialogDescription>
+              <DialogDescription>
+                {editingMeal
+                  ? "A plan picks up the change when you next save that plan."
+                  : "Add foods from the library, or type the numbers. Add the cost for one serving."}
+              </DialogDescription>
             </DialogHeader>
           )}
           <MealForm
@@ -283,13 +234,22 @@ export function DietBuild() {
             submitLabel="Save meal"
             onSubmit={saveMeal}
             onLibraryChange={setMealLibrary}
+            deleteLabel="Delete meal"
+            onDelete={
+              editingMeal
+                ? () => {
+                    removeMeal(editingMeal);
+                    setMealOpen(false);
+                  }
+                : undefined
+            }
           />
         </DialogContent>
       </Dialog>
 
       {/* The plan dialog. A new meal swaps in place, not as a second dialog. */}
       <Dialog open={planOpen} onOpenChange={setPlanOpen}>
-        <DialogContent className="max-h-[88dvh] overflow-y-auto" hideClose={newMealInPlan}>
+        <DialogContent className={`${DRAWER_CONTENT} max-h-[88dvh] overflow-y-auto`} hideClose={newMealInPlan}>
           {newMealInPlan ? (
             <div className="space-y-4">
               {planLibrary ? null : (
@@ -302,7 +262,7 @@ export function DietBuild() {
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </button>
-                  <div>
+                  <div className="min-w-0">
                     <DialogTitle>New meal</DialogTitle>
                     <DialogDescription>It is saved to your meals and added to this plan.</DialogDescription>
                   </div>
@@ -324,7 +284,7 @@ export function DietBuild() {
             </div>
           ) : (
             <>
-              <DialogHeader>
+              <DialogHeader className="pr-9">
                 <DialogTitle>{editingPlan ? "Edit meal plan" : "Add meal plan"}</DialogTitle>
                 <DialogDescription>One day of eating. Choose each meal and its time.</DialogDescription>
               </DialogHeader>
@@ -343,18 +303,30 @@ export function DietBuild() {
                   />
                 </label>
 
-                {rows.map((row) => {
-                  const known = meals.some((meal) => meal.id === row.mealId);
-                  const previous = editingPlan?.items.find((item) => item.id === row.id);
-                  return (
-                    <div key={row.id} className="rounded-xl bg-muted p-3">
-                      <div className="flex items-center gap-2">
+                <SheetRows>
+                  {rows.map((row) => {
+                    const known = meals.some((meal) => meal.id === row.mealId);
+                    const previous = editingPlan?.items.find((item) => item.id === row.id);
+                    return (
+                      <div key={row.id} className="list-row flex items-center gap-2 py-2 pl-4 pr-1.5">
+                        {/* Wide enough for "08:30 AM" and the browser's own clock, in every browser. */}
+                        <Input
+                          type="time"
+                          aria-label="Time"
+                          className="w-[8.5rem] shrink-0 px-3"
+                          value={row.time}
+                          onChange={(event) =>
+                            changeRows((current) =>
+                              current.map((item) => (item.id === row.id ? { ...item, time: event.target.value } : item))
+                            )
+                          }
+                        />
                         <ThemedSelect
                           aria-label="Meal"
-                          className="min-w-0 flex-1"
+                          className="min-w-0 flex-1 px-3"
                           value={row.mealId}
                           onValueChange={(mealId) =>
-                            setRows((current) => current.map((item) => (item.id === row.id ? { ...item, mealId } : item)))
+                            changeRows((current) => current.map((item) => (item.id === row.id ? { ...item, mealId } : item)))
                           }
                           options={
                             known
@@ -365,47 +337,40 @@ export function DietBuild() {
                         <button
                           type="button"
                           aria-label="Remove this meal"
-                          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted-foreground active:bg-secondary"
-                          onClick={() => setRows((current) => current.filter((item) => item.id !== row.id))}
+                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors active:bg-hi"
+                          onClick={() => changeRows((current) => current.filter((item) => item.id !== row.id))}
                         >
                           <X className="h-4 w-4" />
                         </button>
                       </div>
-                      <label className="mt-2 block text-xs font-medium text-muted-foreground">
-                        Time
-                        <Input
-                          type="time"
-                          className="mt-1"
-                          value={row.time}
-                          onChange={(event) =>
-                            setRows((current) =>
-                              current.map((item) => (item.id === row.id ? { ...item, time: event.target.value } : item))
-                            )
-                          }
-                        />
-                      </label>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                  <ListRow icon={Plus} label="Add a meal" noChevron disabled={meals.length === 0} onClick={() => addRow(meals[0].id)} />
+                  <ListRow icon={Plus} label="New meal" noChevron onClick={() => setNewMealInPlan(true)} />
+                </SheetRows>
 
-                <div className="grid grid-cols-2 gap-2">
-                  <Button variant="secondary" disabled={meals.length === 0} onClick={() => addRow(meals[0].id)}>
-                    <Plus className="h-4 w-4" />
-                    Add a meal
-                  </Button>
-                  <Button variant="secondary" onClick={() => setNewMealInPlan(true)}>
-                    <Plus className="h-4 w-4" />
-                    New meal
+                {builtItems.length > 0 ? <MealNumbers totals={planTotals} before={["The day"]} className="px-1" /> : null}
+
+                {/* The rare one: the last thing in the sheet, and it can be undone. */}
+                {editingPlan ? (
+                  <button
+                    type="button"
+                    className="h-11 w-full rounded-full text-sm font-medium text-muted-foreground transition-colors active:bg-hi"
+                    onClick={() => {
+                      removePlan(editingPlan);
+                      setPlanOpen(false);
+                    }}
+                  >
+                    Delete meal plan
+                  </button>
+                ) : null}
+
+                <div className={SHEET_FOOT}>
+                  {planError ? <p className="mb-2 text-center text-sm text-danger">{planError}</p> : null}
+                  <Button className="w-full" onClick={savePlan}>
+                    Save meal plan
                   </Button>
                 </div>
-
-                {builtItems.length > 0 ? (
-                  <MealNumbers totals={planTotals} className="rounded-xl bg-muted px-3 py-2" />
-                ) : null}
-                {planError ? <p className="text-center text-sm text-danger">{planError}</p> : null}
-                <Button className="w-full" onClick={savePlan}>
-                  Save meal plan
-                </Button>
               </div>
             </>
           )}

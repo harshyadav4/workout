@@ -27,6 +27,7 @@ export function Segmented<T extends string>({
   role = "group",
   size = "md",
   dense,
+  quiet,
   className,
   ...rest
 }: {
@@ -38,6 +39,8 @@ export function Segmented<T extends string>({
   size?: "sm" | "md";
   /** Smaller labels, for five segments across a phone. */
   dense?: boolean;
+  /** A soft key, for a control right above the page's main button: one thing stays white. */
+  quiet?: boolean;
   className?: string;
 } & Omit<React.HTMLAttributes<HTMLDivElement>, "onChange" | "role">) {
   const count = options.length;
@@ -76,7 +79,7 @@ export function Segmented<T extends string>({
   return (
     <div
       role={role}
-      className={cn("well relative grid gap-1 rounded-xl p-1", className)}
+      className={cn("well relative grid gap-1 rounded-full p-1", className)}
       style={{ gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))` }}
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
@@ -86,7 +89,7 @@ export function Segmented<T extends string>({
     >
       <span
         aria-hidden
-        className={cn("segment-thumb key pointer-events-none absolute bottom-1 left-1 top-1 rounded-lg", index < 0 && "hidden")}
+        className={cn("segment-thumb pointer-events-none absolute bottom-1 left-1 top-1 rounded-full", quiet ? "bg-track" : "key", index < 0 && "hidden")}
         style={{
           width: `calc((100% - 0.5rem - ${(count - 1) * 0.25}rem) / ${count})`,
           transform: `translateX(calc(${Math.max(0, index)} * (100% + 0.25rem)))`
@@ -103,10 +106,10 @@ export function Segmented<T extends string>({
             aria-pressed={role === "group" ? selected : undefined}
             onClick={() => onChange(option.id)}
             className={cn(
-              "relative z-10 rounded-lg font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              "relative z-10 rounded-full font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               size === "sm" ? "h-10" : "h-11",
-              dense || size === "sm" ? "text-xs" : "text-sm",
-              selected ? "text-primary-foreground" : "text-muted-foreground"
+              dense ? "text-xs" : size === "sm" ? "text-[13px]" : "text-sm",
+              selected ? (quiet ? "text-foreground" : "text-primary-foreground") : "text-muted-foreground"
             )}
           >
             {option.label}

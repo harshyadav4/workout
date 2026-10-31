@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { REST_CELL, useSection } from "@/features/progress/chart-theme";
+import { REST_CELL, useSection, scrollToNewest } from "@/features/progress/chart-theme";
 import {
   formatDayKey,
   formatMonthKey,
@@ -53,12 +53,13 @@ export function YearSpine({
   const { heat } = useSection();
   const [picked, setPicked] = useState<{ date: string; volume: number }>();
 
+
   const percent = Math.round((streaks.trainedDays / Math.max(streaks.totalDays, 1)) * 100);
 
   return (
-    <section className="-mx-4">
-      <div className="flex items-baseline justify-between gap-3 px-4">
-        <h2 className="text-xs font-semibold text-muted-foreground">
+    <section className="-mx-4 pt-2">
+      <div className="flex items-baseline justify-between gap-3 px-5">
+        <h2 className="text-[13.5px] font-semibold text-muted-foreground">
           {SPINE_LABELS[range]}
         </h2>
         {/* The readout replaces a hover tooltip that a touch device can never
@@ -76,6 +77,7 @@ export function YearSpine({
       {/* ponytail: one delegated click for 365 cells. A button per cell would be
           365 focus stops to tab through before reaching the rest of the page. */}
       <div
+        key={weeks.length} ref={scrollToNewest}
         className="mt-2 overflow-x-auto px-4 [mask-image:linear-gradient(to_right,transparent,black_16px,black_calc(100%-16px),transparent)]"
         onClick={(event) => {
           const cell = (event.target as HTMLElement).closest<HTMLElement>("[data-date]");
@@ -88,7 +90,10 @@ export function YearSpine({
           <div className="mb-1 flex gap-[3px]">
             {weeks.map((week, index) => {
               const month = formatMonthKey(week.start);
-              const isNew = index === 0 || month !== formatMonthKey(weeks[index - 1].start);
+              const isNew =
+                index === 0
+                  ? month === formatMonthKey(weeks[Math.min(2, weeks.length - 1)].start)
+                  : month !== formatMonthKey(weeks[index - 1].start);
               return (
                 <div
                   key={`month-${week.start}`}
@@ -131,7 +136,7 @@ export function YearSpine({
         </div>
       </div>
 
-      <div className="mt-2 grid grid-cols-3 gap-2 px-4">
+      <div className="mt-3 grid grid-cols-3 gap-3 px-5">
         <Streak label="Current streak" value={`${streaks.currentWeeks} wk`} />
         <Streak label="Best streak" value={`${streaks.longestWeeks} wk`} />
         <Streak label="Days trained" value={`${percent}%`} />
@@ -143,12 +148,11 @@ export function YearSpine({
 /** Weeks, not days — see `buildStreaks`. A day streak rewards never resting. */
 function Streak({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl bg-muted px-3 py-2">
-      {/* Two lines tall, so the values stay level when a long label wraps. */}
-      <p className="min-h-8 text-xs font-semibold text-muted-foreground">
+    <div>
+      <p className="text-[13px] leading-tight text-muted-foreground">
         {label}
       </p>
-      <p className="mt-1 font-display text-lg font-extrabold tabular-nums leading-none tracking-tight">{value}</p>
+      <p className="mt-0.5 text-[19px] font-medium tabular-nums leading-tight tracking-[-0.02em]">{value}</p>
     </div>
   );
 }

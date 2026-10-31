@@ -53,7 +53,7 @@ export const TOUR_STEPS: TourStep[] = [
     route: "/plan",
     target: "plan-week",
     title: "Your week",
-    body: "Tap a day to see its workout. A blue dot is a training day. A grey dot is a rest day."
+    body: "Tap a day to see its workout. A bright dot is a training day. A faint dot is a rest day. A warm dot is a finished workout."
   },
   {
     route: "/plan",
@@ -77,14 +77,8 @@ export const TOUR_STEPS: TourStep[] = [
   {
     route: "/progress",
     target: "progress-rings",
-    title: "Three rings",
-    body: "Strength: does your weight go up? Consistency: your workouts this week. Muscles: enough sets for each muscle group."
-  },
-  {
-    route: "/progress",
-    target: "progress-tabs",
-    title: "See the details",
-    body: "Tap a ring or a tab to see its charts. Summary shows your wins and 1 thing to try next."
+    title: "Three cards",
+    body: "Strength: does your weight go up? Consistency: your workouts this week. Muscles: enough sets for each muscle group. Tap a card to see all of its charts."
   },
   {
     route: "/progress",
@@ -124,8 +118,8 @@ export const TOUR_STEPS: TourStep[] = [
     route: "/progress",
     area: "diet",
     target: "diet-intake",
-    title: "What you ate",
-    body: "Intake shows your calories, your protein and the money you spent. Science shows your muscle goal, your path to your target weight and your micronutrients. Only the meals you tick count."
+    title: "Your food in three cards",
+    body: "Eating shows your calories, your protein and your micronutrients. Money shows what you spent. Body goals shows your path to your target weight. Only the meals you tick count."
   },
   {
     route: "/profile",

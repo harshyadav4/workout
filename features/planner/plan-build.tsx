@@ -1,13 +1,13 @@
 "use client";
 
-import { ChevronDown, Dumbbell, Pencil, PlayCircle, Plus, Sparkles, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Dumbbell, PlayCircle, Plus, Sparkles } from "lucide-react";
 import { useState, useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { InfoNote } from "@/components/ui/info-note";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DRAWER_CONTENT, SHEET_FOOT } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { ListGroup, ListRow, ListSwitch, SheetRows } from "@/components/ui/list";
 import { Segmented } from "@/components/ui/segmented";
 import { SwipeRow } from "@/components/ui/swipe-row";
 import { usePendingRemoval } from "@/components/ui/use-pending-removal";
@@ -20,11 +20,10 @@ import { ExerciseMediaView, templateDatasetId } from "@/features/workout/exercis
 import { useDistanceUnit } from "@/features/workout/use-distance-unit";
 import { offerUndo } from "@/lib/undo";
 import { useWorkoutStore } from "@/features/workout/workout-store";
-import { formatDistance, fromUnit, isDistanceExercise, toUnit } from "@/lib/cardio";
+import { type DistanceUnit, formatDistance, fromUnit, isDistanceExercise, toUnit } from "@/lib/cardio";
 import { deriveEngagement, type Exercise } from "@/lib/exercises";
 import { evenTarget } from "@/lib/per-side";
 import { formatClock } from "@/lib/timer";
-import { cn } from "@/lib/utils";
 import {
   DEFAULT_INCREMENT_KG,
   DEFAULT_INCREMENT_SECONDS,
@@ -78,23 +77,34 @@ function createEmptyExercise(): BuilderExercise {
   };
 }
 
-// Per-set weights collapse to a single number when they never vary.
-function formatWeights(exercise: SessionTemplateExercise): string {
+// Per-set weights collapse to a single number when they never vary, and to
+// nothing when there is no load at all.
+function formatWeights(exercise: BuilderExercise): string {
   const weights = exercise.weights?.slice(0, exercise.sets);
   if (weights && weights.length > 0 && weights.some((value) => value !== weights[0])) {
-    return `${weights.join(" / ")} kg`;
+    return ` · ${weights.join(" / ")} kg`;
   }
-  return `${weights?.[0] ?? exercise.weight} kg`;
+  const weight = weights?.[0] ?? exercise.weight;
+  return weight > 0 ? ` · ${weight} kg` : "";
 }
 
-/** "3 × 10" for a lift, "3 × 45s" for a hold, "1 × 5 km" for a run. */
-function formatTarget(exercise: SessionTemplateExercise): string {
-  if (exercise.metric === "distance") {
-    return `${exercise.sets} × ${exercise.distanceKm ?? 0} km`;
-  }
-  return exercise.metric === "time"
-    ? `${exercise.sets} × ${exercise.durationSeconds ?? 0}s`
-    : `${exercise.sets} × ${exercise.reps}`;
+/** "3 × 10 · 45 kg" for a lift, "3 × 45s" for a hold, "1 × 5 km · 30:00" for a run; then the rest. */
+function targetLine(exercise: BuilderExercise, unit: DistanceUnit): string {
+  const target =
+    exercise.metric === "distance"
+      ? `${exercise.sets} × ${formatDistance(exercise.distanceKm ?? DEFAULT_RUN_KM, unit)} · ${formatClock(exercise.durationSeconds ?? DEFAULT_RUN_SECONDS)}`
+      : exercise.metric === "time"
+        ? `${exercise.sets} × ${exercise.durationSeconds ?? DEFAULT_HOLD_SECONDS}s${formatWeights(exercise)}`
+        : `${exercise.sets} × ${exercise.reps}${formatWeights(exercise)}`;
+  return `${target} · ${exercise.restSeconds}s rest`;
+}
+
+/** "5 exercises · 15 sets · 4,446 kg": what a saved workout holds, on one line. */
+function workoutLine(session: SessionTemplate): string {
+  const count = session.exercises.length;
+  const load = Math.round(session.summary.totalWeight);
+  const sets = session.summary.totalSets;
+  return `${count} exercise${count === 1 ? "" : "s"} · ${sets} set${sets === 1 ? "" : "s"}${load > 0 ? ` · ${load.toLocaleString("en-US")} kg` : ""}`;
 }
 
 function toBuilderExercise(exercise: SessionTemplateExercise): BuilderExercise {
@@ -207,10 +217,12 @@ export function PlanBuild({
   const removeBuilderExercise = (exerciseId: string) => {
     const previous = builderExercises;
     setBuilderExercises((current) => current.filter((item) => item.id !== exerciseId));
+    setOpenExerciseId((current) => (current === exerciseId ? null : current));
     offerUndo({ label: "Exercise removed", undo: () => setBuilderExercises(previous), commit: () => undefined });
   };
 
-  const hasPlan = sessionTemplates.length > 0;
+  const shownWorkouts = sessionTemplates.filter((session) => !removal.hidden.has(session.id));
+  const hasPlan = shownWorkouts.length > 0;
 
   const resetBuilder = () => {
     setEditingId(null);
@@ -235,6 +247,15 @@ export function PlanBuild({
     setPickerCardId(null);
     setMedia(null);
     setDrawerOpen(true);
+  };
+
+  const deleteEditing = () => {
+    const session = sessionTemplates.find((item) => item.id === editingId);
+    if (session) {
+      deleteWithUndo(session);
+    }
+    resetBuilder();
+    setDrawerOpen(false);
   };
 
   const updateExercise = (id: string, patch: Partial<BuilderExercise>) => {
@@ -489,562 +510,459 @@ export function PlanBuild({
   };
 
   return (
-    <div className="space-y-4">
-      <Card className={hasPlan ? "p-2" : ""}>
-        <div className={hasPlan ? "" : "p-2"}>
-          {/* Onboarding copy, not a permanent header — once there are sessions to
-              manage it is just pushing "Your sessions" below the fold. */}
-          {hasPlan ? null : (
-            <>
-              <h2 className="font-display text-[28px] font-extrabold leading-none tracking-tight">
-                Build a workout once. Use it many times.
-              </h2>
-              <p className="mt-3 text-sm text-muted-foreground">
-                Name it, add exercises, then put it on days in Schedule.
-              </p>
-            </>
-          )}
-          <Dialog
-            open={drawerOpen}
-            onOpenChange={(open) => {
-              setDrawerOpen(open);
-              if (!open) {
-                resetBuilder();
-              }
-            }}
+    <div className="space-y-5">
+      {/* Onboarding copy, not a permanent header — once there are sessions to
+          manage it is just pushing "Your workouts" below the fold. */}
+      {hasPlan ? null : (
+        <div className="px-1 pt-3">
+          <h2 className="font-heading text-[34px] leading-[1.08]">
+            Build a workout once. Use it many times.
+          </h2>
+          <p className="mt-2.5 text-[15px] text-muted-foreground">
+            Name it, add exercises, then put it on days in Schedule.
+          </p>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-2">
+        <Dialog
+          open={drawerOpen}
+          onOpenChange={(open) => {
+            setDrawerOpen(open);
+            if (!open) {
+              resetBuilder();
+            }
+          }}
+        >
+          <DialogTrigger asChild>
+            <Button className="w-full px-3" onClick={resetBuilder}>
+              <Plus className="h-4 w-4" strokeWidth={2.5} />
+              Add workout
+            </Button>
+          </DialogTrigger>
+          {/* The sub-views have their own Back; the dialog's ✕ discards the whole
+              draft, so showing both makes one gesture mean two things. */}
+          {/* dvh, not vh: iOS Safari sizes `vh` off the viewport with the address
+              bar collapsed, so a tall session (many exercises) pushed the ✕ up
+              behind the address bar instead of clamping to what's actually visible. */}
+          <DialogContent
+            className={`${DRAWER_CONTENT} max-h-[88dvh] overflow-y-auto`}
+            hideClose={Boolean(pickerCardId || muscleCardId || media)}
           >
-            <DialogTrigger asChild>
-              <Button size="lg" className={hasPlan ? "w-full" : "mt-5 w-full"} onClick={resetBuilder}>
-                <Plus className="h-5 w-5" strokeWidth={2.5} />
-                Add workout
-              </Button>
-            </DialogTrigger>
-            {/* The sub-views have their own Back; the dialog's ✕ discards the whole
-                draft, so showing both makes one gesture mean two things. */}
-            {/* dvh, not vh: iOS Safari sizes `vh` off the viewport with the address
-                bar collapsed, so a tall session (many exercises) pushed the ✕ up
-                behind the address bar instead of clamping to what's actually visible. */}
-            <DialogContent
-              className="max-h-[88dvh] overflow-y-auto"
-              hideClose={Boolean(pickerCardId || muscleCardId || media)}
-            >
-              {pickerCardId ? (
-                <ExercisePicker
-                  onBack={() => setPickerCardId(null)}
-                  onPick={(exercise) => applyPick(pickerCardId, exercise)}
-                />
-              ) : muscleCardId ? (
-                <MuscleSelectView
-                  exerciseName={
-                    builderExercises.find((item) => item.id === muscleCardId)?.name ?? ""
-                  }
-                  selected={
-                    builderExercises.find((item) => item.id === muscleCardId)?.muscles ?? {}
-                  }
-                  onChange={(next) => updateExercise(muscleCardId, { muscles: next })}
-                  onBack={() => setMuscleCardId(null)}
-                />
-              ) : media ? (
-                <ExerciseMediaView
-                  datasetId={media.datasetId}
-                  name={media.name}
-                  onBack={() => setMedia(null)}
-                />
-              ) : (
-                <>
-              <DialogHeader>
-                <DialogTitle>{editingId ? "Edit workout" : "Add workout"}</DialogTitle>
-                <DialogDescription>Type a name, add exercises, and set targets.</DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <label className="block text-xs font-medium text-muted-foreground">
-                  Name
-                  <Input
-                    className="mt-1"
-                    placeholder="Push, Pull, Legs"
-                    autoCapitalize="words"
-                    value={sessionName}
-                    onChange={(event) => setSessionName(event.target.value)}
-                  />
-                  {/* Beside the field it is about, not at the foot of an 88vh
-                      scroll container where the field is no longer on screen. */}
-                  {error?.field === "name" ? (
-                    <span className="mt-1 block text-sm text-danger">{error.message}</span>
-                  ) : null}
-                </label>
+            {pickerCardId ? (
+              <ExercisePicker
+                onBack={() => setPickerCardId(null)}
+                onPick={(exercise) => applyPick(pickerCardId, exercise)}
+              />
+            ) : muscleCardId ? (
+              <MuscleSelectView
+                exerciseName={
+                  builderExercises.find((item) => item.id === muscleCardId)?.name ?? ""
+                }
+                selected={
+                  builderExercises.find((item) => item.id === muscleCardId)?.muscles ?? {}
+                }
+                onChange={(next) => updateExercise(muscleCardId, { muscles: next })}
+                onBack={() => setMuscleCardId(null)}
+              />
+            ) : media ? (
+              <ExerciseMediaView
+                datasetId={media.datasetId}
+                name={media.name}
+                onBack={() => setMedia(null)}
+              />
+            ) : (
+              <>
+                <DialogHeader className="pr-9">
+                  <DialogTitle>{editingId ? "Edit workout" : "Add workout"}</DialogTitle>
+                  <DialogDescription>
+                    {editingId ? "Tap an exercise to change it." : "Type a name, add exercises, and set targets."}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <label className="block text-xs font-medium text-muted-foreground">
+                    Name
+                    <Input
+                      className="mt-1"
+                      placeholder="Push, Pull, Legs"
+                      autoCapitalize="words"
+                      value={sessionName}
+                      onChange={(event) => setSessionName(event.target.value)}
+                    />
+                    {/* Beside the field it is about, not at the foot of an 88vh
+                        scroll container where the field is no longer on screen. */}
+                    {error?.field === "name" ? (
+                      <span className="mt-1 block text-sm text-danger">{error.message}</span>
+                    ) : null}
+                  </label>
 
-                {/* The rule that decides the weight when this session opens.
-                    Off keeps the numbers below exactly as typed, which is what
-                    every session built before this existed still does. */}
-                <div className="rounded-xl bg-muted p-3">
-                  <InfoNote
-                    heading={<p className="text-xs font-medium text-muted-foreground">Progression</p>}
-                    note={
-                      <>
-                        <p>Off: each workout starts with the weights you type below.</p>
-                        <p>Linear: the weight increases when you do all the reps.</p>
-                        <p>Double: the reps increase to the maximum. Then the weight increases.</p>
-                        <p>Time: the hold time increases when you reach the target.</p>
-                        <p>If you miss the target in 2 workouts, it decreases by 10%.</p>
-                      </>
-                    }
-                  />
-                  <ThemedSelect
-                    aria-label="Progression"
-                    className="mt-1"
-                    value={progression.rule}
-                    onValueChange={(rule) =>
-                      setProgression((current) => ({
-                        ...current,
-                        rule: rule as ProgressionSettings["rule"]
-                      }))
-                    }
-                    options={Object.entries(PROGRESSION_LABELS).map(([rule, label]) => ({
-                      value: rule,
-                      label: label.split(" — ")[0]
-                    }))}
-                  />
-
-                  {progression.rule !== "off" ? (
-                    <div className="mt-2 flex gap-2">
-                      <label className="block flex-1 text-xs text-muted-foreground">
-                        {isTimeRule ? "Increase by (s)" : "Increase by (kg)"}
-                        <NumberInput
-                          className="mt-1"
-                          inputMode="decimal"
-                          step={isTimeRule ? "1" : "0.5"}
-                          min={0}
-                          value={isTimeRule ? progression.incrementSeconds ?? DEFAULT_INCREMENT_SECONDS : progression.incrementKg ?? DEFAULT_INCREMENT_KG}
-                          onValueChange={(value) =>
-                            setProgression((current) =>
-                              isTimeRule
-                                ? { ...current, incrementSeconds: value }
-                                : { ...current, incrementKg: value }
-                            )
-                          }
-                        />
-                      </label>
-                      {progression.rule === "double" ? (
-                        <label className="block flex-1 text-xs text-muted-foreground">
-                          Maximum reps
-                          <NumberInput
-                            className="mt-1"
-                            inputMode="numeric"
-                            min={1}
-                            value={progression.repMax ?? 12}
-                            onValueChange={(value) => setProgression((current) => ({ ...current, repMax: value }))}
-                          />
-                        </label>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </div>
-                {builderExercises.map((exercise, exerciseIndex) => (
-                  openExerciseId !== exercise.id ? (
-                    <SwipeRow
-                      key={exercise.id}
-                      className="rounded-xl"
-                      label="Remove"
-                      disabled={builderExercises.length === 1}
-                      onDelete={() => removeBuilderExercise(exercise.id)}
-                    >
-                    <div className="flex items-center gap-2 rounded-xl bg-muted p-2 pl-4">
-                      <button
-                        type="button"
-                        className="min-w-0 flex-1 py-2 text-left"
-                        onClick={() => setOpenExerciseId(exercise.id)}
-                        aria-label={`Edit exercise ${exerciseIndex + 1}${exercise.name ? `, ${exercise.name}` : ""}`}
-                      >
-                        <span className="block truncate text-[15px] font-semibold capitalize">
-                          {exerciseIndex + 1}. {exercise.name.trim() || "Unnamed exercise"}
-                        </span>
-                        <span className="mt-0.5 block truncate text-xs text-muted-foreground tabular-nums">
-                          {exercise.metric === "distance"
-                            ? `${exercise.sets} × ${formatDistance(exercise.distanceKm ?? DEFAULT_RUN_KM, unit)} · ${formatClock(exercise.durationSeconds ?? DEFAULT_RUN_SECONDS)}`
-                            : exercise.metric === "time"
-                              ? `${exercise.sets} × ${exercise.durationSeconds ?? DEFAULT_HOLD_SECONDS}s`
-                              : `${exercise.sets} × ${exercise.reps} · ${exercise.weight} kg`}
-                          {` · ${exercise.restSeconds}s rest`}
-                        </span>
-                      </button>
-                      <button
-                        type="button"
-                        aria-label={`Edit exercise ${exerciseIndex + 1}`}
-                        className="key-quiet flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted-foreground"
-                        onClick={() => setOpenExerciseId(exercise.id)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        aria-label={`Remove exercise ${exerciseIndex + 1}`}
-                        className="key-quiet flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted-foreground disabled:opacity-40"
-                        onClick={() => removeBuilderExercise(exercise.id)}
-                        disabled={builderExercises.length === 1}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                    </SwipeRow>
-                  ) : (
-                  <div key={exercise.id} className="rounded-xl bg-muted p-4 ring-1 ring-brand/40">
-                    <div className="mb-3 flex items-center justify-between gap-2">
-                      <p className="font-display text-lg font-bold tracking-tight">Exercise {exerciseIndex + 1}</p>
-                      <button
-                        type="button"
-                        className="key-quiet ml-auto h-10 rounded-full px-3.5 text-xs font-semibold"
-                        onClick={() => setOpenExerciseId(null)}
-                      >
-                        Done
-                      </button>
-                      <button
-                        type="button"
-                        className="key-quiet h-10 rounded-full px-3.5 text-xs font-semibold disabled:opacity-40"
-                        onClick={() =>
-                          setBuilderExercises((current) => current.filter((item) => item.id !== exercise.id))
-                        }
-                        disabled={builderExercises.length === 1}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                    <div className="space-y-3">
-                      <div className="flex gap-2">
-                        <Input
-                          placeholder="Exercise name"
-                          autoCapitalize="words"
-                          value={exercise.name}
-                          onChange={(event) =>
-                            updateExercise(exercise.id, {
-                              name: event.target.value,
-                              dbId: undefined,
-                              workoutId: undefined
-                            })
-                          }
-                        />
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          className="shrink-0"
-                          onClick={() => setPickerCardId(exercise.id)}
+                  <SheetRows>
+                    {builderExercises.map((exercise, exerciseIndex) =>
+                      openExerciseId !== exercise.id ? (
+                        <SwipeRow
+                          key={exercise.id}
+                          className="list-row"
+                          label="Remove"
+                          disabled={builderExercises.length === 1}
+                          onDelete={() => removeBuilderExercise(exercise.id)}
                         >
-                          <Dumbbell className="h-4 w-4" />
-                          Library
-                        </Button>
-                        {builderDatasetId(exercise) ? (
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            size="icon"
-                            className="shrink-0"
-                            aria-label={`View ${exercise.name} demo`}
-                            onClick={() => openMedia(exercise)}
-                          >
-                            <PlayCircle className="h-4 w-4" />
-                          </Button>
-                        ) : null}
-                      </div>
-
-                      <button
-                        type="button"
-                        className="key-quiet flex min-h-12 w-full items-center justify-between rounded-lg px-4 py-3 text-left"
-                        onClick={() => setMuscleCardId(exercise.id)}
-                      >
-                        <span className="text-xs font-medium text-muted-foreground">Muscles worked</span>
-                        <span className="ml-3 min-w-0 flex-1 truncate text-right text-sm font-semibold">
-                          {muscleSummary(exercise.muscles)}
-                        </span>
-                      </button>
-                      {/* A plank and a carry are measured in seconds; a run in
-                          distance and time. */}
-                      <Segmented
-                        size="sm"
-                        aria-label="Measured in"
-                        options={[
-                          { id: "reps", label: "Reps" },
-                          { id: "time", label: "Time" },
-                          { id: "distance", label: "Distance" }
-                        ]}
-                        value={exercise.metric ?? "reps"}
-                        onChange={(item) => setMetric(exercise, item)}
-                      />
-
-                      {/* Visible labels, not placeholders: every one of these is
-                          pre-filled, so the placeholder never rendered once. */}
-                      <div className="grid grid-cols-2 gap-3">
-                        <label className="text-xs text-muted-foreground">
-                          {exercise.metric === "distance" ? "Intervals" : "Sets"}
-                          <NumberInput
-                            min={1}
-                            className="mt-1"
-                            value={exercise.sets}
-                            onValueChange={(value) => updateExercise(exercise.id, { sets: value })}
-                          />
-                        </label>
-                        {exercise.metric === "distance" ? (
-                          <label className="text-xs text-muted-foreground">
-                            Distance ({unit})
-                            <NumberInput
-                              min={0}
-                              step={0.1}
-                              className="mt-1"
-                              value={Math.round(toUnit(exercise.distanceKm ?? DEFAULT_RUN_KM, unit) * 100) / 100}
-                              onValueChange={(value) => updateExercise(exercise.id, { distanceKm: fromUnit(value, unit) })}
-                            />
-                          </label>
-                        ) : exercise.metric === "time" ? (
-                          <label className="text-xs text-muted-foreground">
-                            Hold (seconds)
-                            <NumberInput
-                              min={5}
-                              step={5}
-                              className="mt-1"
-                              value={exercise.durationSeconds ?? DEFAULT_HOLD_SECONDS}
-                              onValueChange={(value) => updateExercise(exercise.id, { durationSeconds: value })}
-                            />
-                          </label>
-                        ) : (
-                          <label className="text-xs text-muted-foreground">
-                            Reps
-                            <NumberInput
-                              min={1}
-                              className="mt-1"
-                              value={exercise.reps}
-                              onValueChange={(value) => updateExercise(exercise.id, { reps: value })}
-                            />
-                          </label>
-                        )}
-                        {exercise.metric === "distance" ? (
-                          <label className="text-xs text-muted-foreground">
-                            Time (min)
-                            <NumberInput
-                              min={0}
-                              step={1}
-                              className="mt-1"
-                              value={Math.round(((exercise.durationSeconds ?? DEFAULT_RUN_SECONDS) / 60) * 10) / 10}
-                              onValueChange={(value) => updateExercise(exercise.id, { durationSeconds: Math.round(value * 60) })}
-                            />
-                          </label>
-                        ) : null}
-                        {exercise.metric === "time" || exercise.metric === "distance" ? null : (
-                          <label className="col-span-2 flex items-center justify-between text-xs text-muted-foreground">
-                            <span>
-                              Reps count both sides
-                              <span className="mt-0.5 block text-[11px]">
-                                For example, lunges or one-arm rows
+                          <ListRow
+                            label={
+                              <span className="capitalize">
+                                {exerciseIndex + 1}. {exercise.name.trim() || "Unnamed exercise"}
                               </span>
-                            </span>
+                            }
+                            hint={
+                              <>
+                                <span className="tabular-nums">{targetLine(exercise, unit)}</span>
+                                {exercise.notes?.trim() ? <span className="block italic">{exercise.notes}</span> : null}
+                              </>
+                            }
+                            onClick={() => setOpenExerciseId(exercise.id)}
+                          />
+                        </SwipeRow>
+                      ) : (
+                        <div key={exercise.id} className="list-row space-y-3 px-4 py-3.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="font-heading text-[22px] leading-tight">
+                              Exercise {exerciseIndex + 1}
+                            </p>
                             <button
                               type="button"
-                              role="switch"
-                              aria-checked={Boolean(exercise.perSide)}
-                              aria-label="Reps per side"
-                              onClick={() =>
-                                updateExercise(exercise.id, { perSide: !exercise.perSide })
-                              }
-                              className={cn(
-                                "ml-3 h-6 w-11 shrink-0 rounded-full transition-colors",
-                                exercise.perSide ? "bg-primary" : "well"
-                              )}
+                              className="key-quiet h-11 rounded-full px-4 text-[13.5px] font-semibold"
+                              onClick={() => setOpenExerciseId(null)}
                             >
-                              <span
-                                className={cn(
-                                  "block h-5 w-5 rounded-full bg-card shadow-quiet transition-transform",
-                                  exercise.perSide ? "translate-x-[22px]" : "translate-x-[2px]"
-                                )}
-                              />
+                              Done
                             </button>
-                          </label>
-                        )}
-                        {exercise.metric === "distance" ? null : (
-                        <label className="text-xs text-muted-foreground">
-                          {exercise.metric === "time" ? "Added weight (kg)" : "Weight (kg)"}
-                          <NumberInput
-                            min={0}
-                            step={2.5}
-                            className="mt-1"
-                            value={exercise.weight}
-                            onValueChange={(value) => updateExercise(exercise.id, { weight: value })}
-                          />
-                        </label>
-                        )}
-                        <label className="text-xs text-muted-foreground">
-                          Rest (seconds)
-                          <NumberInput
-                            min={15}
-                            step={15}
-                            className="mt-1"
-                            value={exercise.restSeconds}
-                            onValueChange={(value) => updateExercise(exercise.id, { restSeconds: value })}
-                          />
-                        </label>
-                      </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <Input
+                              placeholder="Exercise name"
+                              autoCapitalize="words"
+                              value={exercise.name}
+                              onChange={(event) =>
+                                updateExercise(exercise.id, {
+                                  name: event.target.value,
+                                  dbId: undefined,
+                                  workoutId: undefined
+                                })
+                              }
+                            />
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              className="shrink-0 px-4"
+                              onClick={() => setPickerCardId(exercise.id)}
+                            >
+                              <Dumbbell className="h-4 w-4" />
+                              Library
+                            </Button>
+                            {builderDatasetId(exercise) ? (
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                size="icon"
+                                className="shrink-0"
+                                aria-label={`View ${exercise.name} demo`}
+                                onClick={() => openMedia(exercise)}
+                              >
+                                <PlayCircle className="h-4 w-4" />
+                              </Button>
+                            ) : null}
+                          </div>
 
-                      {exercise.metric !== "time" && exercise.metric !== "distance" && exercise.sets > 1 ? (
-                        <details className="group rounded-lg bg-card px-3">
-                          <summary className="flex cursor-pointer list-none items-center justify-between py-3 text-sm text-muted-foreground [&::-webkit-details-marker]:hidden">
-                            Weight per set
-                            <ChevronDown className="h-4 w-4 transition group-open:rotate-180" />
-                          </summary>
-                          <div className="grid grid-cols-3 gap-2 pb-3">
-                            {Array.from({ length: exercise.sets }).map((_, setIndex) => (
-                              <label key={setIndex} className="text-[11px] text-muted-foreground">
-                                Set {setIndex + 1}
+                          <button
+                            type="button"
+                            className="well flex min-h-12 w-full items-center justify-between gap-3 rounded-lg py-3 pl-4 pr-3 text-left"
+                            onClick={() => setMuscleCardId(exercise.id)}
+                          >
+                            <span className="shrink-0 text-xs font-medium text-muted-foreground">Muscles worked</span>
+                            <span className="min-w-0 flex-1 truncate text-right text-sm font-semibold">
+                              {muscleSummary(exercise.muscles)}
+                            </span>
+                            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/60" aria-hidden />
+                          </button>
+                          {/* A plank and a carry are measured in seconds; a run in
+                              distance and time. */}
+                          <Segmented
+                            size="sm"
+                            aria-label="Measured in"
+                            options={[
+                              { id: "reps", label: "Reps" },
+                              { id: "time", label: "Time" },
+                              { id: "distance", label: "Distance" }
+                            ]}
+                            value={exercise.metric ?? "reps"}
+                            onChange={(item) => setMetric(exercise, item)}
+                          />
+
+                          {/* Visible labels, not placeholders: every one of these is
+                              pre-filled, so the placeholder never rendered once. */}
+                          <div className="grid grid-cols-2 gap-3">
+                            <label className="text-xs text-muted-foreground">
+                              {exercise.metric === "distance" ? "Intervals" : "Sets"}
+                              <NumberInput
+                                min={1}
+                                className="mt-1"
+                                value={exercise.sets}
+                                onValueChange={(value) => updateExercise(exercise.id, { sets: value })}
+                              />
+                            </label>
+                            {exercise.metric === "distance" ? (
+                              <label className="text-xs text-muted-foreground">
+                                Distance ({unit})
+                                <NumberInput
+                                  min={0}
+                                  step={0.1}
+                                  className="mt-1"
+                                  value={Math.round(toUnit(exercise.distanceKm ?? DEFAULT_RUN_KM, unit) * 100) / 100}
+                                  onValueChange={(value) => updateExercise(exercise.id, { distanceKm: fromUnit(value, unit) })}
+                                />
+                              </label>
+                            ) : exercise.metric === "time" ? (
+                              <label className="text-xs text-muted-foreground">
+                                Hold (seconds)
+                                <NumberInput
+                                  min={5}
+                                  step={5}
+                                  className="mt-1"
+                                  value={exercise.durationSeconds ?? DEFAULT_HOLD_SECONDS}
+                                  onValueChange={(value) => updateExercise(exercise.id, { durationSeconds: value })}
+                                />
+                              </label>
+                            ) : (
+                              <label className="text-xs text-muted-foreground">
+                                Reps
+                                <NumberInput
+                                  min={1}
+                                  className="mt-1"
+                                  value={exercise.reps}
+                                  onValueChange={(value) => updateExercise(exercise.id, { reps: value })}
+                                />
+                              </label>
+                            )}
+                            {exercise.metric === "distance" ? (
+                              <label className="text-xs text-muted-foreground">
+                                Time (min)
+                                <NumberInput
+                                  min={0}
+                                  step={1}
+                                  className="mt-1"
+                                  value={Math.round(((exercise.durationSeconds ?? DEFAULT_RUN_SECONDS) / 60) * 10) / 10}
+                                  onValueChange={(value) => updateExercise(exercise.id, { durationSeconds: Math.round(value * 60) })}
+                                />
+                              </label>
+                            ) : null}
+                            {exercise.metric === "distance" ? null : (
+                              <label className="text-xs text-muted-foreground">
+                                {exercise.metric === "time" ? "Added weight (kg)" : "Weight (kg)"}
                                 <NumberInput
                                   min={0}
                                   step={2.5}
                                   className="mt-1"
-                                  value={exercise.weights?.[setIndex] ?? exercise.weight}
-                                  onValueChange={(value) => setPerSetWeight(exercise.id, setIndex, value)}
+                                  value={exercise.weight}
+                                  onValueChange={(value) => updateExercise(exercise.id, { weight: value })}
                                 />
                               </label>
-                            ))}
+                            )}
+                            <label className="text-xs text-muted-foreground">
+                              Rest (seconds)
+                              <NumberInput
+                                min={15}
+                                step={15}
+                                className="mt-1"
+                                value={exercise.restSeconds}
+                                onValueChange={(value) => updateExercise(exercise.id, { restSeconds: value })}
+                              />
+                            </label>
                           </div>
-                        </details>
-                      ) : null}
 
-                      <textarea
-                        aria-label="Notes"
-                        placeholder="Notes (optional)"
-                        rows={2}
-                        value={exercise.notes ?? ""}
-                        onChange={(event) => updateExercise(exercise.id, { notes: event.target.value })}
-                        className="well w-full rounded-lg px-4 py-3 text-base text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
-                      />
-                    </div>
-                  </div>
-                  )
-                ))}
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    const next = createEmptyExercise();
-                    setBuilderExercises((current) => [...current, next]);
-                    setOpenExerciseId(next.id);
-                  }}
-                >
-                  <Plus className="h-4 w-4" />
-                  Add exercise
-                </Button>
-                {error?.field === "form" ? (
-                  <p className="text-sm text-danger">{error.message}</p>
-                ) : null}
-                {/* Sticky: with six exercise cards the commit action was a long
-                    scroll away from wherever you finished editing. */}
-                <div className="sticky bottom-0 border-t border-border bg-card pt-3">
-                  <Button className="w-full" onClick={saveSession}>
-                    {editingId ? "Save changes" : "Save workout"}
-                  </Button>
-                </div>
-              </div>
-                </>
-              )}
-            </DialogContent>
-          </Dialog>
-          <Button variant="secondary" className="mt-2 w-full" onClick={() => setAiOpen(true)} data-tour="plan-ai">
-            <Sparkles className="h-4 w-4 text-brand" />
-            Build with AI
-          </Button>
-          <AiImportSheet open={aiOpen} onOpenChange={setAiOpen} initialText={sharedText} />
-        </div>
-      </Card>
+                          {exercise.metric === "time" || exercise.metric === "distance" ? null : (
+                            <div className="-mx-4">
+                              <ListSwitch
+                                label="Reps count both sides"
+                                hint="For example, lunges or one-arm rows"
+                                on={Boolean(exercise.perSide)}
+                                onToggle={() => updateExercise(exercise.id, { perSide: !exercise.perSide })}
+                              />
+                            </div>
+                          )}
 
-      {hasPlan ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Your workouts</CardTitle>
-            <CardDescription>Put them on days in Schedule.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {sessionTemplates
-              .filter((session) => !removal.hidden.has(session.id))
-              .map((session) => (
-              <SwipeRow key={session.id} className="rounded-xl" onDelete={() => deleteWithUndo(session)}>
-              <div className="rounded-xl bg-muted p-4">
-                {/* Name on its own line with the two keys; the numbers under it
-                    in one line. The old layout put a badge and both buttons
-                    beside the name, and "Upper · Heavy" wrapped onto two lines
-                    while "17 sets • 118 reps • 764 planned kg" took three. */}
-                <div className="flex items-center justify-between gap-3">
-                  <p className="min-w-0 truncate font-display text-xl font-bold tracking-tight">
-                    {session.name}
-                  </p>
-                  <div className="flex shrink-0 items-center gap-1.5">
-                    <button
-                      type="button"
-                      aria-label={`Edit ${session.name}`}
-                      className="key-quiet flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground"
-                      onClick={() => openEdit(session)}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </button>
-                    <button
-                      type="button"
-                      aria-label={`Delete ${session.name}`}
-                      className="key-quiet flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground"
-                      onClick={() => deleteWithUndo(session)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-                <p className="mt-1 text-sm text-muted-foreground tabular-nums">
-                  {session.exercises.length} exercise{session.exercises.length === 1 ? "" : "s"} ·{" "}
-                  {session.summary.totalSets} sets · {session.summary.totalReps} reps ·{" "}
-                  {session.summary.totalWeight.toFixed(0)} kg
-                </p>
-                <details className="group mt-3">
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 py-2 [&::-webkit-details-marker]:hidden">
-                    {/* Outlined, not filled: these are labels inside the summary's
-                        hit area, and filled chips read as individually tappable. */}
-                    <span className="flex flex-wrap gap-2">
-                      {session.exercises.map((exercise) => (
-                        <span
-                          key={exercise.id}
-                          className="rounded-full border border-border px-2.5 py-1 text-xs font-medium capitalize text-muted-foreground"
-                        >
-                          {exercise.name}
-                        </span>
-                      ))}
-                    </span>
-                    <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition group-open:rotate-180" />
-                  </summary>
-                  <div className="mt-3 space-y-2">
-                    {session.exercises.map((exercise) => (
-                      <div key={exercise.id} className="rounded-lg bg-card px-3 py-2.5">
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="text-sm font-semibold capitalize">{exercise.name}</p>
-                          <p className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                            {formatTarget(exercise)}
-                          </p>
+                          {exercise.metric !== "time" && exercise.metric !== "distance" && exercise.sets > 1 ? (
+                            <details className="group">
+                              <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between text-[15px] [&::-webkit-details-marker]:hidden">
+                                Weight per set
+                                <ChevronDown className="h-4 w-4 text-muted-foreground transition group-open:rotate-180" />
+                              </summary>
+                              <div className="grid grid-cols-3 gap-2 pb-1 pt-1">
+                                {Array.from({ length: exercise.sets }).map((_, setIndex) => (
+                                  <label key={setIndex} className="text-[11px] text-muted-foreground">
+                                    Set {setIndex + 1}
+                                    <NumberInput
+                                      min={0}
+                                      step={2.5}
+                                      className="mt-1"
+                                      value={exercise.weights?.[setIndex] ?? exercise.weight}
+                                      onValueChange={(value) => setPerSetWeight(exercise.id, setIndex, value)}
+                                    />
+                                  </label>
+                                ))}
+                              </div>
+                            </details>
+                          ) : null}
+
+                          <textarea
+                            aria-label="Notes"
+                            placeholder="Notes (optional)"
+                            rows={2}
+                            value={exercise.notes ?? ""}
+                            onChange={(event) => updateExercise(exercise.id, { notes: event.target.value })}
+                            className="well w-full rounded-lg px-4 py-3 text-base text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                          />
+
+                          {builderExercises.length > 1 ? (
+                            <button
+                              type="button"
+                              className="h-11 w-full rounded-full text-[13.5px] font-medium text-muted-foreground active:bg-hi"
+                              onClick={() => removeBuilderExercise(exercise.id)}
+                            >
+                              Remove exercise
+                            </button>
+                          ) : null}
                         </div>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {exercise.metric === "time" && exercise.weight === 0
-                            ? "Bodyweight"
-                            : formatWeights(exercise)}{" "}
-                          · {exercise.restSeconds}s rest
-                        </p>
-                        {exercise.notes ? (
-                          <p className="mt-1 text-xs italic text-muted-foreground">{exercise.notes}</p>
+                      )
+                    )}
+                  </SheetRows>
+
+                  <Button
+                    variant="secondary"
+                    className="w-full"
+                    onClick={() => {
+                      const next = createEmptyExercise();
+                      setBuilderExercises((current) => [...current, next]);
+                      setOpenExerciseId(next.id);
+                    }}
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add exercise
+                  </Button>
+                  {error?.field === "form" ? (
+                    <p className="text-sm text-danger">{error.message}</p>
+                  ) : null}
+
+                  {/* The rule that decides the weight when this session opens.
+                      Off keeps the numbers above exactly as typed, which is what
+                      every session built before this existed still does. */}
+                  <div>
+                    <InfoNote
+                      heading={<p className="text-xs font-medium text-muted-foreground">Progression</p>}
+                      note={
+                        <>
+                          <p>Off: each workout starts with the weights you type above.</p>
+                          <p>Linear: the weight increases when you do all the reps.</p>
+                          <p>Double: the reps increase to the maximum. Then the weight increases.</p>
+                          <p>Time: the hold time increases when you reach the target.</p>
+                          <p>If you miss the target in 2 workouts, it decreases by 10%.</p>
+                        </>
+                      }
+                    />
+                    <ThemedSelect
+                      aria-label="Progression"
+                      value={progression.rule}
+                      onValueChange={(rule) =>
+                        setProgression((current) => ({
+                          ...current,
+                          rule: rule as ProgressionSettings["rule"]
+                        }))
+                      }
+                      options={Object.entries(PROGRESSION_LABELS).map(([rule, label]) => ({
+                        value: rule,
+                        label: label.split(" — ")[0]
+                      }))}
+                    />
+
+                    {progression.rule !== "off" ? (
+                      <div className="mt-2 flex gap-2">
+                        <label className="block flex-1 text-xs text-muted-foreground">
+                          {isTimeRule ? "Increase by (s)" : "Increase by (kg)"}
+                          <NumberInput
+                            className="mt-1"
+                            inputMode="decimal"
+                            step={isTimeRule ? "1" : "0.5"}
+                            min={0}
+                            value={isTimeRule ? progression.incrementSeconds ?? DEFAULT_INCREMENT_SECONDS : progression.incrementKg ?? DEFAULT_INCREMENT_KG}
+                            onValueChange={(value) =>
+                              setProgression((current) =>
+                                isTimeRule
+                                  ? { ...current, incrementSeconds: value }
+                                  : { ...current, incrementKg: value }
+                              )
+                            }
+                          />
+                        </label>
+                        {progression.rule === "double" ? (
+                          <label className="block flex-1 text-xs text-muted-foreground">
+                            Maximum reps
+                            <NumberInput
+                              className="mt-1"
+                              inputMode="numeric"
+                              min={1}
+                              value={progression.repMax ?? 12}
+                              onValueChange={(value) => setProgression((current) => ({ ...current, repMax: value }))}
+                            />
+                          </label>
                         ) : null}
                       </div>
-                    ))}
+                    ) : null}
                   </div>
-                </details>
-              </div>
-              </SwipeRow>
-            ))}
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardContent className="py-8 text-center text-sm text-muted-foreground">
-            Add your first workout above.
-          </CardContent>
-        </Card>
-      )}
 
+                  {/* The rare one: the last thing in the sheet, and it can be undone. */}
+                  {editingId ? (
+                    <button
+                      type="button"
+                      className="h-11 w-full rounded-full text-sm font-medium text-muted-foreground active:bg-hi"
+                      onClick={deleteEditing}
+                    >
+                      Delete workout
+                    </button>
+                  ) : null}
+
+                  {/* Sticky: with six exercises the commit action was a long
+                      scroll away from wherever you finished editing. */}
+                  <div className={SHEET_FOOT}>
+                    <Button className="w-full" onClick={saveSession}>
+                      {editingId ? "Save changes" : "Save workout"}
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
+        <Button variant="secondary" className="w-full px-3" onClick={() => setAiOpen(true)} data-tour="plan-ai">
+          <Sparkles className="h-4 w-4" />
+          Build with AI
+        </Button>
+        <AiImportSheet open={aiOpen} onOpenChange={setAiOpen} initialText={sharedText} />
+      </div>
+
+      {hasPlan ? (
+        <ListGroup title="Your workouts">
+          {shownWorkouts.map((session) => (
+            <SwipeRow key={session.id} className="list-row" onDelete={() => deleteWithUndo(session)}>
+              <ListRow
+                label={
+                  <span className="font-heading text-[23px] leading-tight">
+                    {session.name}
+                  </span>
+                }
+                hint={workoutLine(session)}
+                onClick={() => openEdit(session)}
+              />
+            </SwipeRow>
+          ))}
+        </ListGroup>
+      ) : null}
     </div>
   );
 }
-

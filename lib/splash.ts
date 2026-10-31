@@ -3,8 +3,8 @@
  * iOS shows one only when its media query matches the phone exactly, so each
  * size names its CSS width, height and pixel ratio. Portrait only: the app is.
  *
- * The PNGs in public/splash are the app icon centred on the dark ground
- * (#0E0F12). Regenerate them with sharp if the icon changes.
+ * The PNGs in public/splash are the app's mark centred on the dark ground
+ * (#0E1230, `THEME_COLORS.dark`). `npx tsx scripts/build-icons.ts` draws them.
  */
 
 // [CSS width, CSS height, pixel ratio]

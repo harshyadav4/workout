@@ -1,16 +1,26 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { useState } from "react";
 
 import { EmptyChart } from "@/features/progress/chart-theme";
 import { buildTableRows, formatDayKey, weekStartKey } from "@/lib/progress-metrics";
 import type { WorkoutLog } from "@/lib/types";
-import { cn, formatVolume } from "@/lib/utils";
+import { formatVolume } from "@/lib/utils";
+import { Segmented } from "@/components/ui/segmented";
 import { Panel } from "@/features/progress/panel";
 
 const PAGE = 12;
 
-const COLUMNS = 5;
+/** "14 sets · 140 reps · top 90": a run has no reps and no load, so it does not list them. */
+function rowFacts(sets: number, reps: number, topSet: number) {
+  return [
+    `${sets} ${sets === 1 ? "set" : "sets"}`,
+    reps > 0 ? `${reps} reps` : null,
+    topSet > 0 ? `top ${topSet}` : null
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
 
 /**
  * Every chart above, as rows.
@@ -30,117 +40,65 @@ export function ProgressTableCard({ logs }: { logs: WorkoutLog[] }) {
 
   return (
     <Panel
-      title="Workout history"
+      title="Every workout"
       caption="Newest first · tap a row to open it"
       action={
-        <div
-          role="group"
+        <Segmented
+          quiet
+          size="sm"
           aria-label="Row grouping"
-          className="well mt-1 flex shrink-0 gap-1 rounded-lg p-1"
-        >
-          {(["session", "week"] as const).map((option) => (
-            <button
-              key={option}
-              type="button"
-              aria-pressed={grain === option}
-              onClick={() => setGrain(option)}
-              className={cn(
-                "min-h-[36px] rounded-md px-3 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                grain === option ? "key" : "text-muted-foreground"
-              )}
-            >
-              {option === "session" ? "Day" : "Week"}
-            </button>
-          ))}
-        </div>
+          className="w-[132px] shrink-0"
+          options={[
+            { id: "session" as const, label: "Day" },
+            { id: "week" as const, label: "Week" }
+          ]}
+          value={grain}
+          onChange={setGrain}
+        />
       }
     >
       {rows.length === 0 ? (
           <EmptyChart>Nothing logged in this range.</EmptyChart>
         ) : (
           <>
-            <div className="-mx-1 overflow-x-auto px-1 [mask-image:linear-gradient(to_right,black_calc(100%-14px),transparent)]">
-              <table className="w-full min-w-[26rem] border-collapse text-sm">
-                <thead>
-                  <tr className="border-b border-border text-left text-xs font-semibold text-muted-foreground">
-                    <th scope="col" className="pb-2 pr-3 font-normal">
-                      {grain === "week" ? "Week" : "Day"}
-                    </th>
-                    <th scope="col" className="pb-2 pr-3 text-right font-normal">
-                      Sets
-                    </th>
-                    <th scope="col" className="pb-2 pr-3 text-right font-normal">
-                      Reps
-                    </th>
-                    <th scope="col" className="pb-2 pr-3 text-right font-normal">
-                      Weight lifted
-                    </th>
-                    <th scope="col" className="pb-2 text-right font-normal">
-                      Heaviest set
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {shown.map((row) => {
-                    const open = openKey === row.key;
+            <ul className="rows">
+              {shown.map((row) => {
+                const open = openKey === row.key;
 
-                    return (
-                      <Fragment key={row.key}>
-                        <tr
-                          onClick={() => setOpenKey(open ? undefined : row.key)}
-                          className={cn(
-                            "cursor-pointer border-b border-border transition-colors",
-                            open ? "bg-muted" : "hover:bg-muted"
-                          )}
-                        >
-                          <th scope="row" className="py-2.5 pr-3 text-left font-normal">
-                            <button
-                              type="button"
-                              aria-expanded={open}
-                              className="text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                            >
-                              <span className="block font-medium">
-                                {grain === "week" ? "w/c " : ""}
-                                {formatDayKey(row.key)}
-                              </span>
-                              <span className="block truncate text-xs text-muted-foreground">
-                                {row.detail}
-                              </span>
-                            </button>
-                          </th>
-                          <td className="py-2.5 pr-3 text-right tabular-nums">
-                            {row.sets}
-                          </td>
-                          <td className="py-2.5 pr-3 text-right tabular-nums">
-                            {row.reps}
-                          </td>
-                          <td className="py-2.5 pr-3 text-right tabular-nums">
-                            {formatVolume(row.volume)}
-                          </td>
-                          <td className="py-2.5 text-right tabular-nums">
-                            {row.topSet ? `${row.topSet}` : "—"}
-                          </td>
-                        </tr>
+                return (
+                  <li key={row.key} className="py-2.5 first:pt-0">
+                    <button
+                      type="button"
+                      aria-expanded={open}
+                      onClick={() => setOpenKey(open ? undefined : row.key)}
+                      className="flex w-full items-start gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[15px] font-medium">
+                          {grain === "week" ? "Week of " : ""}
+                          {formatDayKey(row.key)}
+                        </span>
+                        <span className="block truncate text-[13px] text-muted-foreground">{row.detail}</span>
+                      </span>
+                      <span className="shrink-0 text-right tabular-nums">
+                        <span className="block text-[15px]">{row.volume > 0 ? `${formatVolume(row.volume)} kg` : "—"}</span>
+                        <span className="block text-[12.5px] text-muted-foreground">
+                          {rowFacts(row.sets, row.reps, row.topSet)}
+                        </span>
+                      </span>
+                    </button>
 
-                        {open ? (
-                          <tr className="border-b border-border">
-                            <td colSpan={COLUMNS} className="px-0 pb-3">
-                              <SessionDetail logs={logs} grain={grain} rowKey={row.key} />
-                            </td>
-                          </tr>
-                        ) : null}
-                      </Fragment>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                    {open ? <SessionDetail logs={logs} grain={grain} rowKey={row.key} /> : null}
+                  </li>
+                );
+              })}
+            </ul>
 
             {rows.length > PAGE ? (
               <button
                 type="button"
                 onClick={() => setExpanded((current) => !current)}
-                className="mt-3 min-h-[44px] w-full rounded-xl bg-muted text-xs font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="mt-3 min-h-[44px] w-full rounded-full text-[13.5px] font-medium text-muted-foreground transition-colors hover:text-foreground active:bg-hi focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {expanded ? "Show fewer" : `Show all ${rows.length} rows`}
               </button>
@@ -170,7 +128,7 @@ function SessionDetail({
     .sort((a, b) => b.date.localeCompare(a.date) || b.totalVolume - a.totalVolume);
 
   return (
-    <div className="well rounded-lg p-3">
+    <div className="pt-2">
       <ul className="space-y-1.5">
         {entries.map((log, index) => (
           <li key={log.id ?? `${log.date}-${log.workoutId}-${index}`} className="flex items-baseline gap-3">
@@ -178,12 +136,12 @@ function SessionDetail({
               <span className="block truncate text-sm">{log.name}</span>
               <span className="block text-xs tabular-nums text-muted-foreground">
                 {grain === "week" ? `${formatDayKey(log.date)} · ` : ""}
-                {log.totalSets ?? 0} × {log.totalReps ?? 0} reps
+                {log.totalSets ?? 0} {log.totalSets === 1 ? "set" : "sets"} · {log.totalReps ?? 0} reps
                 {log.peakWeight ? ` · heaviest ${log.peakWeight} kg` : ""}
               </span>
             </span>
             <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-              {formatVolume(log.totalVolume)}
+              {formatVolume(log.totalVolume)} kg
             </span>
           </li>
         ))}

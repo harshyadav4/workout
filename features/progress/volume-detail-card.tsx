@@ -55,6 +55,7 @@ export function VolumeDetailCard({
   return (
     <Panel
       title="Weight breakdown"
+      flush
       caption={readOf(summary, previous)}
       note={
         <>
@@ -63,24 +64,22 @@ export function VolumeDetailCard({
         </>
       }
     >
-      <div className="grid grid-cols-2 gap-2">
+      <div className="pt-1">
         {rows.map((row) => (
-          <div key={row.label} className="well rounded-lg p-3">
-            <p className="text-xs font-semibold text-muted-foreground">
-              {row.label}
-            </p>
-            <p className="mt-1.5 text-lg font-semibold leading-none">
+          <div key={row.label} className="list-row flex min-h-[54px] items-center gap-3 py-2 pl-4 pr-4">
+            <span className="min-w-0 flex-1">
+              <span className="block text-[15.5px] font-medium">{row.label}</span>
+              {row.change === undefined ? null : (
+                <span className="mt-px block text-[13px] tabular-nums text-muted-foreground">
+                  {row.change >= 0 ? "+" : ""}
+                  {row.change.toFixed(0)}% vs before
+                </span>
+              )}
+            </span>
+            <span className="shrink-0 text-[15px] tabular-nums">
               {row.value}
-              {row.unit ? (
-                <span className="ml-1 text-xs font-medium text-muted-foreground">{row.unit}</span>
-              ) : null}
-            </p>
-            {row.change === undefined ? null : (
-              <p className="mt-1 text-xs tabular-nums text-muted-foreground">
-                {row.change >= 0 ? "+" : ""}
-                {row.change.toFixed(0)}% vs before
-              </p>
-            )}
+              {row.unit ? <span className="ml-1 text-muted-foreground">{row.unit}</span> : null}
+            </span>
           </div>
         ))}
       </div>

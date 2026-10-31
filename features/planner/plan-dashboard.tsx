@@ -46,7 +46,7 @@ export function PlanDashboard() {
 
   return (
     <section className="space-y-4" {...swipe}>
-      <Segmented role="tablist" aria-label="Plan mode" data-tour="plan-modes" options={MODES} value={mode} onChange={setMode} />
+      <Segmented quiet role="tablist" aria-label="Plan mode" data-tour="plan-modes" options={MODES} value={mode} onChange={setMode} />
 
       {mode === "build" ? <PlanBuild sharedText={sharedText} /> : <PlanSchedule onGoBuild={() => setMode("build")} />}
     </section>

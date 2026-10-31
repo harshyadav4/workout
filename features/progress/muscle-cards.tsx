@@ -12,6 +12,7 @@ import {
 
 import { Bullet } from "@/features/progress/bullet";
 import {
+  CHART,
   ChartTooltip,
   EmptyChart,
   GROUP_COLORS,
@@ -96,8 +97,8 @@ export function HeadStimulusCard({
       </div>
 
       {report.lowest ? (
-        <p className="mt-3 rounded-xl bg-warning/10 px-3 py-2 text-xs leading-relaxed ring-1 ring-warning/25">
-          <span className="font-semibold text-warning">
+        <p className="mt-3 text-[13px] leading-snug">
+          <span className="font-medium text-warning">
             {report.lowest.name}: {report.lowest.setsPerWeek.toFixed(1)} sets a week.
           </span>{" "}
           <span className="text-muted-foreground">
@@ -210,7 +211,7 @@ export function MuscleSplitCard({ groups }: { groups: MuscleGroupVolume[] }) {
             {...animationProps}
             dataKey="volume"
             name="Weight lifted"
-            background={{ fill: "rgba(255,255,255,0.04)" }}
+            background={{ fill: CHART.wash }}
             cornerRadius={6}
           >
             {ranked.map((group) => (
@@ -238,7 +239,7 @@ export function MuscleSplitCard({ groups }: { groups: MuscleGroupVolume[] }) {
               aria-hidden
             />
             <span className="truncate text-xs text-muted-foreground">{group.label}</span>
-            <span className="ml-auto shrink-0 text-[10px] tabular-nums">
+            <span className="ml-auto shrink-0 text-[11.5px] tabular-nums">
               {Math.round((group.volume / total) * 100)}%
             </span>
           </li>

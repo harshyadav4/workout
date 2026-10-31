@@ -106,8 +106,8 @@ export function MuscleGirthCard({
       </ResponsiveContainer>
 
       {callout ? (
-        <p className="mt-3 rounded-xl bg-accent/10 px-3 py-2 text-xs leading-relaxed ring-1 ring-accent/25">
-          <span className="font-semibold text-accent">
+        <p className="mt-3 text-[13px] leading-snug">
+          <span className="font-medium">
             Over {callout.weeks} weeks: weight lifted {callout.volumeChangePct >= 0 ? "up" : "down"}{" "}
             {Math.abs(Math.round(callout.volumeChangePct))}%, {name.toLowerCase()}{" "}
             {callout.girthChangeCm >= 0 ? "up" : "down"}{" "}

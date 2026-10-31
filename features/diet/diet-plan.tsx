@@ -38,7 +38,7 @@ export function DietPlan() {
 
   return (
     <section className="space-y-4" {...swipe}>
-      <Segmented role="tablist" aria-label="Diet plan mode" options={MODES} value={mode} onChange={setMode} />
+      <Segmented quiet role="tablist" aria-label="Diet plan mode" options={MODES} value={mode} onChange={setMode} />
       {mode === "build" ? <DietBuild /> : <DietSchedule onGoBuild={() => setMode("build")} />}
     </section>
   );

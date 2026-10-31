@@ -29,12 +29,17 @@ export const FAQS: Faq[] = [
   {
     question: "Can ChatGPT make my workout plan?",
     answer:
-      "Yes. In Plan, tap Build with AI and copy the prompt. Paste it into ChatGPT or any AI chat app. Paste the answer back, and Arise fills in your workouts and your calendar."
+      "Yes. In Plan, tap Build with AI and copy the question. Paste it into ChatGPT, Claude or Gemini and answer what it asks. Paste its plan back, and Arise fills in your workouts and your calendar."
   },
   {
     question: "What does the muscle map show?",
     answer:
-      "It shows a front and back body figure. Today's workout colors the muscles it trains, and a darker color means more sets. Tap a muscle to see its name. On Progress, a recovery map shows which muscles are ready to train."
+      "It shows a front and back body figure. Today's workout colors the muscles it trains, and a deeper color means more sets. Tap a muscle to see its name. On Progress, the Muscles card shows which muscles are ready to train."
+  },
+  {
+    question: "Does Arise track food too?",
+    answer:
+      "Yes. The circle in the middle of the dock flips Arise between Workout and Diet. Build meals from 542 Indian foods or type your own. Plan your days by hand or with AI, tick each meal as you eat it, and see your calories, protein and spend."
   },
   {
     question: "Is my data private, and can I delete it?",
@@ -63,15 +68,15 @@ export const FEATURES: Feature[] = [
       "Progression rules can raise the weight when you are ready."
     ],
     image: "/screenshots/home.png",
-    alt: "Arise Today screen: a workout in progress with sets, weight and reps, a rest timer and a workout clock"
+    alt: "Arise Today screen: the week on an arc, today's workout with a Start workout button, and its exercises"
   },
   {
     id: "muscles",
     title: "See the muscles you work",
-    lead: "A front and back body map shows the muscles today's workout trains. A darker color means more sets.",
+    lead: "A front and back body map shows the muscles today's workout trains. A deeper color means more sets.",
     points: [
       "Tap a muscle to see its name.",
-      "The recovery map shows which muscles are ready to train.",
+      "The Muscles card on Progress shows which muscles are ready to train.",
       "Weekly sets per muscle group show where your training goes."
     ],
     image: "/screenshots/muscles.png",
@@ -82,24 +87,37 @@ export const FEATURES: Feature[] = [
     title: "Build a plan, or let AI build it",
     lead: "Pick exercises from a library with demo GIFs and put workouts on your weekdays. Or use Build with AI.",
     points: [
-      "Copy the prompt into ChatGPT or any AI chat app.",
-      "Paste the answer back into Arise.",
+      "Copy the question into ChatGPT, Claude or Gemini.",
+      "Paste its plan back into Arise.",
       "Your workouts and your calendar fill in."
     ],
     image: "/screenshots/plan-ai.png",
-    alt: "Arise Plan screen: Build with AI, with a prompt to copy into ChatGPT and a box to paste the answer"
+    alt: "Arise Plan screen: Add workout and Build with AI buttons above a list of your workouts"
   },
   {
     id: "progress",
     title: "Track your records and progress",
-    lead: "Three rings show your Strength, Consistency and Muscles. Wins and records show what went up.",
+    lead: "Three cards show your Strength, Consistency and Muscles. Wins and records show what went up.",
     points: [
       "1-rep max estimates and records for each exercise.",
       "Workouts per week and a bodyweight trend with a goal date.",
-      "Cardio: distance, pace and records for runs, rides and swims."
+      "Cardio: distance, pace and records for runs, rides and swims.",
+      "The science inside each card: strength standards, body composition and race times."
     ],
     image: "/screenshots/progress.png",
-    alt: "Arise Progress screen: Strength, Consistency and Muscles rings above records and weekly charts"
+    alt: "Arise Progress screen: Strength, Consistency and Muscles cards above your wins and the weight you lifted"
+  },
+  {
+    id: "diet",
+    title: "Plan your meals and see what they cost",
+    lead: "The circle in the middle of the dock flips Arise from Workout to Diet. Build meals from 542 Indian foods with their calories and protein, and add what each meal costs you.",
+    points: [
+      "Meals: tick each meal as you eat it, and watch calories, protein, carbs and fat fill up.",
+      "Diet plan: build your days by hand or with AI, and put them on a calendar.",
+      "Intake: Eating, Money and Body goals cards show what you eat, what you spend and the path to your target weight."
+    ],
+    image: "/screenshots/diet.png",
+    alt: "Arise Meals screen: calories eaten on an arc, bars for protein, carbs and fat, and today's meals to tick, each with its cost"
   }
 ];
 

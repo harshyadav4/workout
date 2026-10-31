@@ -1,13 +1,11 @@
 "use client";
 
-import { CalendarDays, PersonStanding, TrendingUp } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import ironArt from "@/features/auth/login-iron.webp";
+import { HorizonArc } from "@/components/ui/progress-arc";
 import { useAuth } from "@/features/auth/use-auth";
 import { isSupabaseConfigured } from "@/lib/supabase";
 
@@ -18,20 +16,16 @@ import { isSupabaseConfigured } from "@/lib/supabase";
  */
 const APPLE_SIGN_IN = false;
 
-const points = [
-  { icon: CalendarDays, label: "Plan your week" },
-  { icon: TrendingUp, label: "Track your records" },
-  { icon: PersonStanding, label: "See muscles worked" }
-];
+const points = ["Plan your week", "Track your records", "See muscles worked"];
 
-/** Google's "G", in its own colours, as Google asks sign-in buttons to show it. */
+/** Google's standard "G", in its own colours, as Google asks sign-in buttons to show it. */
 function GoogleMark() {
   return (
     <svg viewBox="0 0 48 48" className="h-5 w-5" aria-hidden>
-      <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z" />
-      <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z" />
-      <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z" />
-      <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z" />
+      <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+      <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+      <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+      <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
     </svg>
   );
 }
@@ -51,24 +45,26 @@ function isApplePhone() {
   return /iPhone|iPad|iPod/.test(ua) || (ua.includes("Macintosh") && navigator.maxTouchPoints > 1);
 }
 
+/** The keys shrink a little on a short screen, so the page never scrolls. */
+const KEY = "h-[clamp(48px,6.7dvh,56px)] w-full";
+const QUIET_LINK =
+  "inline-flex h-11 items-center rounded px-1 text-sm text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+
 /**
  * Sign in — a door, no longer the only one. The app works without an account
  * (guest mode); this page is where the account is added, from the You tab or
  * a prompt, and "Use without an account" goes straight back. "Take the tour"
  * shows the app on sample data before anyone decides.
  *
- * On a phone it is the whole screen, not a card floating on one: the pitch in
- * the middle, the one button at the bottom where a thumb is.
- * Sized to `100dvh` — the height actually visible — because `100vh` on iPhone
- * Safari is the height with the toolbar hidden, which is what made this page
- * scroll by a few pixels for nothing. On a wide screen the same content sits
- * in a plaque.
+ * It follows the theme and wears the app's own sky, with the horizon as its only
+ * picture. No number and no marks on the horizon: here it is a sunrise, not a reading.
  *
- * Behind it, an iron aisle in a hardcore gym with mana burning off the plates
- * (our own generated art, no characters). The words sit low, on the part where the art has faded out.
- * Imported rather than linked from public/, so it ships as a hashed file under
- * /_next/static, which the service worker caches: it is there with no signal.
- * `unoptimized` keeps it off /_next/image for the same reason.
+ * On a phone it is the whole screen, not a card floating on one: the pitch low
+ * in the middle, the keys at the bottom where a thumb is. Sized to `100dvh` — the
+ * height actually visible — because `100vh` on iPhone Safari is the height with
+ * the toolbar hidden, which is what made this page scroll by a few pixels for
+ * nothing. The `clamp(…dvh…)` sizes keep it to one screen on short phones too.
+ * On a wide screen the same content sits centred, with no box around it.
  */
 export default function LoginPage() {
   const router = useRouter();
@@ -94,111 +90,85 @@ export default function LoginPage() {
   };
 
   const google = (
-    <Button
-      key="google"
-      size="lg"
-      variant="secondary"
-      className="h-14 w-full text-base font-semibold"
-      onClick={() => open("google")}
-    >
+    <Button key="google" size="lg" className={`${KEY} google-key`} onClick={() => open("google")}>
       <GoogleMark />
       Sign in with Google
     </Button>
   );
   const apple = (
-    <Button
-      key="apple"
-      size="lg"
-      variant="secondary"
-      className="h-14 w-full text-base font-semibold"
-      onClick={() => open("apple")}
-    >
+    <Button key="apple" size="lg" className={KEY} onClick={() => open("apple")}>
       <AppleMark />
       Sign in with Apple
     </Button>
   );
 
   return (
-    <main className="login-night relative flex min-h-[100dvh] items-stretch justify-center overflow-hidden sm:items-center sm:px-4">
+    // Relative and clipped: the sky is 40rem tall, which on a short phone would make the page scroll.
+    <main className="relative flex min-h-[100dvh] justify-center overflow-hidden sm:items-center sm:px-4">
       {/* A client page cannot export metadata, so the tag goes here: React 19
           lifts <meta> into <head>. Sign-in is a door, not a page to find in
           search; /about is (app/about). */}
       <meta name="robots" content="noindex, follow" />
-      <Image
-        src={ironArt}
-        alt=""
-        fill
-        priority
-        unoptimized
-        placeholder="blur"
-        sizes="100vw"
-        className="object-cover object-top"
-      />
-      <div className="login-night-shade absolute inset-0" />
+      <div className="app-sky print:hidden" aria-hidden />
+      <div className="app-glow print:hidden" aria-hidden />
 
-      <div className="relative flex w-full max-w-md flex-col px-6 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] pt-[calc(env(safe-area-inset-top)+var(--titlebar)+2rem)] sm:rounded-3xl sm:border sm:border-border sm:bg-card/85 sm:p-8 sm:shadow-plaque sm:backdrop-blur">
-        <div className="flex flex-1 flex-col justify-end pb-10 pt-8 [@media(max-height:700px)]:pb-6 sm:flex-none sm:py-8">
-          <h1 className="font-display text-[44px] font-extrabold leading-[0.95] tracking-[-0.03em] [@media(max-height:700px)]:text-[38px]">
+      <div className="flex w-full max-w-md flex-col px-6 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-[calc(env(safe-area-inset-top)+var(--titlebar)+clamp(0px,3.4dvh,40px))] sm:pb-6">
+        {/* Edge to edge on a phone. On a wide screen its ends fade instead of stopping dead. */}
+        <div
+          className="-mx-6 sm:[mask-image:linear-gradient(90deg,transparent,#000_20%,#000_80%,transparent)]"
+          aria-hidden
+        >
+          <HorizonArc litTo={304} height={78} label="" />
+        </div>
+
+        <div className="flex flex-1 flex-col justify-end pb-[clamp(14px,3.2dvh,30px)] sm:flex-none sm:pt-14">
+          <h1 className="font-heading text-[clamp(42px,7.6dvh,64px)] leading-[1.04]">
             Train.
             <br />
             Level up.
             <br />
-            <span className="text-brand">Arise.</span>
+            Arise.
           </h1>
-          <p className="mt-4 max-w-[19rem] text-[15px] leading-relaxed text-muted-foreground">
-            Start where you are. Get stronger each week.
+          {/* Each sentence stays whole, so a narrow phone breaks the line between them. */}
+          <p className="mt-[clamp(6px,1.5dvh,14px)] text-base leading-snug">
+            <span className="inline-block">Start where you are.</span>{" "}
+            <span className="inline-block">Get stronger each week.</span>
           </p>
-
-          <ul className="mt-8 space-y-4 [@media(max-height:700px)]:mt-5 [@media(max-height:700px)]:space-y-3">
-            {points.map(({ icon: Icon, label }) => (
-              <li key={label} className="flex items-center gap-3.5">
-                <span className="key-quiet flex h-10 w-10 shrink-0 items-center justify-center rounded-xl">
-                  <Icon className="h-5 w-5 text-brand" />
-                </span>
-                <span className="text-[15px] font-medium">{label}</span>
-              </li>
+          <ul className="mt-[clamp(8px,2.2dvh,20px)] space-y-[clamp(1px,0.6dvh,5px)] text-[15px] leading-snug text-muted-foreground">
+            {points.map((label) => (
+              <li key={label}>{label}</li>
             ))}
           </ul>
         </div>
 
-        <div>
-          <div className="space-y-2">
-            {!APPLE_SIGN_IN ? google : appleFirst ? [apple, google] : [google, apple]}
-          </div>
+        <div className="space-y-2.5">
+          {!APPLE_SIGN_IN ? google : appleFirst ? [apple, google] : [google, apple]}
           {error ? (
-            <p className="mt-2 text-center text-xs text-danger" role="alert">
+            <p className="text-center text-[13px] text-danger" role="alert">
               {error}
             </p>
           ) : null}
-          <p className="mt-3 text-center text-xs text-muted-foreground">
-            Your data is private and works on any phone.
-          </p>
-          <Button asChild variant="ghost" className="mt-2 w-full">
+          <Button asChild size="lg" variant="secondary" className={KEY}>
             <Link href="/">Use without an account</Link>
           </Button>
-          {/* ?tour=1 starts the tour on sample data (features/tour/tour.tsx). */}
-          <p className="mt-1 text-center text-sm">
-            <Link
-              href="/?tour=1"
-              className="font-semibold text-brand underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              Take the tour
-            </Link>
-          </p>
-          <p className="mt-1 text-center text-xs">
-            <Link
-              href="/about"
-              className="text-muted-foreground underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              About Arise
-            </Link>
-          </p>
-          {!isSupabaseConfigured ? (
-            <p className="mt-2 text-center text-xs text-warning">
-              Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to enable sign-in.
-            </p>
-          ) : null}
         </div>
+        <p className="mt-3 text-center text-[13px] text-muted-foreground">
+          Your data is private and works on any phone.
+        </p>
+        {/* ?tour=1 starts the tour on sample data (features/tour/tour.tsx). */}
+        <div className="flex justify-center gap-6">
+          <Link href="/?tour=1" className={QUIET_LINK}>
+            Take the tour
+          </Link>
+          <Link href="/about" className={QUIET_LINK}>
+            About Arise
+          </Link>
+        </div>
+        {!isSupabaseConfigured ? (
+          <p className="mt-1 text-center text-[13px] text-warning">
+            Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to enable sign-in.
+          </p>
+        ) : null}
       </div>
     </main>
   );

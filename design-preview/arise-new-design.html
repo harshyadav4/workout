@@ -1,0 +1,540 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Arise New Design</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400..700&family=Instrument+Serif&display=swap">
+<style>/* Layout: a calm page of real-size phones under one bar of controls. */
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--pg-bg); color: var(--pg-fg);
+  font: 400 15px/1.45 "Instrument Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+}
+body[data-theme="dark"] { --pg-bg: #0b0b0d; --pg-fg: #eeeef0; --pg-mute: #9b9ba3; --pg-line: #26262b; --pg-on: #eeeef0; --pg-on-fg: #0b0b0d; --pg-bar: rgba(11, 11, 13, 0.82); color-scheme: dark; }
+body[data-theme="light"] { --pg-bg: #e9e9e6; --pg-fg: #16161a; --pg-mute: #5e5e66; --pg-line: #d3d3cf; --pg-on: #16161a; --pg-on-fg: #f5f5f3; --pg-bar: rgba(233, 233, 230, 0.86); color-scheme: light; }
+.bar { position: sticky; top: 0; z-index: 30; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 24px; padding: 12px max(16px, env(safe-area-inset-right, 0px)) 12px max(16px, env(safe-area-inset-left, 0px)); background: var(--pg-bar); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-bottom: 1px solid var(--pg-line); }
+.bar h1 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+.ctls { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+.ctl { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--pg-mute); }
+.ctl-b { display: inline-flex; padding: 2px; border-radius: 10px; background: color-mix(in srgb, var(--pg-fg) 8%, transparent); }
+.ctl-b button { min-height: 32px; padding: 0 11px; border: 0; border-radius: 8px; background: transparent; color: var(--pg-fg); font: 500 12.5px "Instrument Sans", sans-serif; cursor: pointer; }
+.ctl-b button[aria-pressed="true"] { background: var(--pg-on); color: var(--pg-on-fg); }
+.ctl-b button:focus-visible { outline: 2px solid var(--pg-fg); outline-offset: 1px; }
+.stage { display: flex; flex-wrap: wrap; justify-content: center; gap: 36px 28px; padding: 28px 16px 40px; }
+.stage figure { margin: 0; width: min(390px, 100%); }
+.stage figcaption { margin-top: 10px; font-size: 13px; color: var(--pg-mute); text-align: center; }
+.foot { padding: 0 16px 48px; text-align: center; font-size: 13px; color: var(--pg-mute); }
+
+/* -- Colour. One neutral ground, one sky, one warm light. ------------------ */
+body[data-mood="blue"][data-theme="dark"] {
+  --ground: #080c14; --sky: radial-gradient(120% 52% at 78% -4%, rgba(255, 178, 122, 0.3) 0%, rgba(255, 150, 110, 0.1) 34%, transparent 62%), linear-gradient(180deg, #24406a 0%, #1a3054 22%, #111f38 46%, #0b1321 68%, #080c14 100%);
+  --ink: #f5f7fb; --ink-2: rgba(232, 238, 250, 0.68); --ink-3: rgba(232, 238, 250, 0.4);
+  --surface: rgba(255, 255, 255, 0.062); --surface-edge: rgba(255, 255, 255, 0.07); --sep: rgba(255, 255, 255, 0.08);
+  --sheet: #131b2a; --field: rgba(255, 255, 255, 0.08); --dock: rgba(26, 34, 50, 1); --dock-edge: rgba(255, 255, 255, 0.1); --hi: rgba(255, 255, 255, 0.11);
+  --l1: #ffe3bd; --l2: #ffb27a; --l3: #ff8a65; --sun: #fff1dd; --track: rgba(255, 255, 255, 0.14);
+  --cta: #f5f7fb; --cta-ink: #0b1018; --danger: #ff9184; --good: #7bd8ae; --bad: #ff9c8c; --scrim: rgba(3, 6, 12, 0.55); --shadow: none;
+}
+body[data-mood="blue"][data-theme="light"] {
+  --ground: #f4f5f4; --sky: radial-gradient(120% 52% at 78% -6%, rgba(255, 190, 140, 0.62) 0%, rgba(255, 196, 150, 0.2) 36%, transparent 62%), linear-gradient(180deg, #bcd5ef 0%, #d5e4f3 24%, #e9eff3 50%, #f4f5f4 78%);
+  --ink: #0f1420; --ink-2: rgba(15, 20, 32, 0.64); --ink-3: rgba(15, 20, 32, 0.38);
+  --surface: #ffffff; --surface-edge: rgba(15, 20, 32, 0.03); --sep: rgba(15, 20, 32, 0.08);
+  --sheet: #ffffff; --field: #f0f1f2; --dock: rgba(255, 255, 255, 1); --dock-edge: rgba(15, 20, 32, 0.06); --hi: rgba(15, 20, 32, 0.07);
+  --l1: #f7b267; --l2: #f08a4b; --l3: #e4572e; --sun: #e4572e; --track: rgba(15, 20, 32, 0.12);
+  --cta: #0f1420; --cta-ink: #ffffff; --danger: #c8372d; --good: #1c8a5f; --bad: #c8472f; --scrim: rgba(15, 20, 32, 0.32); --shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 10px 28px rgba(16, 24, 40, 0.06);
+}
+body[data-mood="ember"][data-theme="dark"] {
+  --ground: #0d0a08; --sky: radial-gradient(120% 52% at 78% -4%, rgba(255, 186, 110, 0.32) 0%, rgba(255, 140, 80, 0.12) 36%, transparent 64%), linear-gradient(180deg, #55301f 0%, #3a2217 24%, #221510 48%, #130d0a 70%, #0d0a08 100%);
+  --ink: #faf5ef; --ink-2: rgba(248, 238, 226, 0.68); --ink-3: rgba(248, 238, 226, 0.4);
+  --surface: rgba(255, 240, 225, 0.065); --surface-edge: rgba(255, 240, 225, 0.07); --sep: rgba(255, 240, 225, 0.085);
+  --sheet: #1c1612; --field: rgba(255, 240, 225, 0.085); --dock: rgba(44, 34, 28, 1); --dock-edge: rgba(255, 240, 225, 0.1); --hi: rgba(255, 240, 225, 0.11);
+  --l1: #ffe2b0; --l2: #ffb765; --l3: #ff8548; --sun: #fff2db; --track: rgba(255, 240, 225, 0.14);
+  --cta: #faf5ef; --cta-ink: #17110d; --danger: #ff9184; --good: #8fd6a4; --bad: #ff9c8c; --scrim: rgba(8, 5, 3, 0.55); --shadow: none;
+}
+body[data-mood="ember"][data-theme="light"] {
+  --ground: #f6f2eb; --sky: radial-gradient(120% 52% at 78% -6%, rgba(255, 178, 110, 0.55) 0%, rgba(255, 196, 140, 0.2) 36%, transparent 62%), linear-gradient(180deg, #efd5bb 0%, #f2e2d0 26%, #f5ece0 52%, #f6f2eb 80%);
+  --ink: #1a1410; --ink-2: rgba(26, 20, 16, 0.64); --ink-3: rgba(26, 20, 16, 0.38);
+  --surface: #fffdfa; --surface-edge: rgba(26, 20, 16, 0.03); --sep: rgba(26, 20, 16, 0.08);
+  --sheet: #fffdfa; --field: #f2ece4; --dock: rgba(255, 253, 250, 1); --dock-edge: rgba(26, 20, 16, 0.06); --hi: rgba(26, 20, 16, 0.07);
+  --l1: #f7b267; --l2: #ec8138; --l3: #d9531e; --sun: #d9531e; --track: rgba(26, 20, 16, 0.12);
+  --cta: #1a1410; --cta-ink: #fffdfa; --danger: #c0352a; --good: #2b8455; --bad: #c0472a; --scrim: rgba(26, 20, 16, 0.32); --shadow: 0 1px 2px rgba(40, 24, 10, 0.04), 0 10px 28px rgba(40, 24, 10, 0.06);
+}
+body[data-mood="graphite"][data-theme="dark"] {
+  --ground: #0a0a0b; --sky: radial-gradient(120% 50% at 78% -4%, rgba(255, 190, 130, 0.16) 0%, transparent 56%), linear-gradient(180deg, #2c2d31 0%, #1e1f22 26%, #141416 52%, #0a0a0b 82%);
+  --ink: #f6f6f7; --ink-2: rgba(240, 240, 244, 0.66); --ink-3: rgba(240, 240, 244, 0.38);
+  --surface: rgba(255, 255, 255, 0.07); --surface-edge: rgba(255, 255, 255, 0.06); --sep: rgba(255, 255, 255, 0.085);
+  --sheet: #18181a; --field: rgba(255, 255, 255, 0.085); --dock: rgba(38, 38, 42, 1); --dock-edge: rgba(255, 255, 255, 0.1); --hi: rgba(255, 255, 255, 0.12);
+  --l1: #ffe3bd; --l2: #ffb27a; --l3: #ff8a65; --sun: #fff1dd; --track: rgba(255, 255, 255, 0.14);
+  --cta: #f6f6f7; --cta-ink: #0c0c0d; --danger: #ff9184; --good: #7bd8ae; --bad: #ff9c8c; --scrim: rgba(0, 0, 0, 0.55); --shadow: none;
+}
+body[data-mood="graphite"][data-theme="light"] {
+  --ground: #f4f4f5; --sky: radial-gradient(120% 50% at 78% -6%, rgba(255, 196, 150, 0.32) 0%, transparent 56%), linear-gradient(180deg, #dcdde1 0%, #e8e9eb 28%, #f0f0f2 54%, #f4f4f5 82%);
+  --ink: #111113; --ink-2: rgba(17, 17, 19, 0.62); --ink-3: rgba(17, 17, 19, 0.36);
+  --surface: #ffffff; --surface-edge: rgba(17, 17, 19, 0.03); --sep: rgba(17, 17, 19, 0.08);
+  --sheet: #ffffff; --field: #f0f0f2; --dock: rgba(255, 255, 255, 1); --dock-edge: rgba(17, 17, 19, 0.06); --hi: rgba(17, 17, 19, 0.07);
+  --l1: #f7b267; --l2: #f08a4b; --l3: #e4572e; --sun: #e4572e; --track: rgba(17, 17, 19, 0.12);
+  --cta: #111113; --cta-ink: #ffffff; --danger: #c8372d; --good: #1c8a5f; --bad: #c8472f; --scrim: rgba(17, 17, 19, 0.3); --shadow: 0 1px 2px rgba(16, 16, 20, 0.04), 0 10px 28px rgba(16, 16, 20, 0.06);
+}
+body[data-head="serif"] { --disp: "Instrument Serif", "Iowan Old Style", Georgia, serif; --disp-w: 400; --disp-t: -0.012em; --disp-s: 1; }
+body[data-head="sans"] { --disp: "Instrument Sans", -apple-system, sans-serif; --disp-w: 600; --disp-t: -0.03em; --disp-s: 0.84; }
+.skin-name::after { content: "Dark"; }
+body[data-theme="light"] .skin-name::after { content: "Light"; }
+
+/* -- The phone ------------------------------------------------------------ */
+.phone { position: relative; height: 844px; overflow: hidden; isolation: isolate; border-radius: 40px; background: var(--ground); color: var(--ink); box-shadow: 0 0 0 1px var(--pg-line); font-size: 15px; line-height: 1.35; font-variant-numeric: tabular-nums; }
+:where(.phone) :where(p, h2, h3, dl, dd) { margin: 0; }
+:where(.phone) button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; text-align: left; -webkit-tap-highlight-color: transparent; }
+:where(.phone) input { font: inherit; color: inherit; background: none; border: 0; border-radius: 0; min-width: 0; width: 100%; outline: none; font-variant-numeric: tabular-nums; }
+.phone input::placeholder { color: var(--ink-3); opacity: 1; }
+.phone button:focus-visible, .phone input:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.scroll { position: absolute; inset: 0; overflow: hidden auto; scrollbar-width: none; padding: 0 0 112px; }
+.scroll::-webkit-scrollbar { display: none; }
+.scroll > * { position: relative; }
+.phone .sky { position: absolute; inset: 0 0 auto; height: 640px; background: var(--sky); pointer-events: none; }
+.phone .sky::after { content: ""; position: absolute; inset: 0; opacity: 0.05; -webkit-mask-image: linear-gradient(#000 45%, transparent 92%); mask-image: linear-gradient(#000 45%, transparent 92%); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+.disp { font-family: var(--disp); font-weight: var(--disp-w); letter-spacing: var(--disp-t); }
+.sub { color: var(--ink-2); font-size: 13.5px; }
+.ic { flex: none; }
+
+/* Shared arcs */
+.arc-track { fill: none; stroke: var(--track); stroke-width: 1.5; }
+.arc-lit { fill: none; stroke-width: 2.5; stroke-linecap: round; }
+.draw { stroke-dasharray: 1; animation: draw 1.1s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@keyframes draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+.arc-idle { fill: var(--track); }
+.arc-t { font: 500 11.5px "Instrument Sans", sans-serif; fill: var(--ink-2); }
+.arc-t.on { fill: var(--ink); font-weight: 700; }
+.horizon { display: block; width: 100%; height: auto; }
+.mini { position: relative; display: inline-grid; place-items: center; flex: none; }
+.mini svg { position: absolute; inset: 0; }
+.mini b { font-family: var(--disp); font-weight: var(--disp-w); font-size: calc(22px * var(--disp-s)); }
+
+/* Groups: one level only */
+.grp { margin-top: 26px; padding-inline: 16px; }
+.grp h3 { margin: 0 4px 8px; font-size: 13.5px; font-weight: 600; color: var(--ink-2); }
+.group { background: var(--surface); border-radius: 22px; box-shadow: var(--shadow), inset 0 0 0 1px var(--surface-edge); overflow: hidden; }
+.row { position: relative; display: flex; align-items: center; gap: 12px; width: 100%; min-height: 54px; padding: 8px 14px 8px 16px; transition: background-color 0.15s; }
+button.row:active { background: var(--hi); }
+.row + .row::before { content: ""; position: absolute; inset: 0 0 auto 48px; height: 1px; background: var(--sep); }
+.row.two + .row.two::before, .group > .row:not(:has(> svg:first-child)) + .row::before { left: 16px; }
+.row > .ic:first-child { color: var(--ink-2); }
+.row > .ic:last-child { color: var(--ink-3); }
+.r-l { flex: 1; min-width: 0; font-weight: 500; font-size: 15.5px; }
+.r-l small { display: block; margin-top: 1px; font-size: 13px; font-weight: 400; color: var(--ink-2); }
+.r-v { color: var(--ink-2); white-space: nowrap; font-size: 15px; }
+.row.danger, .row.danger .ic { color: var(--danger) !important; }
+.delta { min-width: 46px; text-align: right; font-size: 13.5px; font-weight: 600; }
+.delta.good { color: var(--good); }
+.delta.bad { color: var(--bad); }
+.meter { flex: none; width: 96px; height: 5px; border-radius: 3px; background: var(--track); overflow: hidden; }
+.meter i { display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--l1), var(--l3)); }
+
+/* Open lines: the same rows with no surface */
+body[data-groups="open"] .group:not(.weigh):not(.lift):not(.rest):not(.scores):not(.plot) { background: none; box-shadow: none; border-radius: 0; border-top: 1px solid var(--sep); border-bottom: 1px solid var(--sep); }
+body[data-groups="open"] .group:not(.weigh):not(.lift):not(.rest):not(.scores):not(.plot) .row { padding-inline: 4px; }
+body[data-groups="open"] .group:not(.weigh):not(.lift):not(.rest):not(.scores):not(.plot) .row + .row::before { left: 0; }
+body[data-groups="open"] .grp { padding-inline: 20px; }
+
+/* Buttons */
+.cta { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 54px; border-radius: 27px; background: var(--cta) !important; color: var(--cta-ink) !important; font-weight: 600 !important; font-size: 16px !important; transition: transform 0.15s, opacity 0.15s; }
+.cta:active { transform: scale(0.98); opacity: 0.92; }
+.cta.small { width: 76px; min-height: 44px; border-radius: 22px; font-size: 15px !important; flex: none; }
+.cta.big { margin-top: 18px; min-height: 58px; border-radius: 29px; }
+.glass-btn { display: inline-flex; align-items: center; justify-content: center; gap: 4px; flex: none; min-height: 40px; padding: 0 15px; border-radius: 20px; background: var(--hi) !important; font-size: 14px !important; font-weight: 500 !important; white-space: nowrap; }
+.phone .x { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: 50%; }
+
+/* Dock */
+.dock { position: absolute; inset: auto 12px 18px; z-index: 2; display: grid; grid-template-columns: 1fr 1fr 62px 1fr 1fr; align-items: center; height: 68px; padding: 5px; border-radius: 34px; background: var(--dock); box-shadow: inset 0 0 0 1px var(--dock-edge), 0 12px 32px rgba(0, 0, 0, 0.22); backdrop-filter: blur(22px) saturate(160%); -webkit-backdrop-filter: blur(22px) saturate(160%); }
+.phone .tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; height: 58px; border-radius: 29px; font-size: 11px; font-weight: 500; color: var(--ink-2); text-align: center; }
+.phone .tab.on { color: var(--ink); background: var(--hi); font-weight: 600; }
+.phone .flip { display: grid; place-items: center; }
+.flip span { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; background: var(--hi); }
+.sw { position: relative; flex: none; width: 50px; height: 30px; border-radius: 15px; background: var(--track) !important; transition: background-color 0.2s; }
+.sw > span { position: absolute; top: 2px; left: 2px; width: 26px; height: 26px; border-radius: 50%; background: #ffffff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28); transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1); }
+.sw[aria-checked="true"] { background: var(--l2) !important; }
+.sw[aria-checked="true"] > span { transform: translateX(20px); }
+
+/* You */
+.u-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 58px 20px 0; }
+.u-name { font-size: calc(36px * var(--disp-s)); line-height: 1.05; }
+.u-rank { position: relative; width: 300px; max-width: calc(100% - 40px); margin: 6px auto 0; }
+.rank-arc { display: block; width: 100%; height: auto; }
+.u-letter { position: absolute; inset: auto 0 -2px; text-align: center; }
+.u-c { font-size: calc(92px * var(--disp-s)); line-height: 0.95; }
+.u-cap { margin-top: 12px; text-align: center; }
+.u-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 20px; padding-inline: 16px; text-align: center; }
+.u-stats dd { font-size: 24px; font-weight: 500; letter-spacing: -0.02em; }
+.u-stats dt { margin-top: 1px; font-size: 12.5px; color: var(--ink-2); }
+.u-stats + .grp { margin-top: 20px; }
+.weigh { padding: 14px 14px 14px 16px; }
+.w-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.w-top label { font-weight: 500; font-size: 15.5px; }
+.w-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 6px; }
+.w-in { display: flex; align-items: baseline; gap: 3px; width: 104px; flex: none; }
+.w-in input { font-size: 32px; font-weight: 500; letter-spacing: -0.03em; width: 72px; }
+.w-in em { font-style: normal; color: var(--ink-2); font-size: 14px; }
+.spark { flex: 0 1 108px; min-width: 0; }
+
+/* Sheet */
+.scrim { position: absolute; inset: 0; z-index: 3; background: var(--scrim); opacity: 0; pointer-events: none; transition: opacity 0.3s; backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
+.scrim.open { opacity: 1; pointer-events: auto; }
+.sheet { position: absolute; inset: auto 0 0; z-index: 4; padding: 10px 16px 26px; border-radius: 30px 30px 40px 40px; background: var(--sheet); color: var(--ink); transform: translateY(105%); transition: transform 0.46s cubic-bezier(0.22, 1, 0.36, 1); box-shadow: 0 -16px 48px rgba(0, 0, 0, 0.25); }
+.sheet.open { transform: none; }
+.grab { width: 38px; height: 5px; margin: 0 auto 10px; border-radius: 3px; background: var(--track); }
+.sh-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-left: 4px; }
+.sh-h h3 { font-size: calc(29px * var(--disp-s)); line-height: 1.1; }
+.sh-h .x { background: var(--hi) !important; width: 34px; height: 34px; margin-right: 2px; }
+.sh-sub { margin: 4px 4px 8px; font-size: 13.5px; color: var(--ink-2); }
+.t-card { padding-inline: 4px; }
+.t-card + .t-card { margin-top: 14px; }
+.t-row { display: grid; grid-template-columns: minmax(0, 1fr) 96px; align-items: center; column-gap: 8px; min-height: 48px; font-weight: 500; }
+.t-row + .t-row { border-top: 1px solid var(--sep); }
+.t-pair { grid-template-columns: minmax(0, 1fr) 78px 78px; }
+.t-row input { height: 36px; padding-right: 10px; text-align: right; border-radius: 10px; background: var(--field); font-size: 16px; font-weight: 500; }
+.t-head { min-height: 28px; padding-top: 6px; font-size: 12.5px; font-weight: 500; color: var(--ink-2); }
+.t-head span { text-align: right; padding-right: 10px; }
+.sheet .cta { margin-top: 14px; }
+
+/* Today */
+.t-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 58px 20px 0; }
+.t-greet { margin-top: 1px; font-size: calc(36px * var(--disp-s)); line-height: 1.05; }
+.notice { display: flex; align-items: center; gap: 4px; margin: 14px 16px 0; padding: 4px 4px 4px 14px; border-radius: 18px; background: var(--hi); font-size: 13.5px; }
+.notice p { flex: 1; min-width: 0; }
+.notice u { font-weight: 600; text-underline-offset: 2.5px; text-decoration-thickness: 1px; }
+.tag { font-size: 11.5px; font-weight: 600; letter-spacing: 0.05em; color: var(--ink-2); margin-right: 3px; }
+.notice + .horizon { margin-top: 18px; }
+.quest { padding: 2px 20px 0; }
+.q-n { font-size: calc(84px * var(--disp-s)); line-height: 1.14; margin-top: -6px; }
+.quest .cta { margin-inline: -4px; width: calc(100% + 8px); }
+
+/* Workout */
+.l-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 54px 12px 0; }
+.l-top > div { flex: 1; text-align: center; }
+.l-title { font-weight: 600; font-size: 16px; }
+.l-top + .horizon { margin-top: 8px; }
+.l-count { margin-top: -22px; padding-bottom: 4px; text-align: center; font-size: 14px; color: var(--ink-2); }
+.l-count b { display: block; font-size: 44px; line-height: 1.05; font-weight: 500; letter-spacing: -0.03em; color: var(--ink); }
+.l-count + .grp { margin-top: 18px; }
+.lift { padding: 16px; }
+.lift-n { font-size: calc(32px * var(--disp-s)); line-height: 1.1; }
+.sets { margin-top: 12px; }
+.set { display: grid; grid-template-columns: 30px minmax(0, 1fr) minmax(0, 1fr) 46px; align-items: center; column-gap: 8px; min-height: 44px; border-top: 1px solid var(--sep); font-size: 16px; font-weight: 500; }
+.set span:nth-child(2), .set span:nth-child(3), .set input { text-align: center; }
+.set.head { min-height: 26px; border: 0; font-size: 12.5px; font-weight: 500; color: var(--ink-2); }
+.set.done { color: var(--ink-2); }
+.tick { display: grid; place-items: center; color: var(--l2); }
+.set.now { min-height: 60px; }
+.set.now input { height: 44px; border-radius: 12px; background: var(--field); font-size: 18px; font-weight: 600; }
+.log { display: grid !important; place-items: center; width: 46px; height: 44px; border-radius: 22px; background: var(--cta) !important; color: var(--cta-ink) !important; }
+.rest { display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 14px; }
+.rest-t { flex: 1; min-width: 0; }
+.rest-n { font-size: 22px; font-weight: 500; line-height: 1.1; letter-spacing: -0.02em; }
+.rest .sub { font-size: 12.5px; }
+.lift + .grp, .grp + .grp { margin-top: 22px; }
+
+/* Progress */
+.p-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 58px 16px 0; }
+.seg { display: inline-flex; padding: 3px; border-radius: 20px; background: var(--hi); }
+.phone .seg button { min-height: 34px; padding: 0 16px; border-radius: 17px; font-size: 14px; font-weight: 500; color: var(--ink-2); }
+.phone .seg button.on { color: var(--cta-ink); background: var(--cta); font-weight: 600; }
+.p-tabs { display: flex; gap: 18px; margin-top: 10px; padding: 0 20px; overflow-x: auto; scrollbar-width: none; }
+.p-tabs::-webkit-scrollbar { display: none; }
+.phone .p-tabs button { flex: none; min-height: 44px; font-size: 14.5px; font-weight: 500; color: var(--ink-2); }
+.phone .p-tabs button.on { color: var(--ink); font-weight: 600; box-shadow: inset 0 -2px 0 var(--l2); }
+.p-hero { padding: 16px 20px 0; }
+.p-line { font-size: calc(44px * var(--disp-s)); line-height: 1.04; text-wrap: balance; }
+.p-hero .sub { margin-top: 8px; font-size: 14.5px; }
+.p-hero + .grp { margin-top: 18px; }
+.scores { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 14px 8px; text-align: center; }
+.s-v { margin-top: 6px; font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+.scores .sub { font-size: 12.5px; }
+.plot { padding: 14px 16px 12px; }
+.plot-n { font-size: 30px; font-weight: 500; letter-spacing: -0.03em; line-height: 1.1; }
+.plot-n em { font-style: normal; font-size: 15px; letter-spacing: 0; color: var(--ink-2); }
+.chart { display: block; width: 100%; height: auto; margin-top: 10px; }
+.grid { stroke: var(--sep); stroke-width: 1; }
+.goal { stroke: var(--ink-2); stroke-width: 1; stroke-dasharray: 2 4; }
+.axis { font: 500 10.5px "Instrument Sans", sans-serif; fill: var(--ink-2); }
+@media (prefers-reduced-motion: reduce) { .draw { animation: none; } .sheet, .scrim, .sw > span, .cta { transition: none; } }
+</style>
+</head>
+<body data-theme="dark" data-mood="blue" data-groups="round" data-head="serif">
+<header class="bar">
+  <h1>Arise new design</h1>
+  <div class="ctls">
+    <div class="ctl"><span>Theme</span><div class="ctl-b" role="group" aria-label="Theme"><button type="button" data-key="theme" data-val="dark" aria-pressed="true">Dark</button><button type="button" data-key="theme" data-val="light" aria-pressed="false">Light</button></div></div>
+    <div class="ctl"><span>Colour</span><div class="ctl-b" role="group" aria-label="Colour"><button type="button" data-key="mood" data-val="blue" aria-pressed="true">Blue hour</button><button type="button" data-key="mood" data-val="ember" aria-pressed="false">Ember</button><button type="button" data-key="mood" data-val="graphite" aria-pressed="false">Graphite</button></div></div>
+    <div class="ctl"><span>Groups</span><div class="ctl-b" role="group" aria-label="Groups"><button type="button" data-key="groups" data-val="round" aria-pressed="true">Rounded</button><button type="button" data-key="groups" data-val="open" aria-pressed="false">Open lines</button></div></div>
+    <div class="ctl"><span>Headings</span><div class="ctl-b" role="group" aria-label="Headings"><button type="button" data-key="head" data-val="serif" aria-pressed="true">Serif</button><button type="button" data-key="head" data-val="sans" aria-pressed="false">Sans</button></div></div>
+  </div>
+</header>
+<main class="stage">
+  <figure><div class="phone"><div class="scroll">
+  <div class="sky"></div>
+  <header class="u-top">
+    <div><p class="disp u-name">Guest</p><p class="sub">Not signed in</p></div>
+    <button type="button" class="glass-btn">Sign in</button>
+  </header>
+  <div class="u-rank">
+    <svg class="rank-arc" viewBox="0 0 320 168" role="img" aria-label="Rank C. 5 of 10 weeks to rank B."><defs><linearGradient id="g1" x1="0" y1="0" x2="1" y2="0"><stop offset="0" style="stop-color:var(--l1)"/><stop offset="0.6" style="stop-color:var(--l2)"/><stop offset="1" style="stop-color:var(--l3)"/></linearGradient><filter id="g1b" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="7"/></filter></defs>
+    <path d="M14 162 A146 146 0 0 1 306 162" class="arc-track"/>
+    <path d="M14 162 A146 146 0 0 1 160 16" class="arc-lit draw" pathLength="1" stroke="url(#g1)"/>
+    <circle cx="160" cy="16" r="14.399999999999999" style="fill:var(--l2)" opacity="0.6" filter="url(#g1b)"/><circle cx="160" cy="16" r="6" style="fill:var(--sun)"/></svg>
+    <div class="u-letter"><p class="sub">Rank</p><p class="disp u-c">C</p></div>
+  </div>
+  <p class="sub u-cap">5 of 10 weeks to B</p>
+  <dl class="u-stats">
+    <div><dd>154</dd><dt>Workouts</dt></div>
+    <div><dd>10</dd><dt>Week streak</dt></div>
+    <div><dd>78</dd><dt>Records</dt></div>
+  </dl>
+  <form class="grp" onsubmit="return false"><div class="group weigh">
+    <div class="w-top"><label for="y-w">Weight today</label><span class="sub">Last 79.1 kg · +0.3</span></div>
+    <div class="w-row">
+      <span class="w-in"><input id="y-w" inputmode="decimal" value="79.4"><em>kg</em></span>
+      <svg class="spark" viewBox="0 0 108 40" width="108" height="40" role="img" aria-label="Your last 14 weigh-ins"><defs><linearGradient id="g2" x1="0" y1="0" x2="1" y2="0"><stop offset="0" style="stop-color:var(--l1)"/><stop offset="0.6" style="stop-color:var(--l2)"/><stop offset="1" style="stop-color:var(--l3)"/></linearGradient><filter id="g2b" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="7"/></filter></defs><path d="M3.5 9.6 L11.0 7.0 L18.4 20.0 L25.9 12.2 L33.3 25.2 L40.8 27.8 L48.3 27.8 L55.7 22.6 L63.2 33.0 L70.7 30.4 L78.1 22.6 L85.6 20.0 L93.0 30.4 L100.5 22.6" fill="none" stroke="url(#g2)" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/><circle cx="100.5" cy="22.6" r="2.6" style="fill:var(--sun)"/></svg>
+      <button type="button" class="cta small" data-save>Save</button>
+    </div>
+  </div></form>
+  <section class="grp"><h3>Body</h3><div class="group"><button type="button" class="row"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg><span class="r-l">Goal weight</span><span class="r-v">76 kg</span><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button><button type="button" class="row" data-open="sheet"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z"/><path d="m14.5 12.5 2-2"/><path d="m11.5 9.5 2-2"/><path d="m8.5 6.5 2-2"/><path d="m17.5 15.5 2-2"/></svg><span class="r-l">Tape measurements</span><span class="r-v">9 of 11</span><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button><button type="button" class="row"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></svg><span class="r-l">About you</span><span class="r-v">178 cm · 1994 · Male</span><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button><button type="button" class="row"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg><span class="r-l">Check-ins</span><span class="r-v">Weekly · Monthly</span><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button></div></section>
+  <section class="grp"><h3>App</h3><div class="group"><button type="button" class="row"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg><span class="r-l">Install Arise</span><span class="r-v">Works offline</span><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button><button type="button" class="row"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg><span class="r-l">Theme</span><span class="r-v"><span class="skin-name"></span></span><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button><button type="button" class="row"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/></svg><span class="r-l">Distance</span><span class="r-v">Kilometres</span><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button><div class="row"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="10" x2="14" y1="2" y2="2"/><line x1="12" x2="15" y1="14" y2="11"/><circle cx="12" cy="14" r="8"/></svg><span class="r-l" id="y-timing">Detailed timing</span><button type="button" class="sw" role="switch" aria-checked="false" aria-labelledby="y-timing"><span></span></button></div><div class="row"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M22 8c0-2.3-.8-4.3-2-6"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/><path d="M4 2C2.8 3.7 2 5.7 2 8"/></svg><span class="r-l" id="y-rest">Rest alerts</span><button type="button" class="sw" role="switch" aria-checked="true" aria-labelledby="y-rest"><span></span></button></div><button type="button" class="row"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg><span class="r-l">Phone reminders</span><span class="r-v">Sign in first</span><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button></div></section>
+  <section class="grp"><h3>Data</h3><div class="group"><button type="button" class="row"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg><span class="r-l">Backup and restore</span><span class="r-v">On this phone</span><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button><button type="button" class="row"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16.24 7.76-1.804 5.411a2 2 0 0 1-1.265 1.265L7.76 16.24l1.804-5.411a2 2 0 0 1 1.265-1.265z"/><circle cx="12" cy="12" r="10"/></svg><span class="r-l">Take the tour</span><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button></div></section>
+  <section class="grp"><h3>Account</h3><div class="group"><button type="button" class="row"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" x2="3" y1="12" y2="12"/></svg><span class="r-l">Sign in with Google</span><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button><button type="button" class="row danger"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg><span class="r-l">Delete data on this phone</span><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button></div></section>
+</div><nav class="dock" aria-label="Main">
+  <button type="button" class="tab"><svg class="ic" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Today</span></button>
+  <button type="button" class="tab"><svg class="ic" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg><span>Plan</span></button>
+  <button type="button" class="flip" aria-label="Workout side. Tap for Diet."><span><svg class="ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.4 14.4 9.6 9.6"/><path d="M18.657 21.485a2 2 0 1 1-2.829-2.828l-1.767 1.768a2 2 0 1 1-2.829-2.829l6.364-6.364a2 2 0 1 1 2.829 2.829l-1.768 1.767a2 2 0 1 1 2.828 2.829z"/><path d="m21.5 21.5-1.4-1.4"/><path d="M3.9 3.9 2.5 2.5"/><path d="M6.404 12.768a2 2 0 1 1-2.829-2.829l1.768-1.767a2 2 0 1 1-2.828-2.829l2.828-2.828a2 2 0 1 1 2.829 2.828l1.767-1.768a2 2 0 1 1 2.829 2.829z"/></svg></span></button>
+  <button type="button" class="tab"><svg class="ic" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg><span>Progress</span></button>
+  <button type="button" class="tab on" aria-current="page"><svg class="ic" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="10" r="3"/><path d="M7 20.662V19a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v1.662"/></svg><span>You</span></button>
+</nav><div class="scrim" data-close></div>
+<section class="sheet" role="dialog" aria-label="Tape measurements" inert>
+  <div class="grab"></div>
+  <header class="sh-h"><h3 class="disp">Tape measurements</h3><button type="button" class="x" data-close aria-label="Close"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></header>
+  <p class="sh-sub">In cm. The faint number is your last reading. Leave a field blank to skip it.</p>
+  <div class="t-card">
+    <label class="t-row" for="ys-neck"><span>Neck</span><input id="ys-neck" inputmode="decimal" aria-label="Neck" placeholder="38.7" value=""></label>
+    <label class="t-row" for="ys-sh"><span>Shoulders</span><input id="ys-sh" inputmode="decimal" aria-label="Shoulders" placeholder="117.5" value=""></label>
+    <label class="t-row" for="ys-ch"><span>Chest</span><input id="ys-ch" inputmode="decimal" aria-label="Chest" placeholder="102.2" value=""></label>
+    <label class="t-row" for="ys-wa"><span>Waist</span><input id="ys-wa" inputmode="decimal" aria-label="Waist" placeholder="85" value="84.5"></label>
+    <label class="t-row" for="ys-hi"><span>Hips</span><input id="ys-hi" inputmode="decimal" aria-label="Hips" placeholder="95.8" value=""></label>
+  </div>
+  <div class="t-card">
+    <div class="t-row t-pair t-head"><span></span><span>Left</span><span>Right</span></div>
+    <div class="t-row t-pair"><span>Arm</span><input id="ys-arml" inputmode="decimal" aria-label="Left Arm" placeholder="36.6" value=""><input id="ys-armr" inputmode="decimal" aria-label="Right Arm" placeholder="37.1" value=""></div>
+    <div class="t-row t-pair"><span>Thigh</span><input id="ys-thighl" inputmode="decimal" aria-label="Left Thigh" placeholder="58.5" value=""><input id="ys-thighr" inputmode="decimal" aria-label="Right Thigh" placeholder="58.8" value=""></div>
+    <div class="t-row t-pair"><span>Calf</span><input id="ys-calfl" inputmode="decimal" aria-label="Left Calf" placeholder="—" value=""><input id="ys-calfr" inputmode="decimal" aria-label="Right Calf" placeholder="—" value=""></div>
+  </div>
+  <button type="button" class="cta" data-close>Save readings</button>
+</section></div><figcaption>You. Tap Tape measurements. You can scroll inside each phone.</figcaption></figure>
+  <figure><div class="phone"><div class="scroll" inert aria-hidden="true">
+  <div class="sky"></div>
+  <header class="u-top">
+    <div><p class="disp u-name">Guest</p><p class="sub">Not signed in</p></div>
+    <button type="button" class="glass-btn">Sign in</button>
+  </header>
+  <div class="u-rank">
+    <svg class="rank-arc" viewBox="0 0 320 168" role="img" aria-label="Rank C. 5 of 10 weeks to rank B."><defs><linearGradient id="g3" x1="0" y1="0" x2="1" y2="0"><stop offset="0" style="stop-color:var(--l1)"/><stop offset="0.6" style="stop-color:var(--l2)"/><stop offset="1" style="stop-color:var(--l3)"/></linearGradient><filter id="g3b" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="7"/></filter></defs>
+    <path d="M14 162 A146 146 0 0 1 306 162" class="arc-track"/>
+    <path d="M14 162 A146 146 0 0 1 160 16" class="arc-lit draw" pathLength="1" stroke="url(#g3)"/>
+    <circle cx="160" cy="16" r="14.399999999999999" style="fill:var(--l2)" opacity="0.6" filter="url(#g3b)"/><circle cx="160" cy="16" r="6" style="fill:var(--sun)"/></svg>
+    <div class="u-letter"><p class="sub">Rank</p><p class="disp u-c">C</p></div>
+  </div>
+  <p class="sub u-cap">5 of 10 weeks to B</p>
+  <dl class="u-stats">
+    <div><dd>154</dd><dt>Workouts</dt></div>
+    <div><dd>10</dd><dt>Week streak</dt></div>
+    <div><dd>78</dd><dt>Records</dt></div>
+  </dl>
+  <form class="grp" onsubmit="return false"><div class="group weigh">
+    <div class="w-top"><label for="b-w">Weight today</label><span class="sub">Last 79.1 kg · +0.3</span></div>
+    <div class="w-row">
+      <span class="w-in"><input id="b-w" inputmode="decimal" value="79.4"><em>kg</em></span>
+      <svg class="spark" viewBox="0 0 108 40" width="108" height="40" role="img" aria-label="Your last 14 weigh-ins"><defs><linearGradient id="g4" x1="0" y1="0" x2="1" y2="0"><stop offset="0" style="stop-color:var(--l1)"/><stop offset="0.6" style="stop-color:var(--l2)"/><stop offset="1" style="stop-color:var(--l3)"/></linearGradient><filter id="g4b" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="7"/></filter></defs><path d="M3.5 9.6 L11.0 7.0 L18.4 20.0 L25.9 12.2 L33.3 25.2 L40.8 27.8 L48.3 27.8 L55.7 22.6 L63.2 33.0 L70.7 30.4 L78.1 22.6 L85.6 20.0 L93.0 30.4 L100.5 22.6" fill="none" stroke="url(#g4)" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/><circle cx="100.5" cy="22.6" r="2.6" style="fill:var(--sun)"/></svg>
+      <button type="button" class="cta small" data-save>Save</button>
+    </div>
+  </div></form>
+  <section class="grp"><h3>Body</h3><div class="group"><button type="button" class="row"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg><span class="r-l">Goal weight</span><span class="r-v">76 kg</span><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button><button type="button" class="row" data-open="sheet"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z"/><path d="m14.5 12.5 2-2"/><path d="m11.5 9.5 2-2"/><path d="m8.5 6.5 2-2"/><path d="m17.5 15.5 2-2"/></svg><span class="r-l">Tape measurements</span><span class="r-v">9 of 11</span><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button><button type="button" class="row"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></svg><span class="r-l">About you</span><span class="r-v">178 cm · 1994 · Male</span><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button><button type="button" class="row"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg><span class="r-l">Check-ins</span><span class="r-v">Weekly · Monthly</span><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button></div></section>
+  <section class="grp"><h3>App</h3><div class="group"><button type="button" class="row"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg><span class="r-l">Install Arise</span><span class="r-v">Works offline</span><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button><button type="button" class="row"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg><span class="r-l">Theme</span><span class="r-v"><span class="skin-name"></span></span><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button><button type="button" class="row"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/></svg><span class="r-l">Distance</span><span class="r-v">Kilometres</span><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button><div class="row"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="10" x2="14" y1="2" y2="2"/><line x1="12" x2="15" y1="14" y2="11"/><circle cx="12" cy="14" r="8"/></svg><span class="r-l" id="b-timing">Detailed timing</span><button type="button" class="sw" role="switch" aria-checked="false" aria-labelledby="b-timing"><span></span></button></div><div class="row"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M22 8c0-2.3-.8-4.3-2-6"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/><path d="M4 2C2.8 3.7 2 5.7 2 8"/></svg><span class="r-l" id="b-rest">Rest alerts</span><button type="button" class="sw" role="switch" aria-checked="true" aria-labelledby="b-rest"><span></span></button></div><button type="button" class="row"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg><span class="r-l">Phone reminders</span><span class="r-v">Sign in first</span><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button></div></section>
+  <section class="grp"><h3>Data</h3><div class="group"><button type="button" class="row"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg><span class="r-l">Backup and restore</span><span class="r-v">On this phone</span><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button><button type="button" class="row"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16.24 7.76-1.804 5.411a2 2 0 0 1-1.265 1.265L7.76 16.24l1.804-5.411a2 2 0 0 1 1.265-1.265z"/><circle cx="12" cy="12" r="10"/></svg><span class="r-l">Take the tour</span><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button></div></section>
+  <section class="grp"><h3>Account</h3><div class="group"><button type="button" class="row"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" x2="3" y1="12" y2="12"/></svg><span class="r-l">Sign in with Google</span><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button><button type="button" class="row danger"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg><span class="r-l">Delete data on this phone</span><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button></div></section>
+</div><nav class="dock" aria-label="Main">
+  <button type="button" class="tab"><svg class="ic" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Today</span></button>
+  <button type="button" class="tab"><svg class="ic" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg><span>Plan</span></button>
+  <button type="button" class="flip" aria-label="Workout side. Tap for Diet."><span><svg class="ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.4 14.4 9.6 9.6"/><path d="M18.657 21.485a2 2 0 1 1-2.829-2.828l-1.767 1.768a2 2 0 1 1-2.829-2.829l6.364-6.364a2 2 0 1 1 2.829 2.829l-1.768 1.767a2 2 0 1 1 2.828 2.829z"/><path d="m21.5 21.5-1.4-1.4"/><path d="M3.9 3.9 2.5 2.5"/><path d="M6.404 12.768a2 2 0 1 1-2.829-2.829l1.768-1.767a2 2 0 1 1-2.828-2.829l2.828-2.828a2 2 0 1 1 2.829 2.828l1.767-1.768a2 2 0 1 1 2.829 2.829z"/></svg></span></button>
+  <button type="button" class="tab"><svg class="ic" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg><span>Progress</span></button>
+  <button type="button" class="tab on" aria-current="page"><svg class="ic" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="10" r="3"/><path d="M7 20.662V19a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v1.662"/></svg><span>You</span></button>
+</nav><div class="scrim open" data-close></div>
+<section class="sheet open" role="dialog" aria-label="Tape measurements">
+  <div class="grab"></div>
+  <header class="sh-h"><h3 class="disp">Tape measurements</h3><button type="button" class="x" data-close aria-label="Close"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></header>
+  <p class="sh-sub">In cm. The faint number is your last reading. Leave a field blank to skip it.</p>
+  <div class="t-card">
+    <label class="t-row" for="bs-neck"><span>Neck</span><input id="bs-neck" inputmode="decimal" aria-label="Neck" placeholder="38.7" value=""></label>
+    <label class="t-row" for="bs-sh"><span>Shoulders</span><input id="bs-sh" inputmode="decimal" aria-label="Shoulders" placeholder="117.5" value=""></label>
+    <label class="t-row" for="bs-ch"><span>Chest</span><input id="bs-ch" inputmode="decimal" aria-label="Chest" placeholder="102.2" value=""></label>
+    <label class="t-row" for="bs-wa"><span>Waist</span><input id="bs-wa" inputmode="decimal" aria-label="Waist" placeholder="85" value="84.5"></label>
+    <label class="t-row" for="bs-hi"><span>Hips</span><input id="bs-hi" inputmode="decimal" aria-label="Hips" placeholder="95.8" value=""></label>
+  </div>
+  <div class="t-card">
+    <div class="t-row t-pair t-head"><span></span><span>Left</span><span>Right</span></div>
+    <div class="t-row t-pair"><span>Arm</span><input id="bs-arml" inputmode="decimal" aria-label="Left Arm" placeholder="36.6" value=""><input id="bs-armr" inputmode="decimal" aria-label="Right Arm" placeholder="37.1" value=""></div>
+    <div class="t-row t-pair"><span>Thigh</span><input id="bs-thighl" inputmode="decimal" aria-label="Left Thigh" placeholder="58.5" value=""><input id="bs-thighr" inputmode="decimal" aria-label="Right Thigh" placeholder="58.8" value=""></div>
+    <div class="t-row t-pair"><span>Calf</span><input id="bs-calfl" inputmode="decimal" aria-label="Left Calf" placeholder="—" value=""><input id="bs-calfr" inputmode="decimal" aria-label="Right Calf" placeholder="—" value=""></div>
+  </div>
+  <button type="button" class="cta" data-close>Save readings</button>
+</section></div><figcaption>Bottom sheet</figcaption></figure>
+  <figure><div class="phone"><div class="scroll">
+  <div class="sky"></div>
+  <header class="t-top">
+    <div><p class="sub">Saturday 31 October</p><p class="disp t-greet">Evening, Alex.</p></div>
+    <span class="mini" style="width:46px;height:46px"><svg viewBox="0 0 46 46" width="46" height="46" aria-hidden="true"><defs><linearGradient id="g5" x1="0" y1="0" x2="1" y2="0"><stop offset="0" style="stop-color:var(--l1)"/><stop offset="0.6" style="stop-color:var(--l2)"/><stop offset="1" style="stop-color:var(--l3)"/></linearGradient><filter id="g5b" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="7"/></filter></defs>
+    <circle cx="23" cy="23" r="20" fill="none" class="arc-track" style="stroke-width:3"/>
+    <circle cx="23" cy="23" r="20" fill="none" stroke="url(#g5)" stroke-width="3" stroke-linecap="round" stroke-dasharray="62.83 125.66" transform="rotate(-90 23 23)"/></svg><b>C</b></span>
+  </header>
+  <div class="notice"><p><span class="tag">[SYSTEM]</span> A new window has opened. <u>Skills</u></p><button type="button" class="x" aria-label="Dismiss"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div>
+  <svg class="horizon" viewBox="0 0 390 96" role="img" aria-label="This week: 4 days done. Today is Saturday."><defs><linearGradient id="g6" x1="0" y1="0" x2="1" y2="0"><stop offset="0" style="stop-color:var(--l1)"/><stop offset="0.6" style="stop-color:var(--l2)"/><stop offset="1" style="stop-color:var(--l3)"/></linearGradient><filter id="g6b" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="7"/></filter></defs>
+    <path d="M0 74.01 A420 420 0 0 1 390 74.01" class="arc-track"/>
+    <path d="M0 74.01 A420 420 0 0 1 299 39.08" class="arc-lit draw" pathLength="1" stroke="url(#g6)"/>
+    <circle cx="39" cy="56.05" r="3.5" style="fill:var(--l2)"/><text x="39" y="80.0" text-anchor="middle" class="arc-t">M</text><circle cx="91" cy="39.08" r="3.5" style="fill:var(--l2)"/><text x="91" y="63.1" text-anchor="middle" class="arc-t">T</text><circle cx="143" cy="29.23" r="3.5" style="fill:var(--l2)"/><text x="143" y="53.2" text-anchor="middle" class="arc-t">W</text><circle cx="195" cy="26.00" r="3.5" style="fill:var(--l2)"/><text x="195" y="50.0" text-anchor="middle" class="arc-t">T</text><circle cx="247" cy="29.23" r="3" class="arc-idle"/><text x="247" y="53.2" text-anchor="middle" class="arc-t">F</text><circle cx="299" cy="39.08" r="14.399999999999999" style="fill:var(--l2)" opacity="0.6" filter="url(#g6b)"/><circle cx="299" cy="39.08" r="6" style="fill:var(--sun)"/><text x="299" y="63.1" text-anchor="middle" class="arc-t on">S</text><circle cx="351" cy="56.05" r="3" class="arc-idle"/><text x="351" y="80.0" text-anchor="middle" class="arc-t">S</text></svg>
+  <section class="quest">
+    <p class="sub">Daily quest</p>
+    <h2 class="disp q-n">Upper</h2>
+    <p class="sub">5 exercises · 15 sets · 4,446 kg planned</p>
+    <button type="button" class="cta big"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="7 4 19 12 7 20 7 4" fill="currentColor"/></svg>Start workout</button>
+  </section>
+  <section class="grp"><h3>Today's exercises</h3><div class="group">
+    <button type="button" class="row two"><span class="r-l">Chest-Supported Row<small>3 × 10 · 45 kg</small></span><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button><button type="button" class="row two"><span class="r-l">Cable Fly<small>4 × 14 · 17.5 kg</small></span><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button><button type="button" class="row two"><span class="r-l">Overhead Triceps Extension<small>3 × 12 · 22.5 kg</small></span><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button><button type="button" class="row two"><span class="r-l">Incline DB Curl<small>3 × 12 · 11 kg</small></span><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button><button type="button" class="row two"><span class="r-l">Cable Crunch<small>2 × 14 · 32.5 kg</small></span><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
+  </div></section>
+  <section class="grp"><h3>Streak</h3><div class="group"><div class="row two"><span class="r-l">10 weeks in a row<small>Your record is 16 weeks</small></span></div>
+    <div class="row two"><span class="r-l">Rank C<small>5 of 10 weeks to B</small></span><span class="meter"><i style="width:50%"></i></span></div></div></section>
+</div><nav class="dock" aria-label="Main">
+  <button type="button" class="tab on" aria-current="page"><svg class="ic" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Today</span></button>
+  <button type="button" class="tab"><svg class="ic" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg><span>Plan</span></button>
+  <button type="button" class="flip" aria-label="Workout side. Tap for Diet."><span><svg class="ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.4 14.4 9.6 9.6"/><path d="M18.657 21.485a2 2 0 1 1-2.829-2.828l-1.767 1.768a2 2 0 1 1-2.829-2.829l6.364-6.364a2 2 0 1 1 2.829 2.829l-1.768 1.767a2 2 0 1 1 2.828 2.829z"/><path d="m21.5 21.5-1.4-1.4"/><path d="M3.9 3.9 2.5 2.5"/><path d="M6.404 12.768a2 2 0 1 1-2.829-2.829l1.768-1.767a2 2 0 1 1-2.828-2.829l2.828-2.828a2 2 0 1 1 2.829 2.828l1.767-1.768a2 2 0 1 1 2.829 2.829z"/></svg></span></button>
+  <button type="button" class="tab"><svg class="ic" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg><span>Progress</span></button>
+  <button type="button" class="tab"><svg class="ic" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="10" r="3"/><path d="M7 20.662V19a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v1.662"/></svg><span>You</span></button>
+</nav></div><figcaption>Today</figcaption></figure>
+  <figure><div class="phone"><div class="scroll">
+  <div class="sky"></div>
+  <header class="l-top"><button type="button" class="x" aria-label="Back"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button><div><p class="l-title">Upper</p><p class="sub">24:18</p></div><button type="button" class="glass-btn">Finish</button></header>
+  <svg class="horizon" viewBox="0 0 390 80" role="img" aria-label="5 of 15 sets done"><defs><linearGradient id="g7" x1="0" y1="0" x2="1" y2="0"><stop offset="0" style="stop-color:var(--l1)"/><stop offset="0.6" style="stop-color:var(--l2)"/><stop offset="1" style="stop-color:var(--l3)"/></linearGradient><filter id="g7b" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="7"/></filter></defs>
+    <path d="M0 74.01 A420 420 0 0 1 390 74.01" class="arc-track"/>
+    <path d="M0 74.01 A420 420 0 0 1 130 31.06" class="arc-lit draw" pathLength="1" stroke="url(#g7)"/>
+    <circle cx="130" cy="31.06" r="13.2" style="fill:var(--l2)" opacity="0.6" filter="url(#g7b)"/><circle cx="130" cy="31.06" r="5.5" style="fill:var(--sun)"/></svg>
+  <p class="l-count"><b>5</b> of 15 sets</p>
+  <section class="grp"><div class="group lift">
+    <h2 class="disp lift-n">Cable Fly</h2>
+    <p class="sub">Last time 17.5 kg × 14</p>
+    <div class="sets" role="table" aria-label="Sets">
+      <div class="set head" role="row"><span>Set</span><span>kg</span><span>Reps</span><span></span></div>
+      <div class="set done" role="row"><span>1</span><span>17.5</span><span>14</span><span class="tick"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12.5 10 18 19.5 6.5"/></svg></span></div>
+      <div class="set done" role="row"><span>2</span><span>17.5</span><span>14</span><span class="tick"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12.5 10 18 19.5 6.5"/></svg></span></div>
+      <div class="set now" role="row"><span>3</span><input id="l-kg" aria-label="Weight in kg" inputmode="decimal" value="17.5"><input id="l-re" aria-label="Reps" inputmode="numeric" value="14"><button type="button" class="log" aria-label="Log set 3"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12.5 10 18 19.5 6.5"/></svg></button></div>
+      <div class="set" role="row"><span>4</span><span>17.5</span><span>14</span><span></span></div>
+    </div>
+  </div></section>
+  <section class="grp"><div class="group rest">
+    <span class="mini" style="width:44px;height:44px"><svg viewBox="0 0 44 44" width="44" height="44" aria-hidden="true"><defs><linearGradient id="g8" x1="0" y1="0" x2="1" y2="0"><stop offset="0" style="stop-color:var(--l1)"/><stop offset="0.6" style="stop-color:var(--l2)"/><stop offset="1" style="stop-color:var(--l3)"/></linearGradient><filter id="g8b" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="7"/></filter></defs>
+    <circle cx="22" cy="22" r="19" fill="none" class="arc-track" style="stroke-width:3"/>
+    <circle cx="22" cy="22" r="19" fill="none" stroke="url(#g8)" stroke-width="3" stroke-linecap="round" stroke-dasharray="66.85 119.38" transform="rotate(-90 22 22)"/></svg></span>
+    <div class="rest-t"><p class="rest-n">0:42</p><p class="sub">Rest</p></div>
+    <button type="button" class="glass-btn">+15 s</button><button type="button" class="glass-btn">Skip</button>
+  </div></section>
+  <section class="grp"><h3>Next</h3><div class="group">
+    <button type="button" class="row two"><span class="r-l">Overhead Triceps Extension<small>3 × 12 · 22.5 kg</small></span><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button><button type="button" class="row two"><span class="r-l">Incline DB Curl<small>3 × 12 · 11 kg</small></span><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button><button type="button" class="row two"><span class="r-l">Cable Crunch<small>2 × 14 · 32.5 kg</small></span><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
+  </div></section>
+</div><nav class="dock" aria-label="Main">
+  <button type="button" class="tab on" aria-current="page"><svg class="ic" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Today</span></button>
+  <button type="button" class="tab"><svg class="ic" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg><span>Plan</span></button>
+  <button type="button" class="flip" aria-label="Workout side. Tap for Diet."><span><svg class="ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.4 14.4 9.6 9.6"/><path d="M18.657 21.485a2 2 0 1 1-2.829-2.828l-1.767 1.768a2 2 0 1 1-2.829-2.829l6.364-6.364a2 2 0 1 1 2.829 2.829l-1.768 1.767a2 2 0 1 1 2.828 2.829z"/><path d="m21.5 21.5-1.4-1.4"/><path d="M3.9 3.9 2.5 2.5"/><path d="M6.404 12.768a2 2 0 1 1-2.829-2.829l1.768-1.767a2 2 0 1 1-2.828-2.829l2.828-2.828a2 2 0 1 1 2.829 2.828l1.767-1.768a2 2 0 1 1 2.829 2.829z"/></svg></span></button>
+  <button type="button" class="tab"><svg class="ic" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg><span>Progress</span></button>
+  <button type="button" class="tab"><svg class="ic" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="10" r="3"/><path d="M7 20.662V19a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v1.662"/></svg><span>You</span></button>
+</nav></div><figcaption>During a workout</figcaption></figure>
+  <figure><div class="phone"><div class="scroll">
+  <div class="sky"></div>
+  <header class="p-top">
+    <div class="seg" role="group" aria-label="Type"><button type="button" class="on">Gym</button><button type="button">Cardio</button></div>
+    <button type="button" class="glass-btn">1 year <svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+  </header>
+  <div class="p-tabs" role="tablist" aria-label="Progress views"><button type="button" class="on" role="tab">Summary</button><button type="button" role="tab">Strength</button><button type="button" role="tab">Consistency</button><button type="button" role="tab">Muscles</button></div>
+  <section class="p-hero">
+    <h2 class="disp p-line">You got stronger this year.</h2>
+    <p class="sub">All 5 main exercises went up, 33% on average.</p>
+  </section>
+  <section class="grp"><div class="group scores">
+    <div><span class="mini" style="width:40px;height:40px"><svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true"><defs><linearGradient id="g9" x1="0" y1="0" x2="1" y2="0"><stop offset="0" style="stop-color:var(--l1)"/><stop offset="0.6" style="stop-color:var(--l2)"/><stop offset="1" style="stop-color:var(--l3)"/></linearGradient><filter id="g9b" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="7"/></filter></defs>
+    <circle cx="20" cy="20" r="17" fill="none" class="arc-track" style="stroke-width:3"/>
+    <circle cx="20" cy="20" r="17" fill="none" stroke="url(#g9)" stroke-width="3" stroke-linecap="round" stroke-dasharray="106.81 106.81" transform="rotate(-90 20 20)"/></svg></span><p class="s-v">+33%</p><p class="sub">Strength</p></div>
+    <div><span class="mini" style="width:40px;height:40px"><svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true"><defs><linearGradient id="g10" x1="0" y1="0" x2="1" y2="0"><stop offset="0" style="stop-color:var(--l1)"/><stop offset="0.6" style="stop-color:var(--l2)"/><stop offset="1" style="stop-color:var(--l3)"/></linearGradient><filter id="g10b" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="7"/></filter></defs>
+    <circle cx="20" cy="20" r="17" fill="none" class="arc-track" style="stroke-width:3"/>
+    <circle cx="20" cy="20" r="17" fill="none" stroke="url(#g10)" stroke-width="3" stroke-linecap="round" stroke-dasharray="61.04 106.81" transform="rotate(-90 20 20)"/></svg></span><p class="s-v">4 of 7</p><p class="sub">Consistency</p></div>
+    <div><span class="mini" style="width:40px;height:40px"><svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true"><defs><linearGradient id="g11" x1="0" y1="0" x2="1" y2="0"><stop offset="0" style="stop-color:var(--l1)"/><stop offset="0.6" style="stop-color:var(--l2)"/><stop offset="1" style="stop-color:var(--l3)"/></linearGradient><filter id="g11b" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="7"/></filter></defs>
+    <circle cx="20" cy="20" r="17" fill="none" class="arc-track" style="stroke-width:3"/>
+    <circle cx="20" cy="20" r="17" fill="none" stroke="url(#g11)" stroke-width="3" stroke-linecap="round" stroke-dasharray="89.01 106.81" transform="rotate(-90 20 20)"/></svg></span><p class="s-v">5 of 6</p><p class="sub">Muscles</p></div>
+  </div></section>
+  <section class="grp"><h3>Bodyweight</h3><div class="group plot">
+    <p class="plot-n">79.1 <em>kg</em></p>
+    <p class="sub">3.1 kg to your goal of 76 kg</p>
+    <svg class="chart" viewBox="0 0 326 150" role="img" aria-label="Bodyweight over the last year, from 82.2 to 79.1 kg. Goal 76 kg."><defs><linearGradient id="g12" x1="0" y1="0" x2="1" y2="0"><stop offset="0" style="stop-color:var(--l1)"/><stop offset="0.6" style="stop-color:var(--l2)"/><stop offset="1" style="stop-color:var(--l3)"/></linearGradient><filter id="g12b" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="7"/></filter></defs>
+    <defs><linearGradient id="g12a" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--l2)" stop-opacity="0.24"/><stop offset="1" style="stop-color:var(--l2)" stop-opacity="0"/></linearGradient></defs>
+    <line x1="0" x2="296" y1="113.0" y2="113.0" class="grid"/><text x="326" y="116.5" text-anchor="end" class="axis">76</text><line x1="0" x2="296" y1="83.0" y2="83.0" class="grid"/><text x="326" y="86.5" text-anchor="end" class="axis">78</text><line x1="0" x2="296" y1="53.0" y2="53.0" class="grid"/><text x="326" y="56.5" text-anchor="end" class="axis">80</text><line x1="0" x2="296" y1="23.0" y2="23.0" class="grid"/><text x="326" y="26.5" text-anchor="end" class="axis">82</text>
+    <line x1="0" x2="296" y1="113.0" y2="113.0" class="goal"/>
+    <path d="M0.0 20.0 L6.5 20.0 L11.4 21.5 L17.9 20.0 L22.8 18.5 L29.3 26.0 L34.2 24.5 L40.7 20.0 L45.5 27.5 L52.0 26.0 L56.9 26.0 L63.4 33.5 L68.3 35.0 L74.8 30.5 L79.7 26.0 L86.2 32.0 L91.1 32.0 L97.6 38.0 L102.5 36.5 L109.0 32.0 L113.8 33.5 L120.4 35.0 L125.2 39.5 L131.7 47.0 L136.6 42.5 L143.1 48.5 L148.0 41.0 L154.5 41.0 L159.4 53.0 L165.9 48.5 L170.8 51.5 L177.3 47.0 L182.2 48.5 L188.7 53.0 L193.5 53.0 L200.0 48.5 L204.9 54.5 L211.4 62.0 L216.3 53.0 L222.8 59.0 L227.7 57.5 L234.2 65.0 L239.1 60.5 L245.6 68.0 L250.5 69.5 L257.0 69.5 L261.8 66.5 L268.4 72.5 L273.2 71.0 L279.7 66.5 L284.6 65.0 L291.1 71.0 L296.0 66.5 L296.0 128 L0 128 Z" fill="url(#g12a)"/>
+    <path d="M0.0 20.0 L6.5 20.0 L11.4 21.5 L17.9 20.0 L22.8 18.5 L29.3 26.0 L34.2 24.5 L40.7 20.0 L45.5 27.5 L52.0 26.0 L56.9 26.0 L63.4 33.5 L68.3 35.0 L74.8 30.5 L79.7 26.0 L86.2 32.0 L91.1 32.0 L97.6 38.0 L102.5 36.5 L109.0 32.0 L113.8 33.5 L120.4 35.0 L125.2 39.5 L131.7 47.0 L136.6 42.5 L143.1 48.5 L148.0 41.0 L154.5 41.0 L159.4 53.0 L165.9 48.5 L170.8 51.5 L177.3 47.0 L182.2 48.5 L188.7 53.0 L193.5 53.0 L200.0 48.5 L204.9 54.5 L211.4 62.0 L216.3 53.0 L222.8 59.0 L227.7 57.5 L234.2 65.0 L239.1 60.5 L245.6 68.0 L250.5 69.5 L257.0 69.5 L261.8 66.5 L268.4 72.5 L273.2 71.0 L279.7 66.5 L284.6 65.0 L291.1 71.0 L296.0 66.5" fill="none" stroke="url(#g12)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    <circle cx="296.0" cy="66.5" r="8.4" style="fill:var(--l2)" opacity="0.6" filter="url(#g12b)"/><circle cx="296.0" cy="66.5" r="3.5" style="fill:var(--sun)"/>
+    <text x="53.7" y="145" text-anchor="middle" class="axis">Jun</text><text x="102.5" y="145" text-anchor="middle" class="axis">Jul</text><text x="152.9" y="145" text-anchor="middle" class="axis">Aug</text><text x="203.3" y="145" text-anchor="middle" class="axis">Sep</text><text x="252.1" y="145" text-anchor="middle" class="axis">Oct</text></svg>
+  </div></section>
+  <section class="grp"><h3>This month and last month</h3><div class="group">
+    <div class="row"><span class="r-l">Workouts</span><span class="r-v">25</span><span class="delta bad">−4%</span></div>
+    <div class="row"><span class="r-l">Weight lifted</span><span class="r-v">122k kg</span><span class="delta good">+12%</span></div>
+    <div class="row"><span class="r-l">Records</span><span class="r-v">11</span><span class="delta bad">−42%</span></div>
+  </div></section>
+</div><nav class="dock" aria-label="Main">
+  <button type="button" class="tab"><svg class="ic" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Today</span></button>
+  <button type="button" class="tab"><svg class="ic" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg><span>Plan</span></button>
+  <button type="button" class="flip" aria-label="Workout side. Tap for Diet."><span><svg class="ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.4 14.4 9.6 9.6"/><path d="M18.657 21.485a2 2 0 1 1-2.829-2.828l-1.767 1.768a2 2 0 1 1-2.829-2.829l6.364-6.364a2 2 0 1 1 2.829 2.829l-1.768 1.767a2 2 0 1 1 2.828 2.829z"/><path d="m21.5 21.5-1.4-1.4"/><path d="M3.9 3.9 2.5 2.5"/><path d="M6.404 12.768a2 2 0 1 1-2.829-2.829l1.768-1.767a2 2 0 1 1-2.828-2.829l2.828-2.828a2 2 0 1 1 2.829 2.828l1.767-1.768a2 2 0 1 1 2.829 2.829z"/></svg></span></button>
+  <button type="button" class="tab on" aria-current="page"><svg class="ic" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg><span>Progress</span></button>
+  <button type="button" class="tab"><svg class="ic" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="10" r="3"/><path d="M7 20.662V19a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v1.662"/></svg><span>You</span></button>
+</nav></div><figcaption>Progress</figcaption></figure>
+</main>
+<footer class="foot">All numbers are the app's sample data. Nothing here changes the app.</footer>
+<script>
+document.querySelectorAll(".ctl-b button").forEach(function (button) {
+  button.addEventListener("click", function () {
+    document.body.dataset[button.dataset.key] = button.dataset.val;
+    button.parentElement.querySelectorAll("button").forEach(function (other) { other.setAttribute("aria-pressed", String(other === button)); });
+  });
+});
+document.querySelectorAll(".sw").forEach(function (toggle) {
+  toggle.addEventListener("click", function () {
+    toggle.setAttribute("aria-checked", String(toggle.getAttribute("aria-checked") !== "true"));
+  });
+});
+document.querySelectorAll(".phone").forEach(function (phone) {
+  var sheet = phone.querySelector(".sheet");
+  if (!sheet) return;
+  var scrim = phone.querySelector(".scrim");
+  var scroll = phone.querySelector(".scroll");
+  var isStatic = sheet.classList.contains("open");
+  function set(open) {
+    sheet.classList.toggle("open", open);
+    scrim.classList.toggle("open", open);
+    sheet.inert = !open;
+    scroll.inert = open;
+  }
+  phone.querySelectorAll("[data-open]").forEach(function (row) { row.addEventListener("click", function () { set(true); }); });
+  if (!isStatic) phone.querySelectorAll("[data-close]").forEach(function (item) { item.addEventListener("click", function () { set(false); }); });
+});
+document.querySelectorAll("[data-save]").forEach(function (button) {
+  button.addEventListener("click", function () {
+    button.textContent = "Saved";
+    setTimeout(function () { button.textContent = "Save"; }, 1400);
+  });
+});
+</script>
+</body>
+</html>

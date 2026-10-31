@@ -1,9 +1,9 @@
 /**
- * The Science tab on the Diet side: published rules of thumb run over what was
+ * Science on the Diet side: published rules of thumb run over what was
  * actually ticked, the twin of lib/energy.ts and friends on the workout side.
  * Pure, so every number here is tested.
  *
- * Two rules from the workout Science tab hold here too. A number computed from
+ * Two rules from the workout science cards hold here too. A number computed from
  * a guess is worse than no number, so each builder returns undefined until its
  * inputs exist. And intake is self-reported, so nothing here claims to be exact
  * or to name a cause.

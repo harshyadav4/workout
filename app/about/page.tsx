@@ -1,10 +1,10 @@
-import { Check } from "lucide-react";
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 
 import { EXTRAS, FAQS, FEATURES } from "@/app/about/content";
 import { Button } from "@/components/ui/button";
+import { HorizonArc } from "@/components/ui/progress-arc";
 import { OG_ALT, SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, SITE_URL, absoluteUrl } from "@/lib/site";
 
 /**
@@ -82,72 +82,80 @@ function jsonLd() {
   };
 }
 
-function Ctas() {
-  return (
-    <div className="flex flex-col gap-3 sm:flex-row">
-      <Button asChild size="lg" className="w-full sm:w-auto">
-        <Link href="/">Open the app</Link>
-      </Button>
-      <Button asChild size="lg" variant="secondary" className="w-full sm:w-auto">
-        <Link href="/?tour=1">Take the tour</Link>
-      </Button>
-    </div>
-  );
+/** The one main button is in the hero. Everything else that links stays quiet. */
+const LINK =
+  "inline-flex h-11 items-center rounded text-[15px] underline-offset-4 transition-colors hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+const QUIET_LINK = `${LINK} text-muted-foreground hover:text-foreground`;
+
+const HEADING ="font-heading text-[34px] leading-[1.08] [text-wrap:balance] sm:text-[46px]";
+
+/** One plain line under a hairline. No ticks and no boxes: the words are the content. */
+function Line({ children }: { children: React.ReactNode }) {
+  return <li className="border-t border-sep py-3 text-[15px] leading-snug">{children}</li>;
 }
 
 export default function AboutPage() {
   return (
-    <main className="select-text mx-auto w-full max-w-5xl px-4 pb-[calc(env(safe-area-inset-bottom)+2rem)] pt-[calc(env(safe-area-inset-top)+1.5rem)] sm:px-6">
+    <main className="select-text mx-auto w-full max-w-5xl px-5 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] pt-[calc(env(safe-area-inset-top)+var(--titlebar)+1rem)] sm:px-8">
       <script
         type="application/ld+json"
         // "<" escaped so no answer text can close the script tag.
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd()).replace(/</g, "\\u003c") }}
       />
+      <div className="app-sky print:hidden" aria-hidden />
+      <div className="app-glow print:hidden" aria-hidden />
 
       <header className="flex items-center justify-between">
-        <Link href="/about" className="font-display text-xl font-extrabold tracking-tight">
+        <Link
+          href="/about"
+          className="inline-flex h-11 items-center rounded font-heading text-[28px] leading-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
           {SITE_NAME}
         </Link>
-        <Link
-          href="/"
-          className="text-sm font-semibold text-brand underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
+        {/* Full text colour: this corner sits on the warm part of the sky. */}
+        <Link href="/" className={LINK}>
           Open the app
         </Link>
       </header>
 
-      <section className="mt-10 sm:mt-16">
-        <h1 className="font-display text-[34px] font-extrabold leading-[1.02] tracking-[-0.03em] sm:text-[52px]">
-          {SITE_NAME} is a free workout tracker <span className="text-brand">with a muscle map</span>.
+      <section className="mt-12 sm:mt-24">
+        {/* The page's one warm thing: the app's horizon, small enough to be a mark and not a picture. */}
+        <div className="mb-5 w-36 sm:mb-7 sm:w-44" aria-hidden>
+          <HorizonArc litTo={304} height={78} label="" />
+        </div>
+        <h1 className="max-w-4xl font-heading text-[46px] leading-[1.04] [text-wrap:balance] sm:text-[76px]">
+          {SITE_NAME} is a free workout tracker with a muscle map.
         </h1>
-        <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">
+        <p className="mt-5 max-w-2xl text-[17px] leading-relaxed text-muted-foreground sm:text-lg">
           Log each set in one tap and see the muscles you work. It runs in your browser, installs as
           an app, works offline in the gym and needs no account.
         </p>
-        <div className="mt-6">
-          <Ctas />
+        <div className="mt-7 flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-7">
+          <Button asChild size="lg" className="w-full sm:w-auto">
+            <Link href="/">Open the app</Link>
+          </Button>
+          <Link href="/?tour=1" className={`${QUIET_LINK} justify-center`}>
+            Take the tour
+          </Link>
         </div>
       </section>
 
-      <div className="mt-14 space-y-14 sm:mt-20 sm:space-y-20">
+      <div className="mt-20 space-y-20 sm:mt-32 sm:space-y-32">
         {FEATURES.map((f, i) => (
           <section
             key={f.id}
             id={f.id}
             aria-labelledby={`${f.id}-title`}
-            className="grid items-center gap-8 md:grid-cols-2 md:gap-12"
+            className="grid items-center gap-9 md:grid-cols-2 md:gap-16"
           >
             <div className={i % 2 === 1 ? "md:order-2" : undefined}>
-              <h2 id={`${f.id}-title`} className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
+              <h2 id={`${f.id}-title`} className={HEADING}>
                 {f.title}
               </h2>
-              <p className="mt-3 leading-relaxed text-muted-foreground">{f.lead}</p>
-              <ul className="mt-4 space-y-2.5">
+              <p className="mt-3 text-base leading-relaxed text-muted-foreground">{f.lead}</p>
+              <ul className="mt-5 border-b border-sep">
                 {f.points.map((p) => (
-                  <li key={p} className="flex gap-2.5 text-[15px]">
-                    <Check className="mt-0.5 h-5 w-5 shrink-0 text-brand" aria-hidden />
-                    <span>{p}</span>
-                  </li>
+                  <Line key={p}>{p}</Line>
                 ))}
               </ul>
             </div>
@@ -157,49 +165,51 @@ export default function AboutPage() {
                 alt={f.alt}
                 width={390}
                 height={844}
-                sizes="(min-width: 768px) 300px, 260px"
-                className="h-auto w-[260px] rounded-[28px] border border-border bg-card shadow-plaque md:w-[300px]"
+                sizes="(min-width: 768px) 300px, 270px"
+                className="h-auto w-[270px] rounded-[28px] border border-sep md:w-[300px]"
               />
             </div>
           </section>
         ))}
       </div>
 
-      <section aria-labelledby="extras-title" className="plaque mt-14 rounded-3xl p-5 sm:mt-20 sm:p-8">
-        <h2 id="extras-title" className="font-display text-xl font-bold tracking-tight">
+      <section aria-labelledby="extras-title" className="mt-20 sm:mt-32">
+        <h2 id="extras-title" className={HEADING}>
           Also in {SITE_NAME}
         </h2>
-        <ul className="mt-4 grid gap-2.5 sm:grid-cols-2">
+        <ul className="mt-5 grid border-b border-sep sm:grid-cols-2 sm:gap-x-16">
           {EXTRAS.map((e) => (
-            <li key={e} className="flex gap-2.5 text-[15px]">
-              <Check className="mt-0.5 h-5 w-5 shrink-0 text-brand" aria-hidden />
-              <span>{e}</span>
-            </li>
+            <Line key={e}>{e}</Line>
           ))}
         </ul>
       </section>
 
-      <section id="faq" aria-labelledby="faq-title" className="mt-14 sm:mt-20">
-        <h2 id="faq-title" className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
+      <section id="faq" aria-labelledby="faq-title" className="mt-20 sm:mt-32">
+        <h2 id="faq-title" className={HEADING}>
           Questions and answers
         </h2>
-        <div className="mt-6 divide-y divide-border border-y border-border">
+        <div className="mt-6 divide-y divide-sep border-y border-sep">
           {FAQS.map((f) => (
             <div key={f.question} className="py-5">
-              <h3 className="font-display text-lg font-semibold tracking-tight">{f.question}</h3>
-              <p className="mt-2 max-w-3xl leading-relaxed text-muted-foreground">{f.answer}</p>
+              <h3 className="font-heading text-[23px] leading-[1.15]">{f.question}</h3>
+              <p className="mt-1.5 max-w-3xl text-[15px] leading-relaxed text-muted-foreground">{f.answer}</p>
             </div>
           ))}
         </div>
       </section>
 
-      <footer className="mt-14 flex flex-col items-start gap-4 border-t border-border pt-8 sm:mt-20 sm:flex-row sm:items-center sm:justify-between">
+      <footer className="mt-12 flex flex-col gap-2 sm:mt-20 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-muted-foreground">
           {SITE_NAME} · {SITE_TAGLINE}
         </p>
-        <Button asChild size="lg" className="w-full sm:w-auto">
-          <Link href="/">Open the app</Link>
-        </Button>
+        <div className="flex gap-6">
+          <Link href="/" className={QUIET_LINK}>
+            Open the app
+          </Link>
+          <Link href="/?tour=1" className={QUIET_LINK}>
+            Take the tour
+          </Link>
+        </div>
       </footer>
     </main>
   );

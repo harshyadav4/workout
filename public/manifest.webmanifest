@@ -12,8 +12,8 @@
     "standalone"
   ],
   "orientation": "portrait",
-  "theme_color": "#0E0F12",
-  "background_color": "#0E0F12",
+  "theme_color": "#0E1230",
+  "background_color": "#0E1230",
   "categories": [
     "health",
     "fitness",
@@ -114,7 +114,7 @@
       "sizes": "780x1688",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "Progress in three rings: strength, consistency, muscles"
+      "label": "Progress in three cards: strength, consistency, muscles"
     },
     {
       "src": "/screenshots/wide.png",

@@ -4,6 +4,7 @@ import { Download, EllipsisVertical, Share, SquarePlus, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { ListRow, ListSheet } from "@/components/ui/list";
 import { useInstall } from "@/features/pwa/use-install";
 
 const DISMISS_KEY = "gymflow.installDismissed";
@@ -14,8 +15,8 @@ const DISMISS_KEY = "gymflow.installDismissed";
  * it does not; iPhone gets the two taps Safari needs, because Safari has no
  * install prompt at all. Hidden once installed.
  *
- * `dismissible` is for Home, where it can be closed for good; on the You page
- * it always shows until the app is installed.
+ * `dismissible` is for Home, where it can be closed for good. The You page has
+ * `InstallRow` below instead, a quiet row until the app is installed.
  */
 export function InstallCard({ dismissible = false }: { dismissible?: boolean }) {
   const state = useInstall();
@@ -49,7 +50,7 @@ export function InstallCard({ dismissible = false }: { dismissible?: boolean }) 
           type="button"
           aria-label="Hide this message"
           onClick={dismiss}
-          className="absolute right-2 top-2 flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground hover:text-foreground"
+          className="absolute right-2 top-2 flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <X className="h-4 w-4" />
         </button>
@@ -57,8 +58,8 @@ export function InstallCard({ dismissible = false }: { dismissible?: boolean }) 
       <div className="flex items-start gap-3 pr-8">
         <img src="/icon-192.png" alt="" className="h-12 w-12 shrink-0 rounded-xl" />
         <div className="min-w-0">
-          <p className="font-display text-lg font-bold leading-tight tracking-tight">Install Arise</p>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="text-base font-medium">Install Arise</p>
+          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
             Opens full screen and works offline.
           </p>
         </div>
@@ -69,46 +70,80 @@ export function InstallCard({ dismissible = false }: { dismissible?: boolean }) 
           Install
         </Button>
       ) : state.kind === "android" ? (
-        <ol className="mt-4 space-y-2 text-sm">
-          <li className="flex items-center gap-3 rounded-lg bg-muted px-3 py-2.5">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand/15 text-xs font-bold text-brand">
-              1
-            </span>
-            <span className="flex flex-wrap items-center gap-1">
-              Tap <EllipsisVertical className="mx-0.5 inline h-4 w-4 text-brand" aria-label="the menu" /> in the
-              browser
-            </span>
-          </li>
-          <li className="flex items-center gap-3 rounded-lg bg-muted px-3 py-2.5">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand/15 text-xs font-bold text-brand">
-              2
-            </span>
-            <span className="flex flex-wrap items-center gap-1">
-              Choose <Download className="mx-0.5 inline h-4 w-4 text-brand" aria-hidden /> Install app, or Add to
-              Home screen
-            </span>
-          </li>
-        </ol>
+        <InstallSteps kind="android" />
       ) : (
-        <ol className="mt-4 space-y-2 text-sm">
-          <li className="flex items-center gap-3 rounded-lg bg-muted px-3 py-2.5">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand/15 text-xs font-bold text-brand">
-              1
-            </span>
-            <span className="flex flex-wrap items-center gap-1">
-              Tap <Share className="mx-0.5 inline h-4 w-4 text-brand" aria-label="Share" /> Share in Safari
-            </span>
-          </li>
-          <li className="flex items-center gap-3 rounded-lg bg-muted px-3 py-2.5">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand/15 text-xs font-bold text-brand">
-              2
-            </span>
-            <span className="flex flex-wrap items-center gap-1">
-              Choose <SquarePlus className="mx-0.5 inline h-4 w-4 text-brand" aria-hidden /> Add to Home Screen
-            </span>
-          </li>
-        </ol>
+        <InstallSteps kind="ios" />
       )}
     </div>
+  );
+}
+
+/** The two taps a browser with no install button needs. */
+function InstallSteps({ kind }: { kind: "android" | "ios" }) {
+  const number = (value: number) => (
+    <span className="w-5 shrink-0 text-center text-sm tabular-nums text-muted-foreground">
+      {value}
+    </span>
+  );
+  return kind === "android" ? (
+    <ol className="mt-4 space-y-3 text-sm">
+      <li className="flex items-center gap-3">
+        {number(1)}
+        <span className="flex flex-wrap items-center gap-1">
+          Tap <EllipsisVertical className="mx-0.5 inline h-4 w-4 text-muted-foreground" aria-label="the menu" /> in the browser
+        </span>
+      </li>
+      <li className="flex items-center gap-3">
+        {number(2)}
+        <span className="flex flex-wrap items-center gap-1">
+          Choose <Download className="mx-0.5 inline h-4 w-4 text-muted-foreground" aria-hidden /> Install app, or Add to Home screen
+        </span>
+      </li>
+    </ol>
+  ) : (
+    <ol className="mt-4 space-y-3 text-sm">
+      <li className="flex items-center gap-3">
+        {number(1)}
+        <span className="flex flex-wrap items-center gap-1">
+          Tap <Share className="mx-0.5 inline h-4 w-4 text-muted-foreground" aria-label="Share" /> Share in Safari
+        </span>
+      </li>
+      <li className="flex items-center gap-3">
+        {number(2)}
+        <span className="flex flex-wrap items-center gap-1">
+          Choose <SquarePlus className="mx-0.5 inline h-4 w-4 text-muted-foreground" aria-hidden /> Add to Home Screen
+        </span>
+      </li>
+    </ol>
+  );
+}
+
+/**
+ * The same offer as one row on You: it asks for nothing until it is tapped.
+ * One tap installs where the browser can do that; elsewhere it shows the taps.
+ * Hidden once installed, so the group simply has one row fewer.
+ */
+export function InstallRow() {
+  const state = useInstall();
+  const [open, setOpen] = useState(false);
+
+  if (state.kind === "installed" || state.kind === "unavailable") {
+    return null;
+  }
+
+  return (
+    <>
+      <ListRow
+        icon={Download}
+        label="Install Arise"
+        value="Works offline"
+        onClick={() => (state.kind === "prompt" ? void state.install() : setOpen(true))}
+      />
+      {state.kind === "prompt" ? null : (
+        <ListSheet open={open} onOpenChange={setOpen} title="Install Arise" description="Opens full screen and works offline.">
+          <InstallSteps kind={state.kind} />
+        </ListSheet>
+      )}
+    </>
   );
 }

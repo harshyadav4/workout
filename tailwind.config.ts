@@ -24,9 +24,15 @@ const config: Config = {
         well: "hsl(var(--well))",
         primary: "hsl(var(--primary))",
         "primary-foreground": "hsl(var(--primary-foreground))",
-        // The accent as text, rings and tints. Lime on Graphite, deep green on
-        // Paper. `primary` stays the lime fill in both skins.
+        // The accent as text, rings and tints: warm on Blue hour, burnt orange on
+        // Dawn. `primary` is the main action: white on Blue hour, ink on Dawn.
         brand: "hsl(var(--brand))",
+        // Whole colours rather than hsl triples, because some are see-through.
+        surface: "var(--surface)",
+        field: "var(--field)",
+        hi: "var(--hi)",
+        sep: "var(--sep)",
+        track: "var(--track)",
         secondary: "hsl(var(--secondary))",
         "secondary-foreground": "hsl(var(--secondary-foreground))",
         muted: "hsl(var(--muted))",
@@ -59,8 +65,12 @@ const config: Config = {
       },
       fontFamily: {
         sans: ["var(--font-sans)", "system-ui", "sans-serif"],
-        display: ["var(--font-display)", "var(--font-sans)", "sans-serif"],
-        // One typeface. `font-mono` sites get Inter with tabular figures, so the
+        // Numbers and labels: `font-display` sits on many bold sites, so it stays the sans.
+        display: ["var(--font-sans)", "system-ui", "sans-serif"],
+        // A screen's few large words. Weight and tracking live with it in globals.css.
+        // Not every heading font has a rupee sign, so a heading borrows the one in the sans.
+        heading: ["var(--font-heading)", "var(--font-sans)", "system-ui", "sans-serif"],
+        // `font-mono` sites get the sans with tabular figures, so the
         // digits still line up while the mono caps are retired screen by screen.
         mono: [
           ["var(--font-sans)", "system-ui", "sans-serif"],

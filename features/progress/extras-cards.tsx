@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDownRight, ArrowRight, ArrowUpRight, CalendarCheck, Dumbbell, Flame, Medal } from "lucide-react";
+import { CalendarCheck, Dumbbell, Flame, Medal } from "lucide-react";
 import {
   Bar,
   BarChart,
@@ -93,14 +93,9 @@ export function MilestonesCard({ earned, next }: { earned: Badge[]; next: Badge[
           {earned.map((badge) => {
             const { color, icon: Icon } = BADGE[badge.kind];
             return (
-              <li key={badge.kind} className="well flex flex-col items-center rounded-lg px-2 py-3 text-center">
-                <span
-                  className="flex h-10 w-10 items-center justify-center rounded-full"
-                  style={{ backgroundColor: `${color}26`, boxShadow: `inset 0 0 0 2px ${color}` }}
-                >
-                  <Icon className="h-5 w-5" style={{ color }} aria-hidden />
-                </span>
-                <span className="mt-2 text-xs font-semibold leading-tight">{badge.title}</span>
+              <li key={badge.kind} className="flex flex-col items-center text-center">
+                <Icon className="h-5 w-5" style={{ color }} strokeWidth={1.6} aria-hidden />
+                <span className="mt-1.5 text-[13px] font-medium leading-tight">{badge.title}</span>
                 <span className="mt-0.5 text-xs text-muted-foreground">{badge.detail}</span>
               </li>
             );
@@ -109,17 +104,17 @@ export function MilestonesCard({ earned, next }: { earned: Badge[]; next: Badge[
       ) : null}
 
       {next.length > 0 ? (
-        <ul className="mt-3 space-y-2.5">
+        <ul className="mt-4 space-y-3">
           {next.map((badge) => {
             const { color } = BADGE[badge.kind];
             return (
               <li key={badge.kind}>
-                <div className="flex items-baseline justify-between gap-3 text-xs">
-                  <span className="font-semibold">Next: {badge.title}</span>
-                  <span className="shrink-0 tabular-nums text-muted-foreground">{badge.detail}</span>
+                <div className="flex items-baseline justify-between gap-3 text-[13.5px]">
+                  <span className="font-medium">Next: {badge.title}</span>
+                  <span className="shrink-0 text-[13px] tabular-nums text-muted-foreground">{badge.detail}</span>
                 </div>
                 <div
-                  className="mt-1.5 h-2 overflow-hidden rounded-full bg-muted"
+                  className="mt-1.5 h-1 overflow-hidden rounded-full bg-track"
                   role="progressbar"
                   aria-label={`Next: ${badge.title}`}
                   aria-valuenow={Math.round(badge.progress * 100)}
@@ -145,7 +140,8 @@ export function MilestonesCard({ earned, next }: { earned: Badge[]; next: Badge[
 export function MonthCompareCard({ rows }: { rows: MonthCompareRow[] }) {
   return (
     <Panel
-      title="This month vs last"
+      title="This month and last month"
+      flush
       caption="Same days of each month"
       note={
         <>
@@ -154,29 +150,29 @@ export function MonthCompareCard({ rows }: { rows: MonthCompareRow[] }) {
         </>
       }
     >
-      <div className="grid grid-cols-3 gap-2">
+      <div className="pt-1">
         {rows.map((row) => {
           const flat = row.change === undefined || Math.abs(row.change) < 1;
           const up = !flat && (row.change ?? 0) > 0;
-          const Icon = flat ? ArrowRight : up ? ArrowUpRight : ArrowDownRight;
           const tone = flat ? "text-muted-foreground" : up ? "text-success" : "text-danger";
 
           return (
-            <div key={row.label} className="well rounded-lg p-3">
-              {/* Two lines tall, so the values stay level when a long label wraps. */}
-              <p className="min-h-8 text-xs font-semibold text-muted-foreground">{row.label}</p>
-              <p className="mt-1.5 font-display text-lg font-extrabold leading-none tabular-nums">
+            <div key={row.label} className="list-row flex min-h-[54px] items-center gap-3 py-2 pl-4 pr-4">
+              <span className="min-w-0 flex-1">
+                <span className="block text-[15.5px] font-medium">{row.label}</span>
+                <span className="mt-px block text-[13px] tabular-nums text-muted-foreground">
+                  was {row.label === "Weight lifted" ? compactKg(row.before) : row.before}
+                </span>
+              </span>
+              <span className="shrink-0 text-[15px] tabular-nums">
                 {row.label === "Weight lifted" ? compactKg(row.now) : row.now}
-              </p>
-              <p className={`mt-1.5 flex items-center gap-1 text-xs tabular-nums ${tone}`}>
-                <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              </span>
+              {/* The sign says the direction; the colour only repeats it. */}
+              <span className={`w-12 shrink-0 text-right text-[13.5px] font-medium tabular-nums ${tone}`}>
                 {row.change === undefined
                   ? "new"
                   : `${row.change > 0 ? "+" : ""}${Math.round(row.change)}%`}
-              </p>
-              <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">
-                was {row.label === "Weight lifted" ? compactKg(row.before) : row.before}
-              </p>
+              </span>
             </div>
           );
         })}
@@ -238,7 +234,7 @@ export function StrengthRatioCard({
                   <span className="ml-1.5 text-xs font-normal text-muted-foreground">{row.best} kg</span>
                 </span>
               </div>
-              <div className="relative mt-1.5 h-2.5 rounded-full bg-muted">
+              <div className="relative mt-1.5 h-1.5 rounded-full bg-track">
                 <div
                   className="h-full rounded-full"
                   style={{ width: `${(row.ratio / ceiling) * 100}%`, backgroundColor: color }}
@@ -295,7 +291,7 @@ export function RecordsMonthCard({ months }: { months: RecordsMonth[] }) {
               <CartesianGrid {...gridProps} />
               <XAxis {...axisProps} dataKey="label" minTickGap={4} />
               <YAxis {...axisProps} width={28} allowDecimals={false} />
-              <Tooltip cursor={{ fill: "rgba(255,255,255,0.04)" }} content={<ChartTooltip format={(v) => `${v}`} />} />
+              <Tooltip cursor={{ fill: CHART.wash }} content={<ChartTooltip format={(v) => `${v}`} />} />
               {groups.map((group, index) => (
                 <Bar
                   {...animationProps}
@@ -353,7 +349,7 @@ export function WeeklyGoalCard({
           <XAxis {...axisProps} dataKey="start" tickFormatter={formatDayKey} />
           <YAxis {...axisProps} width={28} allowDecimals={false} domain={[0, (max: number) => Math.max(max, target) + 1]} />
           <Tooltip
-            cursor={{ fill: "rgba(255,255,255,0.04)" }}
+            cursor={{ fill: CHART.wash }}
             content={
               <ChartTooltip
                 labelFormat={(key) => `Week of ${formatDayKey(key)}`}
@@ -376,8 +372,8 @@ export function WeeklyGoalCard({
       </ResponsiveContainer>
 
       {bestMonth ? (
-        <p className="mt-3 flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-sm">
-          <Medal className="h-4 w-4 shrink-0" style={{ color: accent }} aria-hidden />
+        <p className="mt-3 flex items-center gap-2 text-[13.5px]">
+          <Medal className="h-4 w-4 shrink-0" style={{ color: accent }} strokeWidth={1.8} aria-hidden />
           <span>
             Best month: <span className="font-semibold">{bestMonth.label}</span>, {bestMonth.sessions}{" "}
             {bestMonth.sessions === 1 ? "workout" : "workouts"}
@@ -425,7 +421,7 @@ export function WeightChangeCard({
           <XAxis {...axisProps} dataKey="label" minTickGap={4} />
           <YAxis {...axisProps} width={40} tickFormatter={(value: number) => `${value > 0 ? "+" : ""}${value}`} />
           <Tooltip
-            cursor={{ fill: "rgba(255,255,255,0.04)" }}
+            cursor={{ fill: CHART.wash }}
             content={<ChartTooltip format={(value) => `${value > 0 ? "+" : ""}${value.toFixed(1)} kg`} />}
           />
           <ReferenceLine y={0} stroke={CHART.axis} />

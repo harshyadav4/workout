@@ -42,19 +42,18 @@ export function FinishConfirm({
   useEffect(() => ref.current?.focus({ preventScroll: true }), []);
 
   return (
-    // A solid card: a tint straight on the page let the wallpaper show through.
     // The Card's own surface, spelled out because Card does not forward a ref.
     <div
       ref={ref}
       tabIndex={-1}
       role="alertdialog"
       aria-labelledby="finish-confirm-title"
-      className="plaque system-pop rounded-3xl p-4 outline-none ring-1 ring-warning/50"
+      className="plaque system-pop rounded-3xl p-4 outline-none"
     >
       <div className="flex items-start gap-2.5">
         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden />
         <div>
-          <p id="finish-confirm-title" className="font-display text-base font-bold leading-tight tracking-tight">
+          <p id="finish-confirm-title" className="font-heading text-[24px] leading-tight">
             {nothingLogged ? "No sets logged" : "Sets not logged"}
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -65,13 +64,13 @@ export function FinishConfirm({
         </div>
       </div>
 
-      <ul className="mt-3 space-y-1.5">
+      <ul className="mt-3 divide-y divide-sep border-t border-sep">
         {unfinished.map(({ exercise, done }) => (
           <li key={exercise.id}>
             <button
               type="button"
               onClick={() => onPick(exercise)}
-              className="well flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex min-h-11 w-full items-center gap-3 py-1.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <span className="min-w-0 flex-1 truncate text-sm font-semibold">{exercise.templateName}</span>
               <span className="shrink-0 text-xs text-muted-foreground tabular-nums">

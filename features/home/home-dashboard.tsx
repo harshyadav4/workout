@@ -1,15 +1,14 @@
 "use client";
 
-import { CalendarPlus, Info, PlayCircle, Plus, Timer } from "lucide-react";
+import { CalendarPlus, Play, Plus } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { usePendingRemoval } from "@/components/ui/use-pending-removal";
 import { Card } from "@/components/ui/card";
+import { HORIZON_WIDTH, HorizonArc } from "@/components/ui/progress-arc";
 import { SignInNudge } from "@/features/auth/sign-in-nudge";
-import { LevelUpGem } from "@/features/home/artifacts";
 import { ExerciseLedger } from "@/features/home/exercise-ledger";
 import { FinishConfirm } from "@/features/home/finish-confirm";
 import { useLiveTimer } from "@/features/home/live-timer";
@@ -19,8 +18,7 @@ import { QuickStart, WorkoutPicker } from "@/features/home/quick-start";
 import { useScreenWakeLock } from "@/features/home/use-wake-lock";
 import { RestDial, useRestTimer } from "@/features/home/rest-timer";
 import { SessionRecap } from "@/features/home/session-recap";
-import { SessionRing } from "@/features/home/session-ring";
-import { StreakCard } from "@/features/home/streak-card";
+import { StreakCard, WeekArc } from "@/features/home/streak-card";
 import { InstallCard } from "@/features/pwa/install-card";
 import { RemindersPrompt } from "@/features/pwa/reminders-prompt";
 import {
@@ -34,7 +32,7 @@ import { summarizeSession } from "@/lib/progress-metrics";
 import { resolveDayState } from "@/lib/schedule";
 import { formatTimeOfDay } from "@/lib/session-time";
 import { elapsedSeconds, formatClock } from "@/lib/timer";
-import type { PlannedSet, ScheduledSession } from "@/lib/types";
+import type { PlannedExercise, PlannedSet, ScheduledSession } from "@/lib/types";
 import { cn, formatVolume } from "@/lib/utils";
 import {
   buildMuscleHighlightsFromWorkoutIds,
@@ -56,61 +54,58 @@ function formatDay(key: string) {
   }).format(new Date(`${key}T00:00:00Z`));
 }
 
-/** One tone per day state: orange is go, amber needs you, green is done, blue is recovery. */
-type DayTone = "default" | "accent" | "success" | "warning" | "secondary";
+/** As big as the words allow: a short name is the screen's one large thing, a long one must still fit. */
+function titleSize(title: string) {
+  const longest = Math.max(...title.split(" · ").map((part) => part.length));
+  if (longest <= 8) {
+    return "text-[84px] leading-[1.14]";
+  }
+  return longest <= 12 ? "text-[60px] leading-[1.12]" : "text-[42px] leading-[1.12]";
+}
 
 /**
- * The day plaque's top half: a state word, the session's name as big as the
- * screen allows, one line of numbers, and the ring when there is work to count.
- * The date is not here — it is in the page header, with the greeting.
+ * The top of the day, on the sky itself: the week as the horizon, a state word,
+ * the session's name as big as the screen allows, one line of numbers, and
+ * whatever the day asks of you. The date is not here — it is in the page header,
+ * with the greeting.
  */
-function DayHeader({
+function DayHero({
   tag,
-  tone,
   title,
   detail,
-  progress
+  tourId,
+  children
 }: {
   tag: string;
-  tone: DayTone;
   title: string;
   /** One line of numbers. Omit where the body below already carries them. */
   detail?: string;
-  /** Sets done out of planned. Renders the ring; omit where there is no work. */
-  progress?: { done: number; total: number };
+  tourId?: string;
+  children?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-start justify-between gap-3">
-      <div className="min-w-0">
-        <Badge variant={tone}>{tag}</Badge>
+    <div data-tour={tourId}>
+      <div className="-mx-4">
+        <WeekArc />
+      </div>
+      <div className="px-1">
+        <p className="text-[13.5px] text-muted-foreground">{tag}</p>
         {/* "Upper · Heavy" is two words with a dot between them, and at this
             size the dot lands on the line break. Each part gets its own line. */}
-        <h2 className="mt-2.5 break-words font-display text-[40px] font-extrabold leading-[0.98] tracking-[-0.025em]">
+        <h2 className={cn("break-words font-heading", titleSize(title))}>
           {title.split(" · ").map((part, index) => (
             <span key={index} className="block">
               {part}
             </span>
           ))}
         </h2>
-        {detail ? <p className="mt-2 text-sm text-muted-foreground tabular-nums">{detail}</p> : null}
+        {detail ? <p className="text-[13.5px] text-muted-foreground tabular-nums">{detail}</p> : null}
       </div>
-      {progress && progress.total > 0 ? (
-        <SessionRing
-          value={progress.done / progress.total}
-          label={`${progress.done} of ${progress.total} sets logged`}
-        >
-          <span className="font-display text-[26px] font-extrabold tracking-tight">{progress.done}</span>
-          <span className="mt-0.5 text-[11px] font-semibold text-muted-foreground">of {progress.total}</span>
-        </SessionRing>
-      ) : null}
+      {children}
     </div>
   );
 }
 
-/**
- * Mid-session the plaque collapses to a strip and sticks to the top: the ring,
- * the name, and the rest dial. Everything else on the screen is the work.
- */
 /** The session clock: "Started 6:10 PM · 0:42:10", ticking. Hidden until there is a start. */
 function SessionClock({ startedAt }: { startedAt?: string }) {
   const [now, setNow] = useState(() => Date.now());
@@ -125,12 +120,17 @@ function SessionClock({ startedAt }: { startedAt?: string }) {
     return null;
   }
   return (
-    <p className="mt-0.5 truncate text-xs text-brand tabular-nums" role="timer" aria-label="Workout time">
+    <p className="truncate text-[12.5px] text-muted-foreground tabular-nums" role="timer" aria-label="Workout time">
       Started {formatTimeOfDay(startedAt)} · {formatClock(elapsedSeconds(Date.parse(startedAt), now))}
     </p>
   );
 }
 
+/**
+ * Mid-session the top of the day collapses to a strip and sticks to the top: the
+ * name, the numbers, the rest dial and a thin line of progress. Solid, because
+ * the work scrolls under it. Everything else on the screen is the work.
+ */
 function SessionStrip({
   title,
   detail,
@@ -147,21 +147,42 @@ function SessionStrip({
   startedAt?: string;
 }) {
   return (
-    <Card className="sticky top-[calc(env(safe-area-inset-top)+var(--titlebar)+0.5rem)] z-30 grid grid-cols-[auto_1fr_auto] items-center gap-3 p-3">
-      <SessionRing value={total > 0 ? done / total : 0} size={56} stroke={8} label={`${done} of ${total} sets logged`}>
-        <span className="font-display text-[17px] font-extrabold tracking-tight">{done}</span>
-      </SessionRing>
-      <div className="min-w-0">
-        <p className="truncate font-display text-[22px] font-extrabold leading-none tracking-tight">{title}</p>
-        <p className="mt-1 truncate text-xs text-muted-foreground tabular-nums">{detail}</p>
-        <SessionClock startedAt={startedAt} />
+    <div className="plaque-solid sticky top-[calc(env(safe-area-inset-top)+var(--titlebar)+0.5rem)] z-30 overflow-hidden rounded-3xl">
+      <div className="grid grid-cols-[1fr_auto] items-center gap-x-3 px-4 py-2.5">
+        <div className="min-w-0">
+          <p className="truncate font-heading text-[24px] leading-tight">{title}</p>
+          <p className="truncate text-[12.5px] text-muted-foreground tabular-nums">{detail}</p>
+          <SessionClock startedAt={startedAt} />
+        </div>
+        {rest.endsAt !== undefined ? (
+          <RestDial endsAt={rest.endsAt} total={rest.total} onExtend={rest.extend} onSkip={rest.skip} />
+        ) : (
+          <span className="w-0" aria-hidden />
+        )}
       </div>
-      {rest.endsAt !== undefined ? (
-        <RestDial endsAt={rest.endsAt} total={rest.total} onExtend={rest.extend} onSkip={rest.skip} />
-      ) : (
-        <span className="w-0" aria-hidden />
-      )}
-    </Card>
+      <div className="h-0.5 bg-track" aria-hidden>
+        <div className="mana-fill h-full" style={{ width: `${total > 0 ? (done / total) * 100 : 0}%` }} />
+      </div>
+    </div>
+  );
+}
+
+/** The sets as the horizon, with the count under it. It scrolls away; the strip stays. */
+function SetsArc({ done, total }: { done: number; total: number }) {
+  return (
+    <div>
+      <div className="-mx-4">
+        <HorizonArc
+          litTo={total > 0 ? (done / total) * HORIZON_WIDTH : 0}
+          height={68}
+          label={`${done} of ${total} sets logged`}
+        />
+      </div>
+      <p className="-mt-5 text-center text-[13.5px] text-muted-foreground tabular-nums" aria-hidden>
+        <span className="block text-[40px] font-medium leading-none tracking-[-0.03em] text-foreground">{done}</span>
+        of {total} sets
+      </p>
+    </div>
   );
 }
 
@@ -173,13 +194,13 @@ function NextUp({ session }: { session?: ScheduledSession }) {
   return (
     <Link
       href="/plan"
-      className="flex min-h-12 items-center justify-between gap-3 rounded-lg bg-muted px-4 py-3 transition-colors hover:bg-secondary active:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="plaque flex min-h-[54px] items-center justify-between gap-3 rounded-3xl px-4 py-3 transition-colors active:bg-hi focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <span className="text-xs font-semibold text-muted-foreground">Next</span>
-      <span className="min-w-0 flex-1 truncate text-right text-sm font-semibold">
+      <span className="text-[13.5px] text-muted-foreground">Next</span>
+      <span className="min-w-0 flex-1 truncate text-right text-[15.5px] font-medium">
         {session.sessionName}
       </span>
-      <span className="text-xs font-semibold text-brand tabular-nums">{formatDay(session.date)}</span>
+      <span className="text-[13.5px] text-muted-foreground tabular-nums">{formatDay(session.date)}</span>
     </Link>
   );
 }
@@ -194,15 +215,12 @@ function LevelUpNotice({ name, weight }: { name: string; weight: number }) {
   return (
     <div
       role="status"
-      className="system-pop pointer-events-none fixed inset-x-4 bottom-[calc(env(safe-area-inset-bottom)+6.75rem)] z-40 mx-auto flex max-w-sm items-center gap-3 rounded-2xl border border-brand/40 bg-card/95 px-4 py-3 shadow-dock backdrop-blur"
+      className="plaque-solid system-pop pointer-events-none fixed inset-x-4 bottom-[calc(env(safe-area-inset-bottom)+6.75rem)] z-40 mx-auto max-w-sm rounded-2xl px-4 py-3"
     >
-      <LevelUpGem className="h-9 w-9" />
-      <div className="min-w-0">
-        <p className="font-display text-base font-extrabold leading-tight tracking-tight text-brand">Level up!</p>
-        <p className="truncate text-xs text-muted-foreground">
-          New record on <span className="capitalize">{name}</span>: {weight} kg
-        </p>
-      </div>
+      <p className="font-heading text-[22px] leading-tight">Level up!</p>
+      <p className="truncate text-[13px] text-muted-foreground">
+        New record on <span className="capitalize">{name}</span>: {weight} kg
+      </p>
     </div>
   );
 }
@@ -281,11 +299,23 @@ export function HomeDashboard() {
   const next = day.kind === "setup" ? undefined : day.next;
   const totals = sessionTotals(session, templates, bodyweightKg);
 
+  // What is on screen: anything removed waits behind the Undo bar before it is
+  // really gone, but the open panel must already have moved off it, or the
+  // exercise collapses the moment Remove is tapped.
+  const visibleSession = session
+    ? {
+        ...session,
+        exercises: session.exercises
+          .filter((exercise) => !removal.hidden.has(exercise.id))
+          .map((exercise) => ({ ...exercise, sets: exercise.sets.filter((setItem) => !removal.hidden.has(setItem.id)) }))
+      }
+    : undefined;
+
   // A picked set only survives while it still exists in today's session.
-  const pickedExists = session?.exercises.some((exercise) =>
+  const pickedExists = visibleSession?.exercises.some((exercise) =>
     exercise.sets.some((setItem) => setItem.id === pickedSetId)
   );
-  const openSetId = pickedExists ? pickedSetId : firstPendingSetId(session);
+  const openSetId = pickedExists ? pickedSetId : firstPendingSetId(visibleSession);
 
   // Mid-session the map follows the lift in front of you. Every other state
   // shows the whole session — or what is coming next on a day with nothing to do.
@@ -332,7 +362,7 @@ export function HomeDashboard() {
     // Forward from the set just logged, not back to the first gap in the
     // session — see `nextPendingSetId`. Correcting a set already logged keeps
     // the panel where it is: you tapped back to it on purpose.
-    setPickedSetId(alreadyLogged ? setId : nextPendingSetId(session, setId));
+    setPickedSetId(alreadyLogged ? setId : nextPendingSetId(visibleSession ?? session, setId));
 
     // Only a newly logged set starts the clock — and earns the click. "Update
     // set" is a correction to something already done, and restarting rest on
@@ -341,7 +371,7 @@ export function HomeDashboard() {
       logSetFeedback();
       // The notification at the end says what is next, from the same pick
       // the ledger will open.
-      rest.start(exercise?.restSeconds, nextSetSummary(session, setId));
+      rest.start(exercise?.restSeconds, nextSetSummary(visibleSession ?? session, setId));
 
       const setItem = exercise?.sets.find((item) => item.id === setId);
       if (exercise && setItem && setItem.type !== "warmup") {
@@ -355,20 +385,42 @@ export function HomeDashboard() {
     }
   };
 
-  /** Gone from today. If it was the one open, the panel moves on to what comes after it. */
-  const removeExercise = (exerciseId: string) => {
+  /**
+   * The panel stays on this exercise: the next set still to log, an earlier one
+   * if there is none after it, or the nearest set if all are logged. Only the set
+   * that is open moves it; removing another leaves you where you are.
+   */
+  const removeSet = (exercise: PlannedExercise, setId: string) => {
     if (!session) {
       return;
     }
-    const index = session.exercises.findIndex((item) => item.id === exerciseId);
-    const wasOpen = session.exercises[index]?.sets.some((item) => item.id === openSetId);
-    removeExerciseFromSession(session.id, exerciseId);
+    const sessionId = session.id;
+    if (setId === openSetId) {
+      const index = exercise.sets.findIndex((item) => item.id === setId);
+      const after = exercise.sets.slice(index + 1);
+      const before = exercise.sets.slice(0, index);
+      const next = after.find((item) => !item.completed) ?? before.find((item) => !item.completed) ?? after[0] ?? before[before.length - 1];
+      if (next) {
+        setPickedSetId(next.id);
+      }
+    }
+    removal.remove(setId, "Set removed", () => removeSetFromSession(sessionId, exercise.id, setId));
+  };
 
-    if (wasOpen) {
-      const rest = session.exercises.filter((item) => item.id !== exerciseId);
-      const order = [...rest.slice(index), ...rest.slice(0, index)];
+  /** Gone from today. If it was the one open, the panel moves on to what comes after it at once. */
+  const removeExercise = (exercise: PlannedExercise) => {
+    if (!session || !visibleSession) {
+      return;
+    }
+    const sessionId = session.id;
+    const index = visibleSession.exercises.findIndex((item) => item.id === exercise.id);
+
+    if (exercise.sets.some((item) => item.id === openSetId)) {
+      const others = visibleSession.exercises.filter((item) => item.id !== exercise.id);
+      const order = [...others.slice(index), ...others.slice(0, index)];
       setPickedSetId(order.flatMap((item) => item.sets).find((item) => !item.completed)?.id);
     }
+    removal.remove(exercise.id, `${exercise.templateName} removed from today`, () => removeExerciseFromSession(sessionId, exercise.id));
   };
 
   /** Finish on the live clock: its seconds become the set's hold. */
@@ -402,20 +454,14 @@ export function HomeDashboard() {
   if (day.kind === "setup") {
     return (
       <section className="space-y-4">
-        <Card>
-          <DayHeader
-            tag="Setup"
-            tone="warning"
-            title="Make your first workout"
-            detail="No workouts scheduled"
-          />
-          <p className="mt-4 max-w-[20rem] text-sm text-muted-foreground">
+        <DayHero tag="Setup" title="Make your first workout" detail="No workouts scheduled">
+          <p className="mt-2 max-w-[20rem] px-1 text-sm text-muted-foreground">
             Build a workout once, then schedule it on your training days.
           </p>
-          <Button asChild size="lg" className="mt-5 w-full">
+          <Button asChild size="lg" className="mt-4 w-full">
             <Link href="/plan?mode=build">Add workout</Link>
           </Button>
-        </Card>
+        </DayHero>
         {/* Above the map, below the pitch: the fastest path from install to a
             logged set, for someone who is already at the gym. */}
         <QuickStart />
@@ -437,17 +483,11 @@ export function HomeDashboard() {
 
     return (
       <section className="space-y-4">
-        <Card>
-          <DayHeader
-            tag={isRest ? "Rest" : "Open"}
-            tone={isRest ? "accent" : "secondary"}
-            title={isRest ? "Rest day" : "No workout today"}
-            detail={
-              isRest
-                ? "Your muscles recover today."
-                : "No workout is set for this day."
-            }
-          />
+        <DayHero
+          tag={isRest ? "Rest" : "Open"}
+          title={isRest ? "Rest day" : "No workout today"}
+          detail={isRest ? "Your muscles recover today." : "No workout is set for this day."}
+        >
           <div className="mt-4">
             <NextUp session={next} />
           </div>
@@ -459,7 +499,7 @@ export function HomeDashboard() {
               </Link>
             </Button>
           )}
-        </Card>
+        </DayHero>
         {/* Not on a rest day — the plan says recover, and offering a session
             there argues with it. */}
         {isRest ? null : <QuickStart />}
@@ -518,74 +558,58 @@ export function HomeDashboard() {
             rest={rest}
             startedAt={day.session.startedAt}
           />
+          <SetsArc done={totals.done} total={totals.total} />
           {/* Said once, plainly, while nothing is logged yet: the clock is on. */}
           {day.session.startedAt && totals.done === 0 ? (
-            <p className="flex items-center gap-2 rounded-xl bg-brand/10 px-4 py-2.5 text-xs ring-1 ring-brand/25">
-              <Timer className="h-4 w-4 shrink-0 text-brand" aria-hidden />
-              <span>
-                Clock started at {formatTimeOfDay(day.session.startedAt)}. Finish workout stops it.
-              </span>
+            <p className="px-1 text-center text-[13px] text-muted-foreground">
+              Clock started at {formatTimeOfDay(day.session.startedAt)}. Finish workout stops it.
             </p>
           ) : null}
           {sessionPicker}
         </>
       ) : (
-        <Card data-tour="home-today">
-          <DayHeader
-            tag={isDone ? "Cleared" : "Daily quest"}
-            tone={isDone ? "success" : "default"}
-            title={day.session.sessionName}
-            detail={
-              // Done: the recap's stat tiles say it; a line here only repeated them.
-              isDone
-                ? undefined
-                : `${exerciseCount(day.session.exercises.length)} · ${totals.total} sets · ${formatVolume(totals.planned)} kg planned`
-            }
-            // Done says its piece in the green banner below; a full ring there
-            // would only repeat it.
-            progress={isDone ? undefined : { done: totals.done, total: totals.total }}
-          />
-
+        <DayHero
+          tourId="home-today"
+          tag={isDone ? "Cleared" : "Daily quest"}
+          title={day.session.sessionName}
+          detail={
+            // Done: the recap's numbers say it; a line here only repeated them.
+            isDone
+              ? undefined
+              : `${exerciseCount(day.session.exercises.length)} · ${totals.total} sets · ${formatVolume(totals.planned)} kg planned`
+          }
+        >
           {sessionPicker}
 
           {day.kind === "ready" ? (
-            <Button size="lg" className="mt-5 w-full" onClick={() => startSession(day.session.id)}>
-              <PlayCircle className="h-5 w-5" />
+            <Button size="lg" className="mt-4 h-[58px] w-full text-base" onClick={() => startSession(day.session.id)}>
+              <Play className="h-4 w-4 fill-current" />
               Start workout
             </Button>
           ) : null}
 
           {isDone ? (
-            <>
+            <Card className="mt-4">
               <SessionRecap summary={sessionSummary} session={day.session} logs={writtenLogs} />
               {/* A guest's first finished session: the moment an account is worth it. */}
               <SignInNudge place="finish-card" />
               {/* Below the payoff, never above it. The reward comes first. */}
               <MeasurementPrompt />
-            </>
+            </Card>
           ) : null}
-        </Card>
+        </DayHero>
       )}
 
       {/* Once done, the recap above lists every set with its numbers; this
           ledger would only repeat it as pills. */}
       {day.session.exercises.length > 0 && !isDone ? (
-        <Card className="pb-2 pt-2" data-tour="home-work">
-          <div className="flex items-baseline justify-between py-2">
-            <h3 className="text-[15px] font-bold tracking-tight">
-              Today's exercises
-            </h3>
-            <p className="text-xs text-muted-foreground tabular-nums">
-              {exerciseCount(day.session.exercises.length)}
-            </p>
-          </div>
-          <div>
-            {day.session.exercises
-              .filter((exercise) => !removal.hidden.has(exercise.id))
-              .map((exercise) => (
+        <section className="space-y-2" data-tour="home-work">
+          <h3 className="px-1 text-[13.5px] font-semibold text-muted-foreground">Today's exercises</h3>
+          <div className="plaque overflow-hidden rounded-3xl">
+            {(visibleSession ?? day.session).exercises.map((exercise) => (
               <ExerciseLedger
                 key={exercise.id}
-                exercise={{ ...exercise, sets: exercise.sets.filter((setItem) => !removal.hidden.has(setItem.id)) }}
+                exercise={exercise}
                 openSetId={openSetId}
                 stampedSetId={stampedSetId}
                 interactive={isLogging}
@@ -593,16 +617,11 @@ export function HomeDashboard() {
                 onPatchSet={(setId, patch) => patchSet(exercise.id, setId, patch)}
                 onLogSet={(setId) => logSet(exercise.id, setId)}
                 onAddSet={() => addSetToSession(day.session.id, exercise.id)}
-                onRemoveSet={(setId) =>
-                  removal.remove(setId, "Set removed", () => removeSetFromSession(day.session.id, exercise.id, setId))
-                }
+                onRemoveSet={(setId) => removeSet(exercise, setId)}
                 onPick={() => setPickedSetId(exerciseEntrySetId(exercise))}
                 onRemove={
-                  day.session.exercises.length > 1
-                    ? () =>
-                        removal.remove(exercise.id, `${exercise.templateName} removed from today`, () =>
-                          removeExercise(exercise.id)
-                        )
+                  (visibleSession ?? day.session).exercises.length > 1
+                    ? () => removeExercise(exercise)
                     : undefined
                 }
                 timer={{
@@ -614,20 +633,21 @@ export function HomeDashboard() {
                 }}
               />
             ))}
-          </div>
 
           {/* The rack was taken, or you felt like one more. Without this the
               only options were skip it or leave the app. */}
           {isLogging ? (
-            <div className="mt-2 border-t border-border pt-3 pb-2">
+            <div className="border-t border-sep px-4 py-2">
               {addingExercise ? (
-                <WorkoutPicker
-                  confirmLabel="Add exercises"
-                  onConfirm={(exercises) => {
-                    addExerciseToSession(day.session.id, exercises);
-                    setAddingExercise(false);
-                  }}
-                />
+                <div className="py-1">
+                  <WorkoutPicker
+                    confirmLabel="Add exercises"
+                    onConfirm={(exercises) => {
+                      addExerciseToSession(day.session.id, exercises);
+                      setAddingExercise(false);
+                    }}
+                  />
+                </div>
               ) : (
                 <Button variant="ghost" className="w-full" onClick={() => setAddingExercise(true)}>
                   <Plus className="h-4 w-4" />
@@ -636,18 +656,16 @@ export function HomeDashboard() {
               )}
             </div>
           ) : null}
-        </Card>
+          </div>
+        </section>
       ) : null}
 
       {isLogging && totals.done < totals.total && !confirmingFinish ? (
-        <div className="flex items-start gap-2.5 rounded-xl bg-warning/10 px-4 py-3 text-sm ring-1 ring-warning/25">
-          <Info className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
-          <p className="text-muted-foreground">
-            {totals.done === 0
-              ? "No sets logged. Finishing now saves nothing."
-              : `Only your ${totals.done} of ${totals.total} logged sets get saved.`}
-          </p>
-        </div>
+        <p className="px-1 text-center text-[13px] text-muted-foreground">
+          {totals.done === 0
+            ? "No sets logged. Finishing now saves nothing."
+            : `Only your ${totals.done} of ${totals.total} logged sets get saved.`}
+        </p>
       ) : null}
 
       {isLogging ? (
@@ -662,7 +680,14 @@ export function HomeDashboard() {
             }}
           />
         ) : (
-          <Button size="lg" className="w-full" onClick={requestFinish}>
+          // Quiet while there are sets to log, so Log set stays the one main
+          // button; the main button once there is nothing left but this.
+          <Button
+            size="lg"
+            variant={totals.done === totals.total ? "default" : "secondary"}
+            className="w-full"
+            onClick={requestFinish}
+          >
             Finish workout
           </Button>
         )

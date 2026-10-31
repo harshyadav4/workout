@@ -1,15 +1,15 @@
 import { useId, type ReactNode } from "react";
 
 /**
- * Sets done, as a ring that fills: the mana ring. The track is a well, the fill
- * is the key's own gradient with a glow on it, and the number sits in the
- * middle. Rounded caps, so one set out of seventeen still reads as a mark and
- * not a sliver.
+ * A share of something, as a thin ring that fills with warm light, with the
+ * number in the middle. Rounded caps, so one set out of seventeen still reads as
+ * a mark and not a sliver.
  */
 export function SessionRing({
   value,
-  size = 92,
-  stroke = 10,
+  size = 84,
+  stroke = 3,
+  color,
   label,
   children
 }: {
@@ -17,40 +17,40 @@ export function SessionRing({
   value: number;
   size?: number;
   stroke?: number;
-  label: string;
+  /** One colour in place of the warm light. */
+  color?: string;
+  /** What a screen reader hears. Absent: decorative, the words are beside it. */
+  label?: string;
   children?: ReactNode;
 }) {
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
   const clamped = Math.max(0, Math.min(1, value));
-  // Two rings on one screen (the card and the sticky strip) need two gradients.
-  const gradientId = `mana-${useId().replace(/:/g, "")}`;
+  // Two rings on one screen need two gradients.
+  const gradientId = `light-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
 
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>
-      <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size} role="img" aria-label={label}>
+      <svg
+        viewBox={`0 0 ${size} ${size}`}
+        width={size}
+        height={size}
+        {...(label ? { role: "img", "aria-label": label } : { "aria-hidden": true })}
+      >
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
             <stop offset="0%" style={{ stopColor: "hsl(var(--key-top))" }} />
             <stop offset="100%" style={{ stopColor: "hsl(var(--key-bottom))" }} />
           </linearGradient>
         </defs>
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="hsl(var(--well))"
-          strokeWidth={stroke}
-        />
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="var(--track)" strokeWidth={stroke} />
         {clamped > 0 ? (
           <circle
             cx={size / 2}
             cy={size / 2}
             r={radius}
             fill="none"
-            stroke={`url(#${gradientId})`}
-            className="mana-glow"
+            stroke={color ?? `url(#${gradientId})`}
             strokeWidth={stroke}
             strokeLinecap="round"
             strokeDasharray={circumference}

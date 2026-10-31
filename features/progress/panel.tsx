@@ -1,21 +1,18 @@
 "use client";
 
+import { startTransition, useLayoutEffect, useRef, useState } from "react";
+
 import { InfoNote } from "@/components/ui/info-note";
 import { cn } from "@/lib/utils";
 
 /**
- * The page's second material.
+ * One chart or one list: the title outside, one soft surface under it, and
+ * nothing boxed inside that surface.
  *
- * `Card` is a plaque: lit edge, shadow, the thing that sits *on* the page. It
- * is spent on the hero and the map. Everything else is a Panel: flat, the
- * card colour, one hairline, and nothing else. Thirteen identical boxes of the
- * same weight was the reason the screen read as a list of widgets rather than
- * one instrument, and a hierarchy only exists if something is at the top of it.
- *
- * The `note` is the other half of it. Every card used to carry two lines of grey
- * prose explaining its own convention — the engagement floor, the 10–20 band,
- * why not an estimated 1RM — which is a page explaining itself instead of
- * showing you something. The prose is all still here, one tap behind the ⓘ.
+ * The `note` keeps the page from explaining itself. Every card used to carry two
+ * lines of grey prose explaining its own convention — the engagement floor, the
+ * 10–20 band, why not an estimated 1RM. The prose is all still here, one tap
+ * behind the ⓘ.
  *
  * The ⓘ itself is `InfoNote` (components/ui/info-note), shared with the
  * other pages.
@@ -25,6 +22,7 @@ export function Panel({
   caption,
   note,
   action,
+  flush,
   className,
   children
 }: {
@@ -35,51 +33,87 @@ export function Panel({
   note?: React.ReactNode;
   /** A control that belongs to this panel, shown inline with the title. */
   action?: React.ReactNode;
+  /** No padding, for rows that run to the surface's edge (`.list-row`). */
+  flush?: boolean;
   className?: string;
   children: React.ReactNode;
 }) {
-  const heading = (
-    <div className="min-w-0">
-      <h3 className="truncate text-[15px] font-bold tracking-tight">{title}</h3>
-      {caption ? (
-        <p className="mt-0.5 text-xs leading-snug text-muted-foreground">{caption}</p>
-      ) : null}
-    </div>
-  );
+  const heading = <h3 className="truncate text-[13.5px] font-semibold text-muted-foreground">{title}</h3>;
 
   return (
-    <section className={cn("rounded-xl border border-border bg-card p-3.5", className)}>
+    <section className={className}>
       {/* `action` is a sibling of the <details>, never a child of <summary>. A
           button nested inside a summary fires the toggle as well as itself, and
           the workaround is a preventDefault that quietly breaks the keyboard. */}
-      <div className="flex items-start gap-3">
+      <div className="flex min-h-[44px] items-center gap-3 px-1">
         {note ? (
           <InfoNote heading={heading} note={note} label="About this chart" />
         ) : (
-          <div className="flex min-h-[44px] min-w-0 flex-1 items-center">
-            <div className="min-w-0 flex-1">{heading}</div>
-          </div>
+          <div className="min-w-0 flex-1">{heading}</div>
         )}
         {action}
       </div>
 
-      <div className="mt-2">{children}</div>
+      <div className={cn("plaque rounded-3xl", flush ? "overflow-hidden" : "p-4")}>
+        {caption ? (
+          <p className={cn("text-[13.5px] leading-snug text-muted-foreground", flush ? "px-4 pb-1 pt-3.5" : "mb-3")}>
+            {caption}
+          </p>
+        ) : null}
+        <WhenNear>{children}</WhenNear>
+      </div>
     </section>
   );
 }
 
+/** How far ahead of the screen a panel starts drawing, so scrolling meets it finished. */
+const DRAW_AHEAD_PX = 900;
+
+/**
+ * Draws a panel's contents as it comes near the screen. An open card holds twenty-odd
+ * charts and a phone shows two at a time; drawing them all froze the tap that
+ * opened the card for a second. Only the contents wait: the titles are there from
+ * the start, so the page still reads from top to bottom.
+ */
+function WhenNear({ children }: { children: React.ReactNode }) {
+  const [near, setNear] = useState(false);
+  const anchor = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const element = anchor.current;
+    if (!element) {
+      return;
+    }
+    // On screen already: before the first paint, so nothing flashes empty.
+    if (element.getBoundingClientRect().top < window.innerHeight) {
+      setNear(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          observer.disconnect();
+          startTransition(() => setNear(true));
+        }
+      },
+      { rootMargin: `${DRAW_AHEAD_PX}px 0px` }
+    );
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  return near ? <>{children}</> : <div ref={anchor} className="min-h-[150px]" aria-hidden />;
+}
+
 /**
  * Names which slice the panels under it measure. Two zones must never blur, and
- * a rule is cheaper than repeating "in this range" in thirteen captions.
+ * a heading is cheaper than repeating "in this range" in thirteen captions.
  */
 export function SectionRule({ label, hint }: { label: string; hint?: string }) {
   return (
-    <div className="flex items-baseline gap-3 pt-4">
-      <span className="shrink-0 text-xs font-semibold text-muted-foreground">
-        {label}
-      </span>
-      {hint ? <span className="truncate text-xs text-muted-foreground">{hint}</span> : null}
-      <span className="h-px flex-1 bg-border" />
+    <div className="px-1 pt-6">
+      <h2 className="font-heading text-[28px] leading-tight">{label}</h2>
+      {hint ? <p className="text-[13.5px] text-muted-foreground">{hint}</p> : null}
     </div>
   );
 }
@@ -114,7 +148,7 @@ export function Reveal({
 
   return (
     <Panel title={title}>
-      <p className="py-2 text-xs text-muted-foreground">After {need}.</p>
+      <p className="text-[13.5px] text-muted-foreground">After {need}.</p>
     </Panel>
   );
 }

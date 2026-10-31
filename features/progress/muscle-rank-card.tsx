@@ -73,10 +73,10 @@ export function MuscleRankCard({
                       onClick={() => onSelectMuscle(muscle.muscleId)}
                       className={cn(
                         "flex min-h-[44px] w-full items-center gap-2.5 rounded-xl px-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                        selected ? "bg-brand/15" : "hover:bg-muted"
+                        selected ? "bg-hi" : "hover:bg-hi"
                       )}
                     >
-                      <span className="w-5 shrink-0 text-[10px] tabular-nums text-muted-foreground">
+                      <span className="w-5 shrink-0 text-[11.5px] tabular-nums text-muted-foreground">
                         {rank}
                       </span>
                       <span
@@ -87,7 +87,7 @@ export function MuscleRankCard({
                       >
                         {muscle.name}
                       </span>
-                      <span className="h-1.5 flex-1 rounded-full bg-muted">
+                      <span className="h-1.5 flex-1 rounded-full bg-track">
                         <span
                           className="block h-full rounded-full"
                           style={{
@@ -113,7 +113,7 @@ export function MuscleRankCard({
             <button
               type="button"
               onClick={() => setExpanded((current) => !current)}
-              className="mt-3 min-h-[44px] w-full rounded-xl bg-muted text-xs font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="mt-3 min-h-[44px] w-full rounded-full text-[13.5px] font-medium text-muted-foreground transition-colors hover:text-foreground active:bg-hi focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {expanded ? "Show top 10" : `Show all ${muscleVolume.length}`}
             </button>

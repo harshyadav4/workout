@@ -1,10 +1,9 @@
 "use client";
 
-import { AlertTriangle, Check, ClipboardCopy, ClipboardPaste, Sparkles, Upload } from "lucide-react";
+import { AlertTriangle, Check, ClipboardCopy, ClipboardPaste, Upload } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -12,8 +11,10 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DRAWER_CONTENT
+  DRAWER_CONTENT,
+  SHEET_FOOT
 } from "@/components/ui/dialog";
+import { ListSwitch, SheetRows } from "@/components/ui/list";
 import { useAuth } from "@/features/auth/use-auth";
 import { ExercisePicker } from "@/features/planner/exercise-picker";
 import { useWorkoutStore, useWorkoutStoreApi } from "@/features/workout/workout-store";
@@ -72,46 +73,6 @@ const DAY_NAMES: Record<string, string> = {
   fri: "Fri",
   sat: "Sat"
 };
-
-/**
- * A whole-row switch. Native checkboxes were 20px targets inside the sheet,
- * easy to miss on a small phone.
- */
-function Switch({
-  checked,
-  onChange,
-  label,
-  children
-}: {
-  checked: boolean;
-  onChange: (next: boolean) => void;
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-      onClick={() => onChange(!checked)}
-      className="flex min-h-12 w-full items-center justify-between gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-    >
-      <span className="min-w-0 flex-1">{children}</span>
-      <span
-        aria-hidden
-        className={cn("relative h-7 w-12 shrink-0 rounded-full transition-colors", checked ? "bg-primary" : "well")}
-      >
-        <span
-          className={cn(
-            "absolute top-1 h-5 w-5 rounded-full bg-card shadow-quiet transition-transform",
-            checked ? "translate-x-6" : "translate-x-1"
-          )}
-        />
-      </span>
-    </button>
-  );
-}
 
 /**
  * "Build with AI": copy a prompt, let an outside assistant interview you and
@@ -357,16 +318,13 @@ export function AiImportSheet({
           />
         ) : view === "start" ? (
           <>
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-brand" />
-                Build with AI
-              </DialogTitle>
+            <DialogHeader className="pr-9">
+              <DialogTitle>Build with AI</DialogTitle>
               <DialogDescription>
                 An AI chat writes your workouts and schedule, free.
               </DialogDescription>
             </DialogHeader>
-            <ol className="space-y-2.5 text-sm">
+            <ol className="space-y-2.5 text-[15px]">
               {[
                 "Copy the question.",
                 "Paste it into ChatGPT, Claude or Gemini. Answer its questions.",
@@ -374,10 +332,8 @@ export function AiImportSheet({
                 "Come back and tap Add my plan."
               ].map((step, index) => (
                 <li key={step} className="flex gap-3">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand/15 text-xs font-bold text-brand">
-                    {index + 1}
-                  </span>
-                  <span className="pt-0.5">{step}</span>
+                  <span className="w-4 shrink-0 text-muted-foreground tabular-nums">{index + 1}</span>
+                  <span>{step}</span>
                 </li>
               ))}
             </ol>
@@ -386,35 +342,34 @@ export function AiImportSheet({
               <p className="mt-3 text-sm text-danger">The exercise list did not load. Check your connection.</p>
             ) : null}
 
-            <Button size="lg" className="mt-5 h-14 w-full" disabled={library.length === 0} onClick={() => copyPrompt()}>
+            <Button size="lg" className="mt-5 w-full" disabled={library.length === 0} onClick={() => copyPrompt()}>
               {copied ? <Check className="h-5 w-5" /> : <ClipboardCopy className="h-5 w-5" />}
               {copied ? "Copied" : "Copy the question"}
             </Button>
             {copied ? (
-              <p className="mt-3 flex items-center justify-center gap-1.5 text-sm text-success" role="status">
-                <Check className="h-4 w-4" />
+              <p className="mt-3 text-center text-sm text-muted-foreground" role="status">
                 Now paste it into your AI chat
               </p>
             ) : null}
 
-            <Button variant="secondary" className="mt-4 w-full" onClick={() => setView("paste")}>
+            <Button variant="secondary" className="mt-2 w-full" onClick={() => setView("paste")}>
               Add my plan
             </Button>
           </>
         ) : view === "paste" ? (
           <>
-            <DialogHeader>
+            <DialogHeader className="pr-9">
               <DialogTitle>Add my plan</DialogTitle>
               <DialogDescription>Copy the plan from your AI chat, then paste it.</DialogDescription>
             </DialogHeader>
 
-            <Button size="lg" className="h-16 w-full" disabled={library.length === 0} onClick={() => void pasteFromClipboard()}>
+            <Button size="lg" className="w-full" disabled={library.length === 0} onClick={() => void pasteFromClipboard()}>
               <ClipboardPaste className="h-5 w-5" />
               Paste the answer
             </Button>
             <Button
               variant="secondary"
-              className="mt-2 h-12 w-full"
+              className="mt-2 w-full"
               disabled={library.length === 0}
               onClick={() => fileInput.current?.click()}
             >
@@ -430,7 +385,7 @@ export function AiImportSheet({
             />
 
             {error ? (
-              <div className="mt-4 rounded-xl bg-danger/10 p-4 ring-1 ring-danger/25" role="alert">
+              <div className="mt-4 rounded-2xl bg-danger/10 p-4" role="alert">
                 <p className="flex items-start gap-2 text-sm font-semibold">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-danger" />
                   {friendly(error).headline}
@@ -491,7 +446,7 @@ export function AiImportSheet({
           </>
         ) : view === "review" && plan ? (
           <>
-            <DialogHeader>
+            <DialogHeader className="pr-9">
               <DialogTitle>Review plan</DialogTitle>
               <DialogDescription>
                 {plan.sessions.length} workout{plan.sessions.length === 1 ? "" : "s"}
@@ -499,40 +454,34 @@ export function AiImportSheet({
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-3">
+            <div className="space-y-5">
               {plan.sessions.map((session, sessionIndex) => {
                 const clash = clashes.includes(session);
                 return (
-                  <div key={session.name} className="rounded-xl bg-muted p-3">
-                    <div className="flex items-baseline justify-between gap-2 px-1">
-                      <p className="font-display text-lg font-bold tracking-tight">{session.name}</p>
-                      <p className="text-xs text-muted-foreground">
+                  <section key={session.name}>
+                    <div className="flex items-baseline justify-between gap-2">
+                      <h3 className="font-heading text-[23px] leading-tight">{session.name}</h3>
+                      <p className="shrink-0 text-xs text-muted-foreground">
                         {session.exercises.length} exercises
                         {session.progression && session.progression !== "off" ? ` · ${session.progression}` : ""}
                       </p>
                     </div>
-                    {clash ? (
-                      <div className="mt-2 rounded-lg bg-warning/10 px-3 py-1 text-sm">
-                        <Switch
-                          label={`Replace my ${session.name}`}
-                          checked={replace.has(session.name)}
-                          onChange={(on) =>
+                    <SheetRows>
+                      {clash ? (
+                        <ListSwitch
+                          label={<>Replace my &quot;{session.name}&quot;</>}
+                          hint={replace.has(session.name) ? "The new one replaces yours." : `Off: adds "${session.name} (AI)".`}
+                          on={replace.has(session.name)}
+                          onToggle={() =>
                             setReplace((current) => {
                               const next = new Set(current);
-                              if (on) next.add(session.name);
-                              else next.delete(session.name);
+                              if (next.has(session.name)) next.delete(session.name);
+                              else next.add(session.name);
                               return next;
                             })
                           }
-                        >
-                          Replace my &quot;{session.name}&quot;{" "}
-                          <span className="block text-xs text-muted-foreground">
-                            {replace.has(session.name) ? "The new one replaces yours." : `Off: adds "${session.name} (AI)".`}
-                          </span>
-                        </Switch>
-                      </div>
-                    ) : null}
-                    <div className="mt-2 space-y-1.5">
+                        />
+                      ) : null}
                       {session.exercises.map((item, exerciseIndex) => {
                         const key = choiceKey(sessionIndex, exerciseIndex);
                         const match = matches[key];
@@ -540,37 +489,32 @@ export function AiImportSheet({
                         const decided = key in choices;
                         const status = decided ? (exercise ? "picked" : "custom") : match?.status;
                         return (
-                          <div key={key} className="rounded-lg bg-card p-2">
+                          <div key={key} className="list-row py-2.5 pl-4 pr-3.5">
                             <div className="flex items-center gap-3">
-                              <div className="well h-12 w-12 shrink-0 overflow-hidden rounded-lg">
+                              <div className="well h-11 w-11 shrink-0 overflow-hidden rounded-xl">
                                 {exercise ? (
                                   <img src={exerciseImageUrl(exercise)} alt="" className="h-full w-full object-cover" loading="lazy" />
                                 ) : null}
                               </div>
                               <div className="min-w-0 flex-1">
-                                <p className="truncate text-sm font-semibold capitalize">
+                                <p className="truncate text-[15px] font-medium capitalize">
                                   {exercise ? exercise.name : item.name}
                                 </p>
-                                <p className="truncate text-xs text-muted-foreground tabular-nums">
+                                <p className="truncate text-[13px] text-muted-foreground tabular-nums">
                                   {item.sets} × {item.seconds ? `${item.seconds}s` : item.reps}
                                   {item.weightKg ? ` · ${item.weightKg} kg` : ""}
                                   {exercise && normalize(exercise.name) !== normalize(item.name) ? ` · AI name: "${item.name}"` : ""}
                                 </p>
                               </div>
-                              <Badge
-                                variant={
-                                  status === "exact" || status === "picked"
-                                    ? "success"
-                                    : status === "close"
-                                      ? "default"
-                                      : status === "check"
-                                        ? "warning"
-                                        : "secondary"
-                                }
-                              >
-                                {status === "exact"
-                                  ? "Matched"
-                                  : status === "picked"
+                              {/* A match says nothing: only what differs from it gets a word. */}
+                              {status === "exact" ? null : (
+                                <span
+                                  className={cn(
+                                    "shrink-0 text-[13px] font-medium",
+                                    status === "check" ? "text-warning" : "text-muted-foreground"
+                                  )}
+                                >
+                                  {status === "picked"
                                     ? "Picked"
                                     : status === "close"
                                       ? "Close"
@@ -579,7 +523,8 @@ export function AiImportSheet({
                                         : item.gifUrl
                                           ? "Custom + GIF"
                                           : "Custom"}
-                              </Badge>
+                                </span>
+                              )}
                             </div>
                             {!decided && (match?.status === "check" || match?.status === "close" || match?.status === "none") ? (
                               <div className="mt-2 flex flex-wrap gap-1.5">
@@ -590,7 +535,7 @@ export function AiImportSheet({
                                       key={candidate.id}
                                       type="button"
                                       onClick={() => setChoices((current) => ({ ...current, [key]: { exercise: candidate } }))}
-                                      className="key-quiet h-9 max-w-full truncate rounded-full px-3 text-xs font-semibold capitalize"
+                                      className="key-quiet h-11 max-w-full truncate rounded-full px-3 text-xs font-semibold capitalize"
                                     >
                                       {candidate.name}
                                     </button>
@@ -598,14 +543,14 @@ export function AiImportSheet({
                                 <button
                                   type="button"
                                   onClick={() => setPicking(key)}
-                                  className="key-quiet h-9 rounded-full px-3 text-xs font-semibold"
+                                  className="key-quiet h-11 rounded-full px-3 text-xs font-semibold"
                                 >
                                   Library…
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => setChoices((current) => ({ ...current, [key]: {} }))}
-                                  className="h-9 rounded-full px-3 text-xs font-semibold text-muted-foreground"
+                                  className="h-11 rounded-full px-3 text-xs font-semibold text-muted-foreground"
                                 >
                                   Keep custom
                                 </button>
@@ -614,28 +559,24 @@ export function AiImportSheet({
                           </div>
                         );
                       })}
-                    </div>
-                  </div>
+                    </SheetRows>
+                  </section>
                 );
               })}
 
               {plan.schedule ? (
-                <div className="rounded-xl bg-muted p-3">
-                  <div className="px-1">
-                    <Switch
-                      label="Fill my calendar with this schedule"
-                      checked={applySchedule}
-                      onChange={setApplySchedule}
-                    >
-                      <span className="block font-display text-lg font-bold tracking-tight">Schedule</span>
-                      <span className="block text-xs text-muted-foreground">
-                        {applySchedule ? "Fills your calendar" : "Off: workouts only"} ·{" "}
-                        {plan.schedule.startDate ? formatDayKey(plan.schedule.startDate) : "from today"} to{" "}
-                        {plan.schedule.endDate ? formatDayKey(plan.schedule.endDate) : "8 weeks later"}
-                      </span>
-                    </Switch>
-                  </div>
-                  <div className={cn("mt-2 grid grid-cols-7 gap-1 transition-opacity", applySchedule ? "" : "opacity-40")}>
+                <section>
+                  <SheetRows>
+                    <ListSwitch
+                      label="Fill my calendar"
+                      hint={`${applySchedule ? "On" : "Off: workouts only"} · ${
+                        plan.schedule.startDate ? formatDayKey(plan.schedule.startDate) : "from today"
+                      } to ${plan.schedule.endDate ? formatDayKey(plan.schedule.endDate) : "8 weeks later"}`}
+                      on={applySchedule}
+                      onToggle={() => setApplySchedule(!applySchedule)}
+                    />
+                  </SheetRows>
+                  <div className={cn("mt-1 grid grid-cols-7 gap-1 transition-opacity", applySchedule ? "" : "opacity-40")}>
                     {WEEKDAYS.slice(1)
                       .concat(WEEKDAYS[0])
                       .map((day) => {
@@ -644,15 +585,14 @@ export function AiImportSheet({
                             ? undefined
                             : plan.schedule?.days?.[day] ?? (plan.schedule?.restDays?.includes(day) ? "rest" : undefined);
                         return (
-                          <div
-                            key={day}
-                            className={cn(
-                              "flex min-h-14 flex-col items-center justify-center gap-0.5 rounded-lg px-0.5 text-center",
-                              value && value !== "rest" ? "bg-brand/12" : "well"
-                            )}
-                          >
-                            <span className="text-[10px] font-semibold text-muted-foreground">{DAY_NAMES[day]}</span>
-                            <span className="line-clamp-2 text-[10px] font-semibold leading-tight">
+                          <div key={day} className="flex min-h-12 flex-col items-center gap-0.5 text-center">
+                            <span className="text-[11px] font-medium text-muted-foreground">{DAY_NAMES[day]}</span>
+                            <span
+                              className={cn(
+                                "line-clamp-2 text-[11px] font-semibold leading-tight",
+                                !value || value === "rest" ? "text-muted-foreground" : ""
+                              )}
+                            >
                               {value === "rest" ? "Rest" : value ?? (plan.schedule?.mode === "rotation" ? "" : "—")}
                             </span>
                           </div>
@@ -660,18 +600,18 @@ export function AiImportSheet({
                       })}
                   </div>
                   {plan.schedule.mode === "rotation" ? (
-                    <p className="mt-2 px-1 text-xs text-muted-foreground">
+                    <p className="mt-2 text-xs text-muted-foreground">
                       Rotation: {(plan.schedule.rotation ?? []).join(" → ")}
                     </p>
                   ) : null}
-                  <p className="mt-2 px-1 text-xs text-muted-foreground">
+                  <p className="mt-2 text-xs text-muted-foreground">
                     Replaces planned days only. Done workouts and logs stay.
                   </p>
-                </div>
+                </section>
               ) : null}
             </div>
 
-            <div className="sticky bottom-0 mt-4 flex gap-2 border-t border-border bg-card pt-3">
+            <div className={cn(SHEET_FOOT, "mt-4 flex gap-2")}>
               <Button variant="secondary" className="flex-1" onClick={() => setView("paste")}>
                 Back
               </Button>
@@ -682,16 +622,16 @@ export function AiImportSheet({
           </>
         ) : view === "done" ? (
           <>
-            <DialogHeader>
+            <DialogHeader className="pr-9">
               <DialogTitle className="flex items-center gap-2">
-                <Check className="h-5 w-5 text-success" strokeWidth={3} />
+                <Check className="h-5 w-5 text-[var(--l2)]" strokeWidth={2.6} aria-hidden />
                 Plan imported
               </DialogTitle>
               <DialogDescription>{summary}</DialogDescription>
             </DialogHeader>
             {media.guest ? (
               <p className="text-sm text-muted-foreground" role="status">
-                <Link href="/login" className="font-semibold text-brand underline-offset-2 hover:underline">
+                <Link href="/login" className="font-semibold text-foreground underline underline-offset-2">
                   Sign in
                 </Link>{" "}
                 and import again to save {media.total} demo GIF{media.total === 1 ? "" : "s"}.

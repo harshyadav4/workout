@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { CHART, EmptyChart, GROUP_COLORS, formatSigned, useSection } from "@/features/progress/chart-theme";
+import { CHART, EmptyChart, formatSigned, useSection } from "@/features/progress/chart-theme";
 import { Panel } from "@/features/progress/panel";
 import { TopSetChart } from "@/features/progress/strength-cards";
 import { MAX_ELIGIBLE_REPS } from "@/lib/one-rep-max";
@@ -24,7 +24,7 @@ import {
 } from "@/lib/strength-science";
 import { cn } from "@/lib/utils";
 
-/** The Strength group of the Science tab. */
+/** The Strength group of the Progress science cards. */
 
 // -- allometric ----------------------------------------------------------------
 
@@ -60,7 +60,7 @@ export function AllometricCard({ rows, bodyweightKg }: { rows: AllometricRow[]; 
                   </span>
                 </span>
               </div>
-              <div className="relative mt-1.5 h-2 rounded-full bg-muted">
+              <div className="relative mt-1.5 h-2 rounded-full bg-track">
                 <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${(row.score / max) * 100}%`, backgroundColor: row.lift ? accent : CHART.quiet }} aria-hidden />
               </div>
             </li>
@@ -97,7 +97,7 @@ export function StandardsCard({ rows, hasSex, bodyweightKg }: { rows: StandardRo
       ) : rows.length === 0 ? (
         <EmptyChart>Log a squat, bench press, deadlift or overhead press with weight.</EmptyChart>
       ) : (
-        <ul className="divide-y divide-border">
+        <ul className="rows">
           {rows.map((row) => (
             <li key={row.lift} className="py-2">
               <div className="flex items-baseline justify-between gap-3">
@@ -116,7 +116,7 @@ export function StandardsCard({ rows, hasSex, bodyweightKg }: { rows: StandardRo
               </div>
               <div className="mt-1.5 grid grid-cols-5 gap-1" aria-hidden>
                 {[0, 1, 2, 3, 4].map((step) => (
-                  <span key={step} className="h-1.5 rounded-full" style={{ backgroundColor: step <= LEVEL_STEP[row.level] ? heat[Math.min(3, Math.max(0, step - 1))] : "hsl(var(--muted))" }} />
+                  <span key={step} className="h-1.5 rounded-full" style={{ backgroundColor: step <= LEVEL_STEP[row.level] ? heat[Math.min(3, Math.max(0, step - 1))] : "var(--track)" }} />
                 ))}
               </div>
             </li>
@@ -151,7 +151,7 @@ export function DotsCard({ score, hasSex }: { score?: Dots; hasSex: boolean }) {
       ) : (
         <>
           <div className="flex items-baseline gap-2">
-            <span className="font-display text-4xl font-bold tracking-tight tabular-nums">{Math.round(score.score)}</span>
+            <span className="plot-n">{Math.round(score.score)}</span>
             <span className="text-sm text-muted-foreground">
               {mark ? mark.label : "building"}
               {nextMark ? ` · ${nextMark.label} at ${nextMark.score}` : ""}
@@ -211,7 +211,7 @@ export function E1rmTrendCard({ lifts, today }: { lifts: TrendLift[]; today: str
                 <button
                   type="button"
                   onClick={() => setOpenId(open ? undefined : workoutId)}
-                  className={cn("flex min-h-[44px] w-full items-baseline justify-between gap-3 rounded-lg px-2 text-left", open && "bg-muted")}
+                  className="flex min-h-[44px] w-full items-baseline justify-between gap-3 text-left"
                 >
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm">{name}</span>
@@ -228,7 +228,7 @@ export function E1rmTrendCard({ lifts, today }: { lifts: TrendLift[]; today: str
                     <TopSetChart points={trend.points.map((point) => ({ date: point.date, weight: point.value }))} />
                     <ul className="mt-2 flex flex-wrap gap-1.5">
                       {targets.map((target) => (
-                        <li key={target.kg} className="rounded-full bg-muted px-2.5 py-1 text-xs tabular-nums">
+                        <li key={target.kg} className="rounded-full bg-hi px-2.5 py-1 text-xs tabular-nums">
                           {target.kg} kg · {target.date ? formatDayKey(target.date) : "not on this line"}
                         </li>
                       ))}
@@ -316,10 +316,7 @@ export function RepZonesCard({ rows }: { rows: RepZoneRow[] }) {
             {rows.map((row) => (
               <li key={row.group}>
                 <div className="flex items-baseline justify-between gap-3">
-                  <span className="flex items-center gap-2 text-sm">
-                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: GROUP_COLORS[row.group] }} aria-hidden />
-                    {row.label}
-                  </span>
+                  <span className="text-sm">{row.label}</span>
                   <span className="text-xs tabular-nums text-muted-foreground">
                     {row.low} · {row.mid} · {row.high}
                   </span>

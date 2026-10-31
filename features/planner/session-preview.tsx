@@ -1,23 +1,17 @@
 "use client";
 
-import { useMemo } from "react";
+import { Fragment, useMemo, type ReactNode } from "react";
 
 import { ExerciseDemoButton } from "@/features/workout/exercise-media-dialog";
 import { useDetailedTiming } from "@/features/workout/use-detailed-timing";
 import { useDistanceUnit } from "@/features/workout/use-distance-unit";
 import { useWorkoutStore } from "@/features/workout/workout-store";
 import { type DistanceUnit, formatDistance, formatPace } from "@/lib/cardio";
+import { formatDayKey } from "@/lib/progress-metrics";
 import { formatDuration, formatTimeOfDay, secondsBetween, sessionBreakdown } from "@/lib/session-time";
 import { formatClock } from "@/lib/timer";
 import type { PlannedExercise, PlannedSet, ScheduledSession } from "@/lib/types";
 import { lastPerformance } from "@/lib/workout-helpers";
-
-// Date keys are plain YYYY-MM-DD days: format in UTC so the day never shifts.
-function shortDate(key: string) {
-  return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }).format(
-    new Date(`${key}T00:00:00Z`)
-  );
-}
 
 /** "30 kg × 5", "12 reps", "45 s" — one set in the units it is done in. */
 function setLabel(setItem: PlannedSet, exercise: PlannedExercise, unit: DistanceUnit) {
@@ -34,14 +28,49 @@ function setLabel(setItem: PlannedSet, exercise: PlannedExercise, unit: Distance
 }
 
 /**
- * What a scheduled day asks of you, so you can get ready for it: each
- * exercise, every set exactly as the day will open it — which, with no
- * progression rule, is set for set what you did last time (carriedSets) — and
- * when that was. A summary ("4 sets · 30–32.5 kg") hid the very numbers you
- * prepare for. "Last done" counts only days before this one, so a past day
- * shows what you were working from then.
+ * Every number the sets ask for, on one line: "3 × 10 · 45 kg" when the sets are
+ * alike, "90 kg × 7, 7, 6" when only the reps move, each set in turn otherwise. A
+ * range ("30–32.5 kg") would hide the very numbers you prepare for.
  */
-export function SessionPreview({ session }: { session: ScheduledSession }) {
+function setsLine(sets: PlannedSet[], exercise: PlannedExercise, unit: DistanceUnit): ReactNode {
+  const [first] = sets;
+  const alike = sets.every(
+    (item) =>
+      item.weight === first.weight &&
+      item.reps === first.reps &&
+      item.durationSeconds === first.durationSeconds &&
+      item.distanceKm === first.distanceKm
+  );
+  if (!alike && !exercise.metric?.match(/time|distance/) && sets.every((item) => item.weight === first.weight)) {
+    const reps = sets.map((item) => item.reps).join(", ");
+    return first.weight > 0 ? `${first.weight} kg × ${reps}` : `${reps} reps`;
+  }
+  if (!alike) {
+    return sets.map((item, index) => (
+      <Fragment key={item.id}>
+        {index > 0 ? " · " : ""}
+        <span className="whitespace-nowrap">{setLabel(item, exercise, unit)}</span>
+      </Fragment>
+    ));
+  }
+  const load = first.weight > 0 ? ` · ${first.weight} kg` : "";
+  if (exercise.metric === "distance") {
+    return `${sets.length} × ${setLabel(first, exercise, unit)}`;
+  }
+  return exercise.metric === "time"
+    ? `${sets.length} × ${first.durationSeconds ?? 0} s${load}`
+    : `${sets.length} × ${first.reps}${load}`;
+}
+
+/**
+ * What a scheduled day asks of you, so you can get ready for it: its name, then
+ * each exercise as the day will open it — which, with no progression rule, is
+ * what you did last time (carriedSets) — and when that was. "Last done" counts
+ * only days before this one, so a past day shows what you were working from then.
+ *
+ * Rows in the day's one surface, with nothing boxed inside them.
+ */
+export function SessionPreview({ session, action }: { session: ScheduledSession; action?: ReactNode }) {
   const logs = useWorkoutStore((state) => state.logs);
   const setLogs = useWorkoutStore((state) => state.setLogs);
   const unit = useDistanceUnit();
@@ -62,66 +91,67 @@ export function SessionPreview({ session }: { session: ScheduledSession }) {
     }));
   }, [logs, setLogs, session]);
 
-  if (rows.length === 0) {
-    return null;
-  }
-
   const setCount = session.exercises.reduce(
     (sum, exercise) => sum + exercise.sets.filter((setItem) => setItem.type !== "warmup").length,
     0
   );
 
   return (
-    <div className="mt-1 pb-1 pl-[18px] pr-2">
-      <p className="text-xs text-muted-foreground tabular-nums">
-        {rows.length} {rows.length === 1 ? "exercise" : "exercises"} · {setCount} sets
-      </p>
-      {session.startedAt && session.finishedAt ? (
-        <p className="mt-0.5 text-xs font-semibold text-brand tabular-nums">
-          Started {formatTimeOfDay(session.startedAt)} · Finished {formatTimeOfDay(session.finishedAt)} ·{" "}
-          {formatDuration(secondsBetween(session.startedAt, session.finishedAt))}
-        </p>
-      ) : null}
-      <ul className="mt-2 divide-y divide-border/60">
-        {rows.map(({ exercise, lastDate }) => {
-          const working = exercise.sets.filter((setItem) => setItem.type !== "warmup");
-          return (
-            <li key={exercise.id} className="py-2">
-              <div className="flex items-center gap-2">
-                <div className="flex min-w-0 flex-1 items-center">
-                  <p className="min-w-0 truncate text-sm font-semibold">{exercise.templateName}</p>
-                  <ExerciseDemoButton workoutId={exercise.workoutId} name={exercise.templateName} />
-                </div>
-                <p className="shrink-0 text-right text-[11px] text-muted-foreground tabular-nums">
-                  {lastDate ? `Last done ${shortDate(lastDate)}` : "First time"}
-                  {breakdown?.get(exercise.id)?.seconds ? (
-                    <span className="block text-brand">{formatDuration(breakdown.get(exercise.id)!.seconds)}</span>
-                  ) : null}
-                </p>
-              </div>
-              <ol className="mt-1.5 space-y-1">
-                {working.map((setItem, index) => (
-                  <li
-                    key={setItem.id}
-                    className="well grid grid-cols-[1.5rem_1fr] items-center rounded-md px-2 py-1 text-xs tabular-nums"
-                  >
-                    <span className="font-bold text-muted-foreground">{index + 1}</span>
-                    <span className="font-semibold">
-                      {setLabel(setItem, exercise, unit)}
-                      {breakdown && setItem.completedAt ? (
-                        <span className="ml-2 font-normal text-muted-foreground">
+    <>
+      <div className="list-row flex items-start gap-3 py-3.5 pl-4 pr-3.5">
+        <div className="min-w-0 flex-1">
+          <h3 className="break-words font-heading text-[28px] leading-[1.12]">
+            {session.sessionName}
+          </h3>
+          {rows.length > 0 ? (
+            <p className="mt-1 text-[13.5px] text-muted-foreground tabular-nums">
+              {rows.length} {rows.length === 1 ? "exercise" : "exercises"} · {setCount} {setCount === 1 ? "set" : "sets"}
+            </p>
+          ) : null}
+          {session.startedAt && session.finishedAt ? (
+            <p className="mt-0.5 text-[13.5px] text-muted-foreground tabular-nums">
+              {formatTimeOfDay(session.startedAt)} to {formatTimeOfDay(session.finishedAt)} ·{" "}
+              {formatDuration(secondsBetween(session.startedAt, session.finishedAt))}
+            </p>
+          ) : null}
+        </div>
+        {action ? <div className="shrink-0">{action}</div> : null}
+      </div>
+      {rows.map(({ exercise, lastDate }) => {
+        const working = exercise.sets.filter((setItem) => setItem.type !== "warmup");
+        const timing = breakdown?.get(exercise.id);
+        // With detailed timing on, a logged set has a clock time, so it needs its own line.
+        const timed = Boolean(breakdown) && working.some((setItem) => setItem.completedAt);
+        return (
+          <div key={exercise.id} className="list-row flex items-start gap-1 py-2.5 pl-4 pr-1.5">
+            <div className="min-w-0 flex-1">
+              <p className="text-[15.5px] font-medium capitalize">{exercise.templateName}</p>
+              <p className="mt-px text-[13px] text-muted-foreground tabular-nums">
+                {!timed && working.length > 0 ? <>{setsLine(working, exercise, unit)} · </> : null}
+                <span className="whitespace-nowrap">{lastDate ? `last done ${formatDayKey(lastDate)}` : "first time"}</span>
+                {timing?.seconds ? ` · ${formatDuration(timing.seconds)}` : null}
+              </p>
+              {timed ? (
+                <ol className="mt-1.5 space-y-0.5 text-[13px] tabular-nums">
+                  {working.map((setItem, index) => (
+                    <li key={setItem.id} className="flex gap-2">
+                      <span className="w-4 shrink-0 text-muted-foreground">{index + 1}</span>
+                      <span className="min-w-0">{setLabel(setItem, exercise, unit)}</span>
+                      {setItem.completedAt ? (
+                        <span className="ml-auto shrink-0 pr-2 text-muted-foreground">
                           {formatTimeOfDay(setItem.completedAt)} · +
-                          {formatClock(breakdown.get(exercise.id)?.sets.find((item) => item.setId === setItem.id)?.gap ?? 0)}
+                          {formatClock(timing?.sets.find((item) => item.setId === setItem.id)?.gap ?? 0)}
                         </span>
                       ) : null}
-                    </span>
-                  </li>
-                ))}
-              </ol>
-            </li>
-          );
-        })}
-      </ul>
-    </div>
+                    </li>
+                  ))}
+                </ol>
+              ) : null}
+            </div>
+            <ExerciseDemoButton workoutId={exercise.workoutId} name={exercise.templateName} />
+          </div>
+        );
+      })}
+    </>
   );
 }

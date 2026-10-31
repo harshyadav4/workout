@@ -416,7 +416,7 @@ async function writeTable<T extends Identified>(
  * `started_at` / `finished_at` are 0007 too: sessions sync, untimed, without them.
  * `deletion_requested_at` is 0008: the profile syncs without it, and the
  * pending deletion stays on the device until it runs.
- * `rir`, `birth_year` and `sex` are 0013 (the Science tab's inputs): sets sync
+ * `rir`, `birth_year` and `sex` are 0013 (the science cards' inputs): sets sync
  * without their reps-in-reserve and the profile without age and sex until it
  * runs. A `neck` reading is not covered — the metric check constraint rejects
  * it with 23514, which is not a missing column — so 0013 ships before the

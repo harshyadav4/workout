@@ -4,23 +4,27 @@ import { BookOpen, X } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { SHEET_FOOT } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { ListRow, SheetRows } from "@/components/ui/list";
 import { NumberInput } from "@/components/ui/number-input";
 import { ThemedSelect } from "@/components/ui/select";
 import { FoodPicker } from "@/features/diet/food-picker";
 import type { Meal, MealIngredient } from "@/lib/diet-types";
 import { ingredientFromFood, rescaleIngredient, totalsFromIngredients } from "@/lib/foods";
+import { cn } from "@/lib/utils";
 
 export type MealDraft = Omit<Meal, "id">;
 
 export const EMPTY_MEAL: MealDraft = { name: "", kcal: 0, proteinG: 0, carbsG: 0, fatG: 0, costInr: 0 };
 
-const NUMBER_FIELDS: { key: "kcal" | "proteinG" | "carbsG" | "fatG" | "costInr"; label: string }[] = [
-  { key: "kcal", label: "Calories (kcal)" },
-  { key: "proteinG", label: "Protein (g)" },
-  { key: "carbsG", label: "Carbs (g)" },
-  { key: "fatG", label: "Fat (g)" },
-  { key: "costInr", label: "Cost (₹)" }
+/** Calories and cost, then the three macros under them, filling both rows. */
+const NUMBER_FIELDS: { key: "kcal" | "proteinG" | "carbsG" | "fatG" | "costInr"; label: string; span: string }[] = [
+  { key: "kcal", label: "Calories (kcal)", span: "col-span-3" },
+  { key: "costInr", label: "Cost (₹)", span: "col-span-3" },
+  { key: "proteinG", label: "Protein (g)", span: "col-span-2" },
+  { key: "carbsG", label: "Carbs (g)", span: "col-span-2" },
+  { key: "fatG", label: "Fat (g)", span: "col-span-2" }
 ];
 
 /** Fields are typed as text and can pass through odd values: nothing negative or broken is saved. */
@@ -40,6 +44,8 @@ export function MealForm({
   submitLabel,
   onSubmit,
   onLibraryChange,
+  onDelete,
+  deleteLabel,
   children
 }: {
   initial?: MealDraft;
@@ -50,6 +56,9 @@ export function MealForm({
   onSubmit: (draft: MealDraft) => string | undefined;
   /** So the dialog can hide its own ✕ while the library's Back is showing. */
   onLibraryChange?: (open: boolean) => void;
+  /** The rare one: the last thing in the sheet, and it can be undone. */
+  onDelete?: () => void;
+  deleteLabel?: string;
   /** Extra fields, such as the time on Today. */
   children?: React.ReactNode;
 }) {
@@ -110,63 +119,58 @@ export function MealForm({
     );
   };
 
+  const foods = draft.ingredients ?? [];
+
   return (
     <div className="space-y-4">
-      <div className="space-y-2">
-        <Button variant="secondary" className="w-full" onClick={() => showLibrary(true)}>
-          <BookOpen className="h-4 w-4" />
-          Add a food from the library
-        </Button>
-        {draft.ingredients && draft.ingredients.length > 0 ? (
-          <ul className="space-y-1.5">
-            {draft.ingredients.map((item, index) => (
-              <li key={`${item.foodId}-${index}`} className="flex items-center gap-2 rounded-lg bg-muted py-1.5 pl-3 pr-1">
-                <span className="min-w-0 flex-1 text-sm">{item.name}</span>
-                <NumberInput
-                  aria-label={`Grams of ${item.name}`}
-                  className="h-10 w-20 shrink-0"
-                  min={1}
-                  value={item.grams}
-                  onValueChange={(grams) => {
-                    const list = draft.ingredients ?? [];
-                    setFoods(list.map((other, position) => (position === index ? rescaleIngredient(other, grams) : other)));
-                  }}
-                />
-                <span className="shrink-0 text-xs text-muted-foreground">g</span>
-                <button
-                  type="button"
-                  aria-label={`Remove ${item.name}`}
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted-foreground active:bg-secondary"
-                  onClick={() => setFoods((draft.ingredients ?? []).filter((_, position) => position !== index))}
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-xs text-muted-foreground">Foods also give you micronutrients. A meal you only type counts as unknown for those.</p>
-        )}
-        {savedMeals && savedMeals.length > 0 ? (
-          <ThemedSelect
-            aria-label="Use a saved meal"
-            value=""
-            onValueChange={(id) => {
-              const meal = savedMeals.find((item) => item.id === id);
-              if (meal) {
-                const { id: _id, ...rest } = meal;
-                setDraft(rest);
-                setRevision((value) => value + 1);
-                setError(undefined);
-              }
-            }}
-            options={[
-              { value: "", label: "Or use a saved meal" },
-              ...savedMeals.map((meal) => ({ value: meal.id, label: meal.name }))
-            ]}
-          />
-        ) : null}
-      </div>
+      {savedMeals && savedMeals.length > 0 ? (
+        <ThemedSelect
+          aria-label="Use a saved meal"
+          value=""
+          onValueChange={(id) => {
+            const meal = savedMeals.find((item) => item.id === id);
+            if (meal) {
+              const { id: _id, ...rest } = meal;
+              setDraft(rest);
+              setRevision((value) => value + 1);
+              setError(undefined);
+            }
+          }}
+          options={[
+            { value: "", label: "Use a saved meal" },
+            ...savedMeals.map((meal) => ({ value: meal.id, label: meal.name }))
+          ]}
+        />
+      ) : null}
+      <SheetRows>
+        {foods.map((item, index) => (
+          <div key={`${item.foodId}-${index}`} className="list-row flex min-h-[54px] items-center gap-2 py-1.5 pl-4 pr-1.5">
+            <span className="min-w-0 flex-1 text-[15px]">{item.name}</span>
+            <NumberInput
+              aria-label={`Grams of ${item.name}`}
+              className="h-10 w-[72px] shrink-0 px-3"
+              min={1}
+              value={item.grams}
+              onValueChange={(grams) => setFoods(foods.map((other, position) => (position === index ? rescaleIngredient(other, grams) : other)))}
+            />
+            <span className="shrink-0 text-[13px] text-muted-foreground">g</span>
+            <button
+              type="button"
+              aria-label={`Remove ${item.name}`}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors active:bg-hi"
+              onClick={() => setFoods(foods.filter((_, position) => position !== index))}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        ))}
+        <ListRow
+          icon={BookOpen}
+          label="Add a food from the library"
+          hint={foods.length > 0 ? undefined : "Foods also bring micronutrients. A meal you only type counts as unknown for those."}
+          onClick={() => showLibrary(true)}
+        />
+      </SheetRows>
       <label className="block text-xs font-medium text-muted-foreground">
         Name
         <Input
@@ -179,9 +183,9 @@ export function MealForm({
         {error ? <span className="mt-1 block text-sm text-danger">{error}</span> : null}
       </label>
       {children}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-6 gap-3">
         {NUMBER_FIELDS.map((field) => (
-          <label key={field.key} className="block text-xs font-medium text-muted-foreground">
+          <label key={field.key} className={cn("block text-xs font-medium text-muted-foreground", field.span)}>
             {field.label}
             <NumberInput
               // Remounts when the library fills the form, so the new number shows.
@@ -194,9 +198,21 @@ export function MealForm({
           </label>
         ))}
       </div>
-      <Button className="w-full" onClick={save}>
-        {submitLabel}
-      </Button>
+      {onDelete ? (
+        <button
+          type="button"
+          className="h-11 w-full rounded-full text-sm font-medium text-muted-foreground transition-colors active:bg-hi"
+          onClick={onDelete}
+        >
+          {deleteLabel}
+        </button>
+      ) : null}
+      {/* Sticky: a meal of several foods puts the save a long scroll away. */}
+      <div className={SHEET_FOOT}>
+        <Button className="w-full" onClick={save}>
+          {submitLabel}
+        </Button>
+      </div>
     </div>
   );
 }

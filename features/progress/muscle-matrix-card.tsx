@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { REST_CELL, useSection } from "@/features/progress/chart-theme";
+import { REST_CELL, useSection, scrollToNewest } from "@/features/progress/chart-theme";
 import { Panel } from "@/features/progress/panel";
 import { formatColumnKey, type MuscleMatrix } from "@/lib/progress-trends";
 import type { MuscleId } from "@/lib/types";
@@ -61,7 +61,7 @@ export function MuscleMatrixCard({
         </>
       }
     >
-      <div className="-mx-1 overflow-x-auto px-1 [mask-image:linear-gradient(to_right,black_calc(100%-14px),transparent)]">
+      <div key={matrix.columns.length} ref={scrollToNewest} className="-mx-1 overflow-x-auto pl-1 pr-4 [mask-image:linear-gradient(to_right,black_calc(100%-14px),transparent)]">
         <div className="w-max">
           <div className="mb-1 flex gap-[3px]">
             {/* A spacer, not padding: the label column sits inside the same
@@ -91,7 +91,7 @@ export function MuscleMatrixCard({
                 onClick={() => onSelectMuscle(row.muscleId)}
                 className={cn(
                   "flex w-full min-h-[26px] items-center gap-[3px] rounded-md pr-1 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  selected ? "bg-brand/15" : "hover:bg-muted"
+                  selected ? "bg-hi" : "hover:bg-hi"
                 )}
               >
                 <span
@@ -126,7 +126,7 @@ export function MuscleMatrixCard({
         <button
           type="button"
           onClick={() => setExpanded((current) => !current)}
-          className="mt-2 min-h-[44px] w-full rounded-xl bg-muted text-xs font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="mt-2 min-h-[44px] w-full rounded-full text-[13.5px] font-medium text-muted-foreground transition-colors hover:text-foreground active:bg-hi focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {expanded
             ? `Show top ${PAGE}`

@@ -51,14 +51,14 @@ export function Bullet({
       </div>
 
       <div
-        className="relative mt-1.5 h-2.5 rounded-full bg-muted"
+        className="relative mt-1.5 h-2 rounded-full bg-[var(--chart-rest)]"
         role="img"
         aria-label={`${label}: ${value.toFixed(1)}${unit}, ${state} (goal ${band.low} to ${band.high})`}
       >
         {/* The target range sits behind the measure, the way a bullet chart's
             qualitative band does — context first, value on top of it. */}
         <span
-          className="absolute inset-y-0 rounded-full bg-muted"
+          className="absolute inset-y-0 rounded-full bg-track"
           style={{ left: pct(band.low), width: pct(band.high - band.low) }}
           aria-hidden
         />

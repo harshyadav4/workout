@@ -45,7 +45,7 @@ export const SelectContent = React.forwardRef<
       position={position}
       sideOffset={sideOffset}
       className={cn(
-        "plaque z-[60] overflow-hidden rounded-xl text-card-foreground",
+        "plaque-solid z-[60] overflow-hidden rounded-xl text-card-foreground",
         position === "popper" &&
           "max-h-[min(20rem,var(--radix-select-content-available-height))] w-[var(--radix-select-trigger-width)]",
         className

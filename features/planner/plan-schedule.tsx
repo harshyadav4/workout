@@ -1,23 +1,24 @@
 "use client";
 
-import { CalendarDays, Check, ChevronLeft, ChevronRight, Plus, SlidersHorizontal, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Plus, SlidersHorizontal, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DRAWER_CONTENT
+  DRAWER_CONTENT,
+  SHEET_FOOT
 } from "@/components/ui/dialog";
 import { InfoNote } from "@/components/ui/info-note";
 import { Input } from "@/components/ui/input";
+import { ListGroup, ListRow, ListSheet, SheetRows } from "@/components/ui/list";
 import { Segmented } from "@/components/ui/segmented";
 import { ThemedSelect } from "@/components/ui/select";
+import { usePendingRemoval } from "@/components/ui/use-pending-removal";
 import { SessionPreview } from "@/features/planner/session-preview";
 import { MuscleMapCard } from "@/features/home/muscle-map-card";
 import { useExercisesFromSessionTemplate, useWorkoutStore } from "@/features/workout/workout-store";
@@ -25,7 +26,7 @@ import { formatDayKey } from "@/lib/progress-metrics";
 import { REST_SLOT, buildScheduleSessions, daysOfScheduleLeft, maxScheduleEnd } from "@/lib/schedule";
 import { muscles } from "@/lib/seed-data";
 import type { MuscleId, ScheduleConfig, ScheduleMode, ScheduledSession } from "@/lib/types";
-import { addDays, buildWeekDates, dateKey, todayKey } from "@/lib/utils";
+import { addDays, buildWeekDates, cn, dateKey, todayKey } from "@/lib/utils";
 import { buildMuscleHighlightsFromWorkoutIds } from "@/lib/workout-helpers";
 
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -33,13 +34,10 @@ const DEFAULT_WEEKS = 8;
 // Two weeks' notice: long enough to act on, short enough not to nag from week
 // three of eight.
 const HORIZON_WARNING_DAYS = 14;
+const UPCOMING_ROWS = 10;
 
-// `planned` / `completed` are the store's names for these, not the user's.
-const STATUS_LABELS: Record<string, string> = {
-  planned: "Planned",
-  active: "In progress",
-  completed: "Done"
-};
+const MONTH = new Intl.DateTimeFormat("en-US", { month: "long" });
+const WEEKDAY = new Intl.DateTimeFormat("en-US", { weekday: "short" });
 
 function weekLabel(offset: number) {
   if (offset === 0) {
@@ -70,11 +68,11 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
   const templates = useWorkoutStore((state) => state.templates);
 
   const [weekOffset, setWeekOffset] = useState(0);
-  const [sessionToRemove, setSessionToRemove] = useState<ScheduledSession | null>(null);
+  const [sessionToChange, setSessionToChange] = useState<ScheduledSession | null>(null);
   const [moveTo, setMoveTo] = useState("");
   const [moveError, setMoveError] = useState<string | null>(null);
   const [confirmGenerate, setConfirmGenerate] = useState(false);
-  // The schedule form lives behind one key. The week is what you look at;
+  // The schedule form lives behind one row. The week is what you look at;
   // the form is what you touch twice a season.
   const [editOpen, setEditOpen] = useState(false);
   const [startDate, setStartDate] = useState(todayKey);
@@ -85,13 +83,13 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
   const [restWeekdays, setRestWeekdays] = useState<number[]>([]);
   const [selectedDate, setSelectedDate] = useState(todayKey);
   const [confirmation, setConfirmation] = useState<string | null>(null);
-  // The session chips wait behind one button: a day is for reading what is on
-  // it, and a row of "+ Upper · Pump" keys under it read as more of the plan.
   const [adding, setAdding] = useState(false);
   // Own selection, not Home's global `selectedMuscleId` — this previews a
   // possibly-future day, so picking a muscle here must not also change what
   // Home highlights for today.
   const [dayMuscleId, setDayMuscleId] = useState<MuscleId>();
+  // Removed days hide at once and commit after the Undo bar.
+  const removal = usePendingRemoval();
 
   // Seed the form from a saved config once, after the store hydrates.
   const seeded = useRef(false);
@@ -110,7 +108,11 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
 
   const weekDates = buildWeekDates(weekOffset);
   const today = todayKey();
-  const sessionsForDay = scheduledSessions.filter((session) => session.date === selectedDate);
+  const shownSessions = useMemo(
+    () => scheduledSessions.filter((session) => !removal.hidden.has(session.id)),
+    [scheduledSessions, removal.hidden]
+  );
+  const sessionsForDay = shownSessions.filter((session) => session.date === selectedDate);
   // A past day is history: what you did (or skipped) stays as it was. Adding,
   // moving or removing there would rewrite the record the charts read from.
   const isPastDay = selectedDate < today;
@@ -136,18 +138,11 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
     setWeekOffset(offset);
     setSelectedDate(dates.some((item) => item.key === today) ? today : dates[0].key);
     setConfirmation(null);
-    setAdding(false);
   };
 
   const addSessionToDay = (templateId: string) => {
     const template = sessionTemplates.find((item) => item.id === templateId);
     if (!template) {
-      return;
-    }
-    // scheduleSession dedupes on date + name, so a repeat add is a silent
-    // no-op — say so instead of looking broken.
-    if (sessionsForDay.some((session) => session.sessionName === template.name)) {
-      setConfirmation(`${template.name} is already on this day.`);
       return;
     }
     scheduleSession({
@@ -160,8 +155,14 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
     setAdding(false);
   };
 
-  const pillFor = (key: string) => {
-    const forDay = scheduledSessions.filter((session) => session.date === key);
+  const closeChange = () => {
+    setSessionToChange(null);
+    setMoveTo("");
+    setMoveError(null);
+  };
+
+  const dotFor = (key: string) => {
+    const forDay = shownSessions.filter((session) => session.date === key);
     return forDay.find((session) => session.type === "workout") ?? forDay[0];
   };
 
@@ -263,63 +264,48 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
 
   if (sessionTemplates.length === 0) {
     return (
-      <Card>
-        <CardContent className="space-y-4 py-8 text-center">
-          <p className="text-sm text-muted-foreground">
-            Build a workout first. Then plan your weeks here.
-          </p>
-          <Button onClick={onGoBuild}>Go to Build</Button>
-        </CardContent>
-      </Card>
+      <div className="px-1 pt-3">
+        <h2 className="font-heading text-[34px] leading-[1.08]">Nothing to schedule yet</h2>
+        <p className="mt-2.5 text-[15px] text-muted-foreground">Build a workout first. Then plan your weeks here.</p>
+        <Button className="mt-5 w-full" size="lg" onClick={onGoBuild}>
+          Go to Build
+        </Button>
+      </div>
     );
   }
 
-  const upcoming = scheduledSessions.filter((session) => session.date >= today);
+  const upcoming = shownSessions.filter((session) => session.date >= today);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {horizonRunningOut ? (
-        <div className="rounded-xl bg-warning/10 p-4 ring-1 ring-warning/25">
-          <div className="flex items-start gap-3">
-            <CalendarDays className="mt-0.5 h-5 w-5 shrink-0 text-warning" />
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold">
-                {daysLeft === 0
-                  ? "Your schedule has ended"
-                  : `Your schedule ends in ${daysLeft} day${daysLeft === 1 ? "" : "s"}`}
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {daysLeft === 0
-                  ? "The calendar is empty after today."
-                  : "After that, the calendar is empty."}
-              </p>
-              <Button variant="secondary" className="mt-3 w-full" onClick={extendHorizon}>
-                Add {DEFAULT_WEEKS} weeks
-              </Button>
-            </div>
-          </div>
+        <div className="notice-line">
+          <p className="min-w-0 flex-1">
+            {daysLeft === 0
+              ? "Your schedule has ended."
+              : `Your schedule ends in ${daysLeft} day${daysLeft === 1 ? "" : "s"}.`}
+          </p>
+          <button
+            type="button"
+            onClick={extendHorizon}
+            className="h-11 shrink-0 rounded-full px-2.5 font-semibold underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Add {DEFAULT_WEEKS} weeks
+          </button>
         </div>
       ) : null}
 
-      <Card data-tour="plan-week">
-        <div className="flex items-center justify-between gap-2">
-          <h3 className="min-w-0 truncate font-display text-[22px] font-extrabold leading-none tracking-tight">
-            {selectedDay.monthLabel}
-            <span className="text-muted-foreground"> · {weekLabel(weekOffset)}</span>
-          </h3>
-          <div className="flex shrink-0 items-center gap-1.5">
-            <button
-              type="button"
-              aria-label="Previous week"
-              className="key-quiet flex h-10 w-10 items-center justify-center rounded-full"
-              onClick={() => changeWeek(weekOffset - 1)}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
+      <section data-tour="plan-week">
+        <div className="flex items-center justify-between gap-2 pl-1">
+          <h2 className="min-w-0 truncate font-heading text-[30px] leading-tight">
+            {MONTH.format(selectedDay.date)}
+            <span className="ml-2 font-sans text-[13.5px] tracking-normal text-muted-foreground">{weekLabel(weekOffset)}</span>
+          </h2>
+          <div className="flex shrink-0 items-center">
             {weekOffset !== 0 ? (
               <button
                 type="button"
-                className="key-quiet flex h-10 items-center justify-center rounded-full px-3 text-xs font-semibold"
+                className="flex h-11 items-center rounded-full px-3 text-[13.5px] font-semibold active:bg-hi"
                 onClick={() => changeWeek(0)}
               >
                 Today
@@ -327,22 +313,30 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
             ) : null}
             <button
               type="button"
+              aria-label="Previous week"
+              className="flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground active:bg-hi"
+              onClick={() => changeWeek(weekOffset - 1)}
+            >
+              <ChevronLeft className="h-5 w-5" strokeWidth={1.8} />
+            </button>
+            <button
+              type="button"
               aria-label="Next week"
-              className="key-quiet flex h-10 w-10 items-center justify-center rounded-full"
+              className="flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground active:bg-hi"
               onClick={() => changeWeek(weekOffset + 1)}
             >
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight className="h-5 w-5" strokeWidth={1.8} />
             </button>
           </div>
         </div>
 
-        {/* Seven keys. The name of the day's session is not squeezed in here —
-            at 44px a column it truncated to "Up…" — it is read off the list
-            under the strip. The key carries the day, the number, and one bar:
-            orange for a workout, quiet for rest, nothing for an empty day. */}
-        <div className="mt-4 grid grid-cols-7 gap-1.5">
+        {/* Seven days and no boxes: the chosen day is the only one with a shape.
+            The name of a day's session is read off the surface below, because at
+            48px a column it truncated to "Up…". One dot says what the day is:
+            bright for a workout, faint for rest, warm once it is done. */}
+        <div className="mt-2.5 grid grid-cols-7 gap-0.5">
           {weekDates.map((item) => {
-            const pill = pillFor(item.key);
+            const session = dotFor(item.key);
             const isSelected = item.key === selectedDate;
             const isToday = item.key === today;
             return (
@@ -350,131 +344,91 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
                 key={item.key}
                 type="button"
                 aria-current={isSelected ? "date" : undefined}
-                aria-label={`${item.dayLabel} ${item.dayNumber}${pill ? `, ${pill.type === "rest" ? "rest" : pill.sessionName}` : ""}`}
-                onClick={() => {
-                  setSelectedDate(item.key);
-                  setAdding(false);
-                }}
-                className={`flex flex-col items-center gap-1.5 rounded-lg px-0.5 pb-2 pt-2 transition-colors ${
-                  isSelected ? "key-quiet ring-2 ring-brand" : "well"
-                }`}
+                aria-label={`${item.dayLabel} ${item.dayNumber}${session ? `, ${session.type === "rest" ? "rest" : session.sessionName}${session.status === "completed" ? ", done" : ""}` : ""}`}
+                onClick={() => setSelectedDate(item.key)}
+                className={cn(
+                  "flex flex-col items-center gap-1.5 rounded-2xl pb-2 pt-2 transition-colors",
+                  isSelected && "bg-hi"
+                )}
               >
-                <span
-                  className={`text-[10px] font-semibold ${
-                    isToday ? "text-brand" : "text-muted-foreground"
-                  }`}
-                >
+                <span className={cn("text-[11.5px] font-medium", isToday ? "text-brand" : "text-muted-foreground")}>
                   {item.dayLabel}
                 </span>
-                <span className="font-display text-lg font-extrabold leading-none tracking-tight">
+                <span className={cn("text-[18px] font-semibold leading-none tabular-nums", isToday && "text-brand")}>
                   {item.dayNumber}
                 </span>
                 <span
                   aria-hidden
-                  className={`h-1.5 w-6 rounded-full ${
-                    !pill
+                  className={cn(
+                    "h-1.5 w-1.5 rounded-full",
+                    !session
                       ? "bg-transparent"
-                      : pill.type === "rest"
-                        ? "bg-muted-foreground/40"
-                        : "bg-primary"
-                  }`}
+                      : session.status === "completed"
+                        ? "bg-[var(--l2)]"
+                        : session.type === "rest"
+                          ? "bg-track"
+                          : "bg-foreground/75"
+                  )}
                 />
               </button>
             );
           })}
         </div>
+      </section>
 
-        <div className="mt-4">
-          <p className="mb-2 text-sm font-semibold">
-            {selectedDay.dayLabel} {selectedDay.dayNumber}
-          </p>
-          {sessionsForDay.length > 0 ? (
-            <div className="space-y-2">
-              {sessionsForDay.map((session) => (
-                <div key={session.id} className="rounded-lg bg-muted py-1.5 pl-4 pr-1.5">
-                  <div className="flex min-h-10 items-center justify-between gap-3">
-                    <div className="flex min-w-0 items-center gap-2.5">
-                      <span
-                        className={`h-2 w-2 shrink-0 rounded-full ${
-                          session.type === "rest" ? "bg-muted-foreground/50" : "bg-primary"
-                        }`}
-                      />
-                      <span className="truncate text-sm font-semibold">{session.sessionName}</span>
-                    </div>
-                    {/* Only a session still ahead of you can move or go. A
-                        finished one owns logged sets; one under way is the
-                        workout you are in; a past day is history. */}
-                    {session.status === "completed" ? (
-                      <span className="shrink-0 pr-2.5 text-xs font-semibold text-success">Done</span>
-                    ) : session.status === "active" ? (
-                      <span className="shrink-0 pr-2.5 text-xs font-semibold text-brand">In progress</span>
-                    ) : isPastDay ? null : (
-                      <button
-                        type="button"
-                        aria-label={`Move or remove ${session.sessionName}`}
-                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground active:bg-secondary"
-                        onClick={() => setSessionToRemove(session)}
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-                  {/* What the day asks, so you can get ready for it. */}
-                  {session.type === "workout" ? <SessionPreview session={session} /> : null}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">No workouts this day.</p>
-          )}
-
-          {/* Buttons, not a <select>: this performs an action, it does not pick
-              a value — the select's own first option was a no-op instruction. */}
-          {isPastDay ? (
-            <p className="mt-3 text-xs text-muted-foreground">Past days stay as your history.</p>
-          ) : adding ? (
-            <div className="mt-3">
-              <p className="mb-2 text-xs text-muted-foreground">
-                Add to {selectedDay.dayLabel} {selectedDay.dayNumber}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {sessionTemplates.map((template) => (
-                  <button
-                    key={template.id}
-                    type="button"
-                    onClick={() => addSessionToDay(template.id)}
-                    className="key-quiet flex h-10 items-center gap-1 rounded-full pl-3 pr-3.5 text-sm font-semibold"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    {template.name}
-                  </button>
-                ))}
+      <ListGroup title={`${selectedDate === today ? "Today · " : ""}${selectedDay.dayLabel} ${selectedDay.dayNumber}`}>
+        {sessionsForDay.map((session) => (
+          <SessionPreview
+            key={session.id}
+            session={session}
+            // Only a session still ahead of you can move or go. A finished one
+            // owns logged sets; one under way is the workout you are in; a past
+            // day is history.
+            action={
+              session.status === "completed" ? (
+                <span className="flex h-10 items-center gap-1 text-[13.5px] font-medium">
+                  <Check className="h-4 w-4 text-[var(--l2)]" strokeWidth={2.4} aria-hidden />
+                  Done
+                </span>
+              ) : session.status === "active" ? (
+                <span className="flex h-10 items-center text-[13.5px] font-medium text-brand">In progress</span>
+              ) : isPastDay ? null : (
                 <button
                   type="button"
-                  onClick={() => {
-                    setAdding(false);
-                    setConfirmation(null);
-                  }}
-                  className="flex h-10 items-center rounded-full px-3.5 text-sm font-semibold text-muted-foreground"
+                  aria-label={`Move or remove ${session.sessionName}`}
+                  className="key-quiet h-11 rounded-full px-4 text-[13.5px] font-semibold"
+                  onClick={() => setSessionToChange(session)}
                 >
-                  Cancel
+                  Move
                 </button>
-              </div>
-            </div>
-          ) : sessionTemplates.length > 0 ? (
-            <Button variant="ghost" className="mt-2 w-full" onClick={() => setAdding(true)}>
-              <Plus className="h-4 w-4" />
-              Add workout
-            </Button>
-          ) : null}
-          {confirmation ? (
-            <p className="mt-3 flex items-center gap-1.5 text-sm text-success">
-              <Check className="h-4 w-4" />
-              {confirmation}
-            </p>
-          ) : null}
-        </div>
-      </Card>
+              )
+            }
+          />
+        ))}
+        {sessionsForDay.length === 0 ? (
+          <p className="list-row flex min-h-[54px] items-center pl-4 pr-3.5 text-[15px] text-muted-foreground">
+            No workouts this day.
+          </p>
+        ) : null}
+        {isPastDay ? null : <ListRow icon={Plus} label="Add workout" noChevron onClick={() => setAdding(true)} />}
+      </ListGroup>
+
+      {isPastDay ? <p className="-mt-3 px-1 text-[13px] text-muted-foreground">Past days stay as your history.</p> : null}
+
+      {confirmation ? (
+        <p className="-mt-2 flex items-center gap-1.5 px-1 text-[13.5px]" role="status">
+          <Check className="h-4 w-4 shrink-0 text-[var(--l2)]" strokeWidth={2.4} aria-hidden />
+          {confirmation}
+        </p>
+      ) : null}
+
+      {/* The first thing to do with a workout, until it is done. After that the
+          form is a row at the foot of the page. */}
+      {scheduleConfig ? null : (
+        <Button className="w-full" size="lg" onClick={() => setEditOpen(true)}>
+          Set up schedule
+        </Button>
+      )}
 
       {dayWorkoutIds.length > 0 ? (
         <MuscleMapCard
@@ -488,12 +442,67 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
         />
       ) : null}
 
-      {/* The whole generator behind one key. It used to sit open under the
-          calendar on every visit — nine controls you touch twice a season. */}
-      <Button variant="secondary" size="lg" className="w-full" onClick={() => setEditOpen(true)}>
-        <SlidersHorizontal className="h-4 w-4" />
-        {scheduleConfig ? "Edit schedule" : "Set up schedule"}
-      </Button>
+      {upcoming.length > 0 ? (
+        <ListGroup
+          title="Upcoming"
+          aside={upcoming.length > UPCOMING_ROWS ? `Next ${UPCOMING_ROWS} of ${upcoming.length}` : undefined}
+        >
+          {upcoming.slice(0, UPCOMING_ROWS).map((session) => (
+            <ListRow
+              key={session.id}
+              label={
+                session.type === "rest" ? (
+                  <span className="text-muted-foreground">{session.sessionName}</span>
+                ) : (
+                  session.sessionName
+                )
+              }
+              // "Planned" would be on every row, so it says nothing. Only the
+              // exceptions are named.
+              hint={session.status === "completed" ? "Done" : session.status === "active" ? "In progress" : undefined}
+              value={`${WEEKDAY.format(new Date(`${session.date}T00:00:00`))}, ${formatDayKey(session.date)}`}
+            />
+          ))}
+        </ListGroup>
+      ) : null}
+
+      {scheduleConfig ? (
+        <ListGroup>
+          <ListRow
+            icon={SlidersHorizontal}
+            label="Edit schedule"
+            hint={`${scheduleConfig.mode === "rotation" ? "Rotation" : "Weekly"} · until ${formatDayKey(scheduleConfig.endDate)}`}
+            onClick={() => setEditOpen(true)}
+          />
+        </ListGroup>
+      ) : null}
+
+      <ListSheet
+        open={adding}
+        onOpenChange={setAdding}
+        title="Add workout"
+        description={`To ${selectedDay.dayLabel} ${selectedDay.dayNumber}.`}
+      >
+        <SheetRows>
+          {sessionTemplates.map((template) => {
+            // The store refuses a second one of the same name on a day.
+            const onDay = scheduledSessions.some(
+              (session) => session.date === selectedDate && session.sessionName === template.name
+            );
+            return (
+              <ListRow
+                key={template.id}
+                label={template.name}
+                hint={`${template.exercises.length} exercise${template.exercises.length === 1 ? "" : "s"} · ${template.summary.totalSets} set${template.summary.totalSets === 1 ? "" : "s"}`}
+                value={onDay ? "On this day" : undefined}
+                disabled={onDay}
+                noChevron
+                onClick={() => addSessionToDay(template.id)}
+              />
+            );
+          })}
+        </SheetRows>
+      </ListSheet>
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className={`${DRAWER_CONTENT} max-h-[88dvh] overflow-y-auto`}>
@@ -509,7 +518,7 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
                 text ("7 Oct 2026") and won't shrink it to fit a half-width column
                 no matter what min-width the wrapper gets. */}
             <div className="space-y-3">
-              <label className="text-xs font-medium text-muted-foreground">
+              <label className="block text-xs font-medium text-muted-foreground">
                 Start
                 <Input
                   type="date"
@@ -521,7 +530,7 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
                   className="mt-1"
                 />
               </label>
-              <label className="text-xs font-medium text-muted-foreground">
+              <label className="block text-xs font-medium text-muted-foreground">
                 End
                 <Input
                   type="date"
@@ -582,7 +591,7 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
                   Workouts repeat in this order, 1 each day.
                 </p>
                 {rotationOrder.length > 0 ? (
-                  <div className="space-y-2">
+                  <SheetRows>
                     {rotationOrder.map((id, index) => {
                       const template = sessionTemplates.find((item) => item.id === id);
                       // A rest slot (from an AI plan's 3-on-1-off split) has no template.
@@ -591,20 +600,13 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
                       }
                       const name = template?.name ?? "Rest";
                       return (
-                        <div
-                          key={id}
-                          className="flex items-center justify-between gap-3 rounded-lg bg-muted py-1.5 pl-3 pr-1.5"
-                        >
-                          <span className="flex items-center gap-2.5 text-sm font-semibold">
-                            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand/15 text-xs font-bold text-brand">
-                              {index + 1}
-                            </span>
-                            {name}
-                          </span>
+                        <div key={id} className="list-row flex min-h-[54px] items-center gap-3 pl-4 pr-1.5">
+                          <span className="w-4 shrink-0 text-[13.5px] text-muted-foreground tabular-nums">{index + 1}</span>
+                          <span className="min-w-0 flex-1 truncate text-[15.5px] font-medium">{name}</span>
                           <button
                             type="button"
                             aria-label={`Remove ${name}`}
-                            className="flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground active:bg-secondary"
+                            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground active:bg-hi"
                             onClick={() => toggleRotation(id)}
                           >
                             <X className="h-4 w-4" />
@@ -612,7 +614,7 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
                         </div>
                       );
                     })}
-                  </div>
+                  </SheetRows>
                 ) : (
                   <p className="text-xs text-muted-foreground">
                     All workouts repeat in their current order.
@@ -626,7 +628,7 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
                         key={template.id}
                         type="button"
                         onClick={() => toggleRotation(template.id)}
-                        className="key-quiet flex h-10 items-center gap-1 rounded-full pl-3 pr-3.5 text-sm font-semibold"
+                        className="key-quiet flex h-11 items-center gap-1 rounded-full pl-3 pr-3.5 text-sm font-semibold"
                       >
                         <Plus className="h-3.5 w-3.5" />
                         {template.name}
@@ -643,9 +645,10 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
                         type="button"
                         aria-pressed={restWeekdays.includes(day)}
                         onClick={() => toggleRestWeekday(day)}
-                        className={`h-10 rounded-full px-3.5 text-xs font-semibold transition-colors ${
-                          restWeekdays.includes(day) ? "bg-accent/15 text-accent ring-1 ring-accent/40" : "key-quiet text-muted-foreground"
-                        }`}
+                        className={cn(
+                          "h-11 rounded-full px-3.5 text-xs font-semibold",
+                          restWeekdays.includes(day) ? "key" : "key-quiet text-muted-foreground"
+                        )}
                       >
                         {label}
                       </button>
@@ -655,7 +658,7 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
               </div>
             )}
 
-            <div className="sticky bottom-0 border-t border-border bg-card pt-3">
+            <div className={SHEET_FOOT}>
               <Button
                 className="w-full"
                 size="lg"
@@ -672,140 +675,97 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
         </DialogContent>
       </Dialog>
 
-      {upcoming.length > 0 ? (
-        <Card>
-          <div className="flex items-baseline justify-between">
-            <CardTitle>Upcoming</CardTitle>
-            <span className="text-xs text-muted-foreground tabular-nums">Next 10 of {upcoming.length}</span>
-          </div>
-          <CardContent className="mt-3 space-y-2">
-            {upcoming.slice(0, 10).map((session) => (
-              <div
-                key={session.id}
-                className="flex items-center justify-between gap-3 rounded-lg bg-muted px-4 py-2.5"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold">{session.sessionName}</p>
-                  <p className="text-xs text-muted-foreground">{formatDayKey(session.date)}</p>
-                </div>
-                <Badge
-                  variant={
-                    session.type === "rest"
-                      ? "secondary"
-                      : session.status === "completed"
-                        ? "success"
-                        : session.status === "active"
-                          ? "warning"
-                          : "default"
-                  }
-                >
-                  {session.type === "rest" ? "Rest" : STATUS_LABELS[session.status] ?? session.status}
-                </Badge>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      ) : null}
-
       <Dialog
-        open={!!sessionToRemove}
+        open={!!sessionToChange}
         onOpenChange={(open) => {
           if (!open) {
-            setSessionToRemove(null);
-            setMoveTo("");
-            setMoveError(null);
+            closeChange();
           }
         }}
       >
         <DialogContent className={DRAWER_CONTENT}>
-          <DialogHeader>
-            <DialogTitle>Move or remove workout?</DialogTitle>
+          <DialogHeader className="pr-9">
+            <DialogTitle>Move {sessionToChange?.sessionName}</DialogTitle>
             <DialogDescription>
-              &quot;{sessionToRemove?.sessionName}&quot; is on{" "}
-              {sessionToRemove ? formatDayKey(sessionToRemove.date) : ""}.
+              It is on {sessionToChange ? formatDayKey(sessionToChange.date) : ""}.
             </DialogDescription>
           </DialogHeader>
 
           {/* Moving is the common edit — sick, travelling, gym shut — and until
               now the only thing on offer was losing the session entirely. Native
               date input: it is a date picker on every phone, with no library. */}
-          <div className="mt-4 rounded-xl bg-muted p-3">
-            <InfoNote
-              heading={<p className="text-xs font-medium text-muted-foreground">Move to</p>}
-              note={
-                <>
-                  <p>The old day becomes a rest day.</p>
-                  <p>If the new day has a workout, the 2 days swap.</p>
-                  <p>The workout in Build does not change.</p>
-                </>
+          <InfoNote
+            heading={<p className="text-xs font-medium text-muted-foreground">Move to</p>}
+            note={
+              <>
+                <p>The old day becomes a rest day.</p>
+                <p>If the new day has a workout, the 2 days swap.</p>
+                <p>The workout in Build does not change.</p>
+              </>
+            }
+          />
+          <Input
+            type="date"
+            aria-label="Move to"
+            value={moveTo}
+            min={today}
+            onChange={(event) => {
+              setMoveTo(event.target.value);
+              setMoveError(null);
+            }}
+          />
+          <Button
+            className="mt-3 w-full"
+            disabled={!moveTo}
+            onClick={() => {
+              if (!sessionToChange || !moveTo) {
+                return;
               }
-            />
-              <Input
-                type="date"
-                aria-label="Move to"
-                className="mt-1"
-                value={moveTo}
-                min={today}
-                onChange={(event) => {
-                  setMoveTo(event.target.value);
-                  setMoveError(null);
-                }}
-              />
-            <Button
-              className="mt-2 w-full"
-              disabled={!moveTo}
-              onClick={() => {
-                if (!sessionToRemove || !moveTo) {
-                  return;
-                }
-                const result = moveScheduledSession(sessionToRemove.id, moveTo);
-                if (result.ok) {
-                  setSessionToRemove(null);
-                  setMoveTo("");
-                  setMoveError(null);
-                } else {
-                  setMoveError(result.reason);
-                }
-              }}
-            >
-              Move workout
-            </Button>
-            {moveError ? <p className="mt-2 text-sm text-danger">{moveError}</p> : null}
-          </div>
+              const result = moveScheduledSession(sessionToChange.id, moveTo);
+              if (result.ok) {
+                closeChange();
+              } else {
+                setMoveError(result.reason);
+              }
+            }}
+          >
+            Move workout
+          </Button>
+          {moveError ? <p className="mt-2 text-sm text-danger">{moveError}</p> : null}
 
-          <div className="mt-4 flex justify-end gap-3">
-            <Button variant="secondary" onClick={() => setSessionToRemove(null)}>
-              Cancel
-            </Button>
-            <Button
-              variant="danger"
-              onClick={() => {
-                if (sessionToRemove) {
-                  removeScheduledSession(sessionToRemove.id);
-                  setSessionToRemove(null);
-                }
-              }}
-            >
-              Remove
-            </Button>
-          </div>
+          {/* The rare one: quiet, under the common one, and it can be undone. */}
+          <button
+            type="button"
+            className="mt-2 h-11 w-full rounded-full text-sm font-medium text-danger active:bg-hi"
+            onClick={() => {
+              if (sessionToChange) {
+                const { id, sessionName } = sessionToChange;
+                removal.remove(id, `${sessionName} removed`, () => removeScheduledSession(id));
+                closeChange();
+              }
+            }}
+          >
+            Remove from schedule
+          </button>
         </DialogContent>
       </Dialog>
 
       <Dialog open={confirmGenerate} onOpenChange={setConfirmGenerate}>
         <DialogContent className={DRAWER_CONTENT}>
-          <DialogHeader>
+          <DialogHeader className="pr-9">
             <DialogTitle>Replace your schedule?</DialogTitle>
             <DialogDescription>
               {plannedCount} planned day{plannedCount === 1 ? "" : "s"} change.
               {keptCount > 0 ? " Started and finished workouts stay." : ""}
             </DialogDescription>
           </DialogHeader>
-          <div className="mt-4 flex justify-end gap-3">
-            <Button variant="secondary" onClick={() => setConfirmGenerate(false)}>
+          <div className="mt-4 flex gap-2">
+            <Button variant="secondary" className="flex-1" onClick={() => setConfirmGenerate(false)}>
               Cancel
             </Button>
-            <Button onClick={handleGenerate}>Replace</Button>
+            <Button className="flex-1" onClick={handleGenerate}>
+              Replace
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

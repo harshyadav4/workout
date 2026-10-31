@@ -69,24 +69,23 @@ export function SignInNudge({ place }: { place: "finish-card" | "home" }) {
 
   if (nudge === "reminder") {
     return (
-      <div className="flex items-center gap-3 rounded-xl bg-card px-4 py-3 ring-1 ring-border" role="status">
-        <CloudUpload className="h-5 w-5 shrink-0 text-brand" aria-hidden />
-        <p className="min-w-0 flex-1 text-sm">
+      <div className="notice-line" role="status">
+        <p className="min-w-0 flex-1">
           {sessions} workouts are on this phone only.{" "}
           <button
             type="button"
             onClick={() => void continueWithGoogle()}
-            className="font-semibold text-brand underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="font-semibold underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             Sign in
           </button>{" "}
-          to save them in your account.
+          to save them.
         </p>
         <button
           type="button"
           aria-label="Hide this message"
           onClick={done}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <X className="h-4 w-4" aria-hidden />
         </button>
@@ -95,9 +94,9 @@ export function SignInNudge({ place }: { place: "finish-card" | "home" }) {
   }
 
   return (
-    <div className="mt-4 rounded-2xl bg-brand/10 p-4 ring-1 ring-brand/25">
+    <div className="mt-4 border-t border-sep pt-4">
       <p className="flex items-center gap-2 text-sm font-semibold">
-        <CloudUpload className="h-4 w-4 shrink-0 text-brand" aria-hidden />
+        <CloudUpload className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
         Save this workout
       </p>
       <p className="mt-1 text-sm text-muted-foreground">

@@ -1,5 +1,8 @@
 "use client";
 
+import { Check, ChevronDown } from "lucide-react";
+import { useState } from "react";
+
 import {
   RANGE_OPTIONS,
   formatDayKey,
@@ -8,6 +11,7 @@ import {
   type ExerciseTotal,
   type ProgressRange
 } from "@/lib/progress-metrics";
+import { ListRow, ListSheet, SheetDone, SheetRows } from "@/components/ui/list";
 import { Segmented } from "@/components/ui/segmented";
 import { cn } from "@/lib/utils";
 
@@ -39,29 +43,110 @@ export function ProgressFilters({
     <div className="space-y-3">
       <Segmented dense aria-label="Time range" options={RANGE_OPTIONS} value={range} onChange={onRangeChange} />
 
-      {range === "custom" ? (
-        <div className="rounded-xl bg-muted p-3">
-          <div className="grid grid-cols-2 gap-2">
-            <DateField
-              label="From"
-              value={window.start}
-              max={today}
-              onChange={(start) => onWindowChange({ ...window, start })}
-            />
-            <DateField
-              label="To"
-              value={window.end}
-              max={today}
-              onChange={(end) => onWindowChange({ ...window, end })}
-            />
-          </div>
-          <p className="mt-2 text-center text-xs font-semibold text-muted-foreground">
-            {formatDayKey(window.start)} → {formatDayKey(window.end)} · {windowDays(window)} days
-          </p>
-        </div>
-      ) : null}
+      {range === "custom" ? <DateFields window={window} onWindowChange={onWindowChange} today={today} /> : null}
 
       <ExerciseChips exercises={exercises} workoutId={workoutId} onWorkoutChange={onWorkoutChange} />
+    </div>
+  );
+}
+
+const RANGE_ROWS: { id: ProgressRange; short: string; long: string }[] = [
+  { id: "4w", short: "4 weeks", long: "Last 4 weeks" },
+  { id: "12w", short: "12 weeks", long: "Last 12 weeks" },
+  { id: "1y", short: "1 year", long: "Last year" },
+  { id: "all", short: "All time", long: "All time" },
+  { id: "custom", short: "Dates", long: "Pick dates" }
+];
+
+/**
+ * The range as one quiet button beside Gym and Cardio. You change it rarely, so
+ * five keys across the top of the page were more than it needed.
+ */
+export function RangeMenu({
+  range,
+  onRangeChange,
+  window,
+  onWindowChange,
+  today
+}: {
+  range: ProgressRange;
+  onRangeChange: (range: ProgressRange) => void;
+  window: DateWindow;
+  onWindowChange: (window: DateWindow) => void;
+  today: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const short = RANGE_ROWS.find((row) => row.id === range)?.short;
+
+  return (
+    <>
+      <button
+        type="button"
+        aria-haspopup="dialog"
+        aria-label={`Time range: ${short}`}
+        onClick={() => setOpen(true)}
+        className="key-quiet flex h-11 shrink-0 items-center gap-1 rounded-full pl-3.5 pr-3 text-[13.5px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        {short}
+        <ChevronDown className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden />
+      </button>
+      <ListSheet open={open} onOpenChange={setOpen} title="Time range">
+        <SheetRows>
+          {RANGE_ROWS.map((row) => (
+            <ListRow
+              key={row.id}
+              label={row.long}
+              noChevron
+              value={range === row.id ? <Check className="h-4 w-4 text-foreground" strokeWidth={2.4} aria-label="Chosen" /> : undefined}
+              onClick={() => {
+                onRangeChange(row.id);
+                // Dates still need picking, so that one stays open.
+                if (row.id !== "custom") {
+                  setOpen(false);
+                }
+              }}
+            />
+          ))}
+        </SheetRows>
+        {range === "custom" ? (
+          <div className="mt-3">
+            <DateFields window={window} onWindowChange={onWindowChange} today={today} />
+            <SheetDone />
+          </div>
+        ) : null}
+      </ListSheet>
+    </>
+  );
+}
+
+function DateFields({
+  window,
+  onWindowChange,
+  today
+}: {
+  window: DateWindow;
+  onWindowChange: (window: DateWindow) => void;
+  today: string;
+}) {
+  return (
+    <div>
+      <div className="grid grid-cols-2 gap-2">
+        <DateField
+          label="From"
+          value={window.start}
+          max={today}
+          onChange={(start) => onWindowChange({ ...window, start })}
+        />
+        <DateField
+          label="To"
+          value={window.end}
+          max={today}
+          onChange={(end) => onWindowChange({ ...window, end })}
+        />
+      </div>
+      <p className="mt-2 text-center text-xs font-semibold text-muted-foreground">
+        {formatDayKey(window.start)} → {formatDayKey(window.end)} · {windowDays(window)} days
+      </p>
     </div>
   );
 }
@@ -156,7 +241,7 @@ function Chip({
       onClick={onClick}
       className={cn(
         "min-h-[44px] whitespace-nowrap rounded-full px-4 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        active ? "bg-brand/15 text-brand ring-1 ring-brand/40" : "key-quiet text-muted-foreground"
+        active ? "key" : "key-quiet text-muted-foreground"
       )}
     >
       {children}

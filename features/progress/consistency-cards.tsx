@@ -9,7 +9,8 @@ import {
   useSection,
   REST_CELL,
   animationProps,
-  axisProps
+  axisProps,
+  scrollToNewest
 } from "@/features/progress/chart-theme";
 import {
   formatMonthKey,
@@ -59,12 +60,15 @@ export function ConsistencyCard({
       }
     >
       <div>
-        <div className="-mx-1 overflow-x-auto px-1 [mask-image:linear-gradient(to_right,black_calc(100%-14px),transparent)]">
+        <div key={weeks.length} ref={scrollToNewest} className="-mx-1 overflow-x-auto pl-1 pr-4 [mask-image:linear-gradient(to_right,black_calc(100%-14px),transparent)]">
           <div className="w-max">
             <div className="mb-1 flex gap-[3px]">
               {weeks.map((week, index) => {
                 const month = formatMonthKey(week.start);
-                const isNew = index === 0 || month !== formatMonthKey(weeks[index - 1].start);
+                const isNew =
+                index === 0
+                  ? month === formatMonthKey(weeks[Math.min(2, weeks.length - 1)].start)
+                  : month !== formatMonthKey(weeks[index - 1].start);
                 return (
                   <div
                     key={`month-${week.start}`}
@@ -150,7 +154,7 @@ export function RhythmCard({ rhythm, rest }: { rhythm: WeekdayStat[]; rest: Rest
           <BarChart data={rhythm} margin={{ top: 4, right: 0, bottom: 0, left: 0 }}>
             <XAxis {...axisProps} dataKey="label" minTickGap={0} />
             <Tooltip
-              cursor={{ fill: "rgba(255,255,255,0.04)" }}
+              cursor={{ fill: CHART.wash }}
               content={<ChartTooltip format={(value) => `${value} ${value === 1 ? "workout" : "workouts"}`} />}
             />
             <Bar
@@ -218,12 +222,12 @@ function restCopy(averageGap: number) {
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="well rounded-lg p-3">
+    <div>
       {/* Two lines tall, so the values stay level when a long label wraps. */}
-      <p className="min-h-8 text-xs font-semibold text-muted-foreground">
+      <p className="min-h-8 text-[13px] leading-tight text-muted-foreground">
         {label}
       </p>
-      <p className="mt-1.5 text-lg font-semibold leading-none">{value}</p>
+      <p className="mt-0.5 text-[19px] font-medium leading-tight tracking-[-0.02em]">{value}</p>
     </div>
   );
 }

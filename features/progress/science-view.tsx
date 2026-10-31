@@ -70,55 +70,51 @@ import type {
 } from "@/lib/types";
 
 /**
- * Everything the Science cards read. One bag, built once by the dashboard, so
- * adding a card never means threading a new prop through it.
- */
-export interface ScienceInput {
-  logs: WorkoutLog[];
-  setLogs: SetLog[];
-  scheduled: ScheduledSession[];
-  measurements: BodyMeasurement[];
-  profile: ProfileInfo;
-  cardio: CardioSession[];
-  timed: TimedSession[];
-  /** The range chip's window. Lifetime cards ignore it and say so. */
-  window: DateWindow;
-  today: string;
-  liftGroups: Map<string, MuscleGroup>;
-}
-
-/**
- * The Science view: published formulas run over the user's own log, each
- * card with its formula and source one tap behind the ⓘ.
+ * Published formulas run over the user's own log, each card with its formula and
+ * source one tap behind the ⓘ. There is no page of them: each group sits inside
+ * the card it is about, and only runs while that card is open.
  *
  * Every card hides behind a plain "what it needs" line until its inputs exist
  * (see `Reveal` / `EmptyChart`): a number computed from a guess is worse than
  * no number, and the page says so in its footer rather than in fine print.
  */
-export function ScienceView(input: ScienceInput) {
-  const { logs, setLogs, scheduled, measurements, profile, cardio, timed, window, today, liftGroups } = input;
-  const hasSex = profile.sex === "male" || profile.sex === "female";
-
-  // Body reads the whole history, never the range chip: the latest tape is the
-  // latest tape whichever window is open, and the rate card has its own four weeks.
-  const body = useMemo(
-    () => ({
-      ratios: buildShapeRatios(measurements, profile),
-      symmetry: buildSymmetry(measurements),
-      rate: buildWeightRate(measurements, today),
-      recomp: buildRecomposition(measurements, today),
-      composition: buildComposition(measurements, profile),
-      needs: compositionNeeds(measurements, profile),
-      currentKg: latestFor(measurements, "weight")?.value ?? profile.weightKg
-    }),
-    [measurements, profile, today]
+function ScienceNote() {
+  return (
+    <p className="px-1 pt-1 text-center text-xs leading-snug text-muted-foreground">
+      Estimates from your own log, using published formulas. Not medical advice.
+    </p>
   );
+}
 
-  // Standards, DOTS and relative strength are best-ever: a personal best does
-  // not expire with the range chip. The trend, intensity and rep-range cards
-  // are about this range, which is what a slope or a share means.
+/** The latest scale reading, or the profile's until there is one. */
+function currentKg(measurements: BodyMeasurement[], profile: ProfileInfo) {
+  return latestFor(measurements, "weight")?.value ?? profile.weightKg;
+}
+
+// Standards, DOTS and relative strength are best-ever: a personal best does
+// not expire with the range chip. The trend, intensity and rep-range cards
+// are about this range, which is what a slope or a share means.
+export function StrengthScience({
+  logs,
+  setLogs,
+  measurements,
+  profile,
+  window,
+  today,
+  liftGroups
+}: {
+  logs: WorkoutLog[];
+  setLogs: SetLog[];
+  measurements: BodyMeasurement[];
+  profile: ProfileInfo;
+  /** The range's window. Lifetime cards ignore it and say so. */
+  window: DateWindow;
+  today: string;
+  liftGroups: Map<string, MuscleGroup>;
+}) {
+  const hasSex = profile.sex === "male" || profile.sex === "female";
   const strength = useMemo(() => {
-    const bodyweightKg = body.currentKg;
+    const bodyweightKg = currentKg(measurements, profile);
     const scoped = filterByWindow(logs, window);
     const lifts = buildExerciseTotals(scoped).map((exercise) => ({
       workoutId: exercise.workoutId,
@@ -134,10 +130,39 @@ export function ScienceView(input: ScienceInput) {
       intensity: buildIntensityDistribution(setLogs, window),
       repZones: buildRepZones(setLogs, window, liftGroups)
     };
-  }, [body.currentKg, liftGroups, logs, profile.sex, setLogs, today, window]);
+  }, [liftGroups, logs, measurements, profile, setLogs, today, window]);
 
-  // Fitness–fatigue and monotony are lifetime with the window shaded, like the
-  // load card they sit beside in spirit; the rest read this range.
+  return (
+    <>
+      <SectionRule label="Standards" hint="relative strength, standards, trends" />
+      <StandardsCard rows={strength.standards} hasSex={hasSex} bodyweightKg={strength.bodyweightKg} />
+      <DotsCard score={strength.dots} hasSex={hasSex} />
+      <AllometricCard rows={strength.allometric} bodyweightKg={strength.bodyweightKg} />
+      <E1rmTrendCard lifts={strength.lifts} today={today} />
+      <IntensityCard report={strength.intensity} />
+      <RepZonesCard rows={strength.repZones} />
+      <ScienceNote />
+    </>
+  );
+}
+
+// Fitness–fatigue and monotony are lifetime with the window shaded, like the
+// load card they sit beside in spirit; the rest read this range.
+export function FatigueScience({
+  logs,
+  setLogs,
+  scheduled,
+  window,
+  today,
+  liftGroups
+}: {
+  logs: WorkoutLog[];
+  setLogs: SetLog[];
+  scheduled: ScheduledSession[];
+  window: DateWindow;
+  today: string;
+  liftGroups: Map<string, MuscleGroup>;
+}) {
   const fatigue = useMemo(
     () => ({
       banister: buildBanister(logs, window, today),
@@ -151,18 +176,52 @@ export function ScienceView(input: ScienceInput) {
     [liftGroups, logs, scheduled, setLogs, today, window]
   );
 
-  // Best run ever, not best in the range: a VDOT does not expire with the chip.
-  const running = useMemo(() => {
-    const best = bestVdot(cardio);
-    return {
-      best,
-      predictions: best ? buildRacePredictions(best.session) : [],
-      zones: best ? paceZones(best.vdot) : []
-    };
-  }, [cardio]);
+  return (
+    <>
+      <SectionRule label="Fatigue" hint="fitness–fatigue, monotony, rest" />
+      <FitnessFatigueCard points={fatigue.banister} />
+      <EffectiveRepsCard report={fatigue.effective} maxes={fatigue.rirMaxes} />
+      <DropoffCard rows={fatigue.dropoff} />
+      <RestCard rows={fatigue.rest} />
+      <DensityCard points={fatigue.density} />
+      <MonotonyCard weeks={fatigue.weeks} />
+      <ScienceNote />
+    </>
+  );
+}
 
-  // Lifetime too: maintenance is about today, the balance is the last four
-  // weeks of the scale, and the burn chart is the last twelve weeks.
+// Body reads the whole history, never the range: the latest tape is the latest
+// tape whichever window is open, and the rate card has its own four weeks.
+// Calories too: maintenance is about today, the balance is the last four weeks of
+// the scale, and the burn chart is the last twelve weeks.
+export function BodyScience({
+  logs,
+  measurements,
+  profile,
+  cardio,
+  timed,
+  today
+}: {
+  logs: WorkoutLog[];
+  measurements: BodyMeasurement[];
+  profile: ProfileInfo;
+  cardio: CardioSession[];
+  timed: TimedSession[];
+  today: string;
+}) {
+  const body = useMemo(
+    () => ({
+      ratios: buildShapeRatios(measurements, profile),
+      symmetry: buildSymmetry(measurements),
+      rate: buildWeightRate(measurements, today),
+      recomp: buildRecomposition(measurements, today),
+      composition: buildComposition(measurements, profile),
+      needs: compositionNeeds(measurements, profile),
+      currentKg: currentKg(measurements, profile)
+    }),
+    [measurements, profile, today]
+  );
+
   const energy = useMemo(() => {
     const activity = activityFactor(timed, today);
     const restingKcal = bmr(profile, today, body.currentKg);
@@ -181,52 +240,41 @@ export function ScienceView(input: ScienceInput) {
 
   return (
     <>
-      <div className="space-y-3">
-        <SectionRule label="Body" hint="shape, symmetry, composition" />
-        <CompositionCard composition={body.composition} needs={body.needs} />
-        <ShapeRatiosCard ratios={body.ratios} />
-        <WeightRateCard rate={body.rate} goalWeightKg={profile.goalWeightKg} currentKg={body.currentKg} />
-        <RecompCard recomp={body.recomp} />
-        <SymmetryCard rows={body.symmetry} />
-      </div>
+      <SectionRule label="Body" hint="shape, symmetry, composition" />
+      <CompositionCard composition={body.composition} needs={body.needs} />
+      <ShapeRatiosCard ratios={body.ratios} />
+      <WeightRateCard rate={body.rate} goalWeightKg={profile.goalWeightKg} currentKg={body.currentKg} />
+      <RecompCard recomp={body.recomp} />
+      <SymmetryCard rows={body.symmetry} />
 
-      <div className="space-y-3">
-        <SectionRule label="Strength" hint="relative strength, standards, trends" />
-        <StandardsCard rows={strength.standards} hasSex={hasSex} bodyweightKg={strength.bodyweightKg} />
-        <DotsCard score={strength.dots} hasSex={hasSex} />
-        <AllometricCard rows={strength.allometric} bodyweightKg={strength.bodyweightKg} />
-        <E1rmTrendCard lifts={strength.lifts} today={today} />
-        <IntensityCard report={strength.intensity} />
-        <RepZonesCard rows={strength.repZones} />
-      </div>
+      <SectionRule label="Calories" hint="maintenance, burn, target intake" />
+      <IntakeTargetCard target={energy.target} />
+      <MaintenanceCard restingKcal={energy.restingKcal} maintenance={energy.maintenance} activity={energy.activity} needs={energy.needs} />
+      <EnergyBalanceCard balance={energy.balance} />
+      <SessionEnergyCard rows={energy.sessions} weeks={energy.weeks} />
+      <ScienceNote />
+    </>
+  );
+}
 
-      <div className="space-y-3">
-        <SectionRule label="Fatigue" hint="fitness–fatigue, monotony, rest" />
-        <FitnessFatigueCard points={fatigue.banister} />
-        <EffectiveRepsCard report={fatigue.effective} maxes={fatigue.rirMaxes} />
-        <DropoffCard rows={fatigue.dropoff} />
-        <RestCard rows={fatigue.rest} />
-        <DensityCard points={fatigue.density} />
-        <MonotonyCard weeks={fatigue.weeks} />
-      </div>
+// Best run ever, not best in the range: a VDOT does not expire.
+export function RunningScience({ cardio }: { cardio: CardioSession[] }) {
+  const running = useMemo(() => {
+    const best = bestVdot(cardio);
+    return {
+      best,
+      predictions: best ? buildRacePredictions(best.session) : [],
+      zones: best ? paceZones(best.vdot) : []
+    };
+  }, [cardio]);
 
-      <div className="space-y-3">
-        <SectionRule label="Cardio" hint="VO₂max estimate, race times, zones" />
-        <VdotCard best={running.best} />
-        <RacePredictorCard best={running.best} predictions={running.predictions} />
-        <PaceZonesCard zones={running.zones} />
-      </div>
-
-      <div className="space-y-3">
-        <SectionRule label="Calories" hint="maintenance, burn, target intake" />
-        <IntakeTargetCard target={energy.target} />
-        <MaintenanceCard restingKcal={energy.restingKcal} maintenance={energy.maintenance} activity={energy.activity} needs={energy.needs} />
-        <EnergyBalanceCard balance={energy.balance} />
-        <SessionEnergyCard rows={energy.sessions} weeks={energy.weeks} />
-      </div>
-      <p className="px-1 text-center text-xs leading-snug text-muted-foreground">
-        Estimates from your own log, using published formulas. Not medical advice.
-      </p>
+  return (
+    <>
+      <SectionRule label="Race times" hint="VO₂max estimate, race times, zones" />
+      <VdotCard best={running.best} />
+      <RacePredictorCard best={running.best} predictions={running.predictions} />
+      <PaceZonesCard zones={running.zones} />
+      <ScienceNote />
     </>
   );
 }

@@ -104,8 +104,8 @@ export function RemindersPrompt() {
 
   if (state === "done") {
     return (
-      <p className="flex items-center gap-2 rounded-xl bg-brand/10 px-4 py-2.5 text-xs ring-1 ring-brand/25" role="status">
-        <BellRing className="h-4 w-4 shrink-0 text-brand" aria-hidden />
+      <p className="notice-line text-muted-foreground" role="status">
+        <BellRing className="h-4 w-4 shrink-0" aria-hidden />
         Reminders are on. Change them any time on You.
       </p>
     );
@@ -117,33 +117,29 @@ export function RemindersPrompt() {
         type="button"
         aria-label="Hide this message"
         onClick={dismiss}
-        className="absolute right-2 top-2 flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground hover:text-foreground"
+        className="absolute right-2 top-2 flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <X className="h-4 w-4" />
       </button>
       <div className="flex items-start gap-3 pr-8">
-        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand/15">
-          <BellRing className="h-6 w-6 text-brand" aria-hidden />
-        </span>
+        <BellRing className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
         <div className="min-w-0">
-          <p className="font-display text-lg font-bold leading-tight tracking-tight">Turn on reminders</p>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="text-base font-medium">Turn on reminders</p>
+          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
             Arise can tap you on the shoulder — one card a day at most, and you choose which on You.
           </p>
         </div>
       </div>
-      <ul className="mt-4 space-y-2 text-sm">
+      <ul className="mt-4 space-y-3 text-sm">
         {REASONS.map(({ icon: Icon, text }) => (
-          <li key={text} className="flex items-center gap-3 rounded-lg bg-muted px-3 py-2.5">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand/15">
-              <Icon className="h-3.5 w-3.5 text-brand" aria-hidden />
-            </span>
+          <li key={text} className="flex items-start gap-3">
+            <Icon className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
             {text}
           </li>
         ))}
       </ul>
       {state === "blocked" ? (
-        <p className="mt-3 text-xs text-warning">
+        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
           Notifications are blocked for this app. Allow them in the browser settings, then turn reminders
           on from You.
         </p>

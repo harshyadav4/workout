@@ -65,10 +65,10 @@ export function TopSetWall({
       {tiles.length === 0 ? (
         <EmptyChart>Do an exercise in 2 workouts to see its line.</EmptyChart>
       ) : (
-        <ul className="grid grid-cols-2 gap-x-3 gap-y-2">
+        <ul className="grid grid-cols-2 gap-x-4 gap-y-3">
           {tiles.map((tile) => (
             <li key={tile.exercise.workoutId}>
-              <p className="truncate text-xs font-medium" title={tile.exercise.name}>
+              <p className="truncate text-[13px] font-medium" title={tile.exercise.name}>
                 {tile.exercise.name}
               </p>
               <Sparkline
@@ -79,7 +79,7 @@ export function TopSetWall({
                     : GROUP_COLORS[groupOf?.get(tile.exercise.workoutId) ?? ""] ?? CHART.accent
                 }
               />
-              <p className="text-[10px] tabular-nums text-muted-foreground">
+              <p className="text-[11.5px] tabular-nums text-muted-foreground">
                 {tile.first}→{tile.last} kg{" "}
                 <span style={{ color: tile.change >= 0 ? "hsl(var(--success))" : "hsl(var(--danger))" }}>
                   {tile.change >= 0 ? "+" : ""}

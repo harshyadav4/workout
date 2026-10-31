@@ -40,6 +40,9 @@ function DurationTrendCard({ sessions }: { sessions: TimedSession[] }) {
   const { accent } = useSection();
   const points = sessions.map((session) => ({ date: session.date, minutes: Math.round(session.seconds / 60) }));
   const average = points.length ? Math.round(points.reduce((sum, point) => sum + point.minutes, 0) / points.length) : 0;
+  // A long history is a cloud of dots around the average: a line through 150
+  // workouts of different kinds only draws a solid band.
+  const dense = points.length > 30;
 
   return (
     <Panel
@@ -57,7 +60,7 @@ function DurationTrendCard({ sessions }: { sessions: TimedSession[] }) {
             <YAxis {...axisProps} width={36} allowDecimals={false} />
             <ReferenceLine y={average} stroke={CHART.series[1]} strokeDasharray="4 4" />
             <Tooltip content={<ChartTooltip unit="min" labelFormat={formatDayKey} />} />
-            <Line dataKey="minutes" name="Length" stroke={accent} strokeWidth={2} dot={{ r: 3, fill: accent }} {...animationProps} />
+            <Line dataKey="minutes" name="Length" stroke={accent} strokeWidth={dense ? 0 : 2} dot={{ r: dense ? 1.75 : 2.5, fill: accent, strokeWidth: 0 }} {...animationProps} />
           </LineChart>
         </ResponsiveContainer>
       )}
@@ -82,7 +85,7 @@ function WeeklyHoursCard({ sessions, today }: { sessions: TimedSession[]; today:
           <CartesianGrid {...gridProps} />
           <XAxis {...axisProps} dataKey="week" tickFormatter={formatDayKey} />
           <YAxis {...axisProps} width={34} />
-          <Tooltip cursor={{ fill: "rgba(255,255,255,0.04)" }} content={<ChartTooltip unit="h" labelFormat={(key) => `Week of ${formatDayKey(key)}`} />} />
+          <Tooltip cursor={{ fill: CHART.wash }} content={<ChartTooltip unit="h" labelFormat={(key) => `Week of ${formatDayKey(key)}`} />} />
           <Bar dataKey="hours" name="Trained" fill={accent} radius={[4, 4, 0, 0]} {...animationProps} />
         </BarChart>
       </ResponsiveContainer>
@@ -91,6 +94,7 @@ function WeeklyHoursCard({ sessions, today }: { sessions: TimedSession[]; today:
 }
 
 function WhenYouTrainCard({ sessions }: { sessions: TimedSession[] }) {
+  const { accent } = useSection();
   const { counts, usualStartMinutes } = whenYouTrain(sessions);
   const most = Math.max(...Object.values(counts), 1);
 
@@ -107,8 +111,8 @@ function WhenYouTrainCard({ sessions }: { sessions: TimedSession[] }) {
               <span className="block font-semibold">{part.label}</span>
               <span className="block text-xs text-muted-foreground">{part.hours}</span>
             </span>
-            <span className="well h-3 overflow-hidden rounded-full">
-              <span className="mana-fill block h-full rounded-full" style={{ width: `${(counts[part.id] / most) * 100}%` }} />
+            <span className="h-1.5 overflow-hidden rounded-full bg-track">
+              <span className="block h-full rounded-full" style={{ width: `${(counts[part.id] / most) * 100}%`, backgroundColor: accent }} />
             </span>
             <span className="text-right text-xs font-semibold tabular-nums">{counts[part.id]}</span>
           </li>
@@ -122,11 +126,11 @@ function DurationRecordsCard({ sessions }: { sessions: TimedSession[] }) {
   const records = durationRecords(sessions);
   return (
     <Panel title="Length records" caption="Per workout type">
-      <ul className="space-y-2">
+      <ul className="rows">
         {records.map((record) => (
-          <li key={record.name} className="well rounded-lg px-3 py-2.5">
+          <li key={record.name} className="py-2.5 first:pt-0 last:pb-0">
             <div className="flex items-baseline justify-between gap-2">
-              <span className="truncate text-sm font-semibold">{record.name}</span>
+              <span className="truncate text-[15px] font-medium">{record.name}</span>
               <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
                 {record.count} {record.count === 1 ? "workout" : "workouts"}
               </span>

@@ -19,7 +19,7 @@ import {
 import { formatDayKey } from "@/lib/progress-metrics";
 import { cn } from "@/lib/utils";
 
-/** The Calories group of the Science tab. Estimates from population formulas; the scale is the measurement. */
+/** The Calories group of the Progress science cards. Estimates from population formulas; the scale is the measurement. */
 
 const kcal = (value: number) => `${Math.round(value).toLocaleString("en-US")} kcal`;
 
@@ -42,7 +42,7 @@ export function MaintenanceCard({ restingKcal, maintenance, activity, needs }: {
       {restingKcal === undefined || maintenance === undefined ? (
         <EmptyChart>Needs {needs.join(", ")} on You.</EmptyChart>
       ) : (
-        <ul className="divide-y divide-border">
+        <ul className="rows">
           <li className="flex items-baseline justify-between gap-3 py-1.5">
             <span className="text-sm">At rest</span>
             <span className="text-sm font-semibold tabular-nums">{kcal(restingKcal)}</span>
@@ -90,7 +90,7 @@ export function SessionEnergyCard({ rows, weeks }: { rows: SessionEnergy[]; week
             <XAxis {...axisProps} dataKey="week" tickFormatter={formatDayKey} minTickGap={30} />
             <YAxis {...axisProps} width={40} tickFormatter={formatCompact} />
             <Bar {...animationProps} dataKey="kcal" name="kcal" fill={accent} radius={[4, 4, 0, 0]} maxBarSize={22} />
-            <Tooltip content={<ChartTooltip labelFormat={(label) => `Week of ${formatDayKey(label)}`} format={kcal} />} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
+            <Tooltip content={<ChartTooltip labelFormat={(label) => `Week of ${formatDayKey(label)}`} format={kcal} />} cursor={{ fill: CHART.wash }} />
           </BarChart>
         </ResponsiveContainer>
       )}
@@ -118,7 +118,7 @@ export function EnergyBalanceCard({ balance }: { balance?: EnergyBalance }) {
         <EmptyChart>Three weigh-ins in the last four weeks.</EmptyChart>
       ) : (
         <div className="flex items-baseline gap-2">
-          <span className={cn("font-display text-4xl font-bold tracking-tight tabular-nums", balance.dailyKcal < 0 ? "text-success" : balance.dailyKcal > 0 ? "text-warning" : "")}>
+          <span className={cn("plot-n", balance.dailyKcal < 0 ? "text-success" : balance.dailyKcal > 0 ? "text-warning" : "")}>
             {formatSigned(balance.dailyKcal)}
           </span>
           <span className="text-sm text-muted-foreground">kcal a day, {balance.dailyKcal < -25 ? "deficit" : balance.dailyKcal > 25 ? "surplus" : "about even"}</span>
@@ -173,13 +173,13 @@ export function IntakeTargetCard({ target }: { target: IntakeTarget }) {
         <>
           {heroKcal !== undefined ? (
             <div className="flex items-baseline gap-2">
-              <span className="font-display text-4xl font-bold tracking-tight tabular-nums" style={{ color: accent }}>
+              <span className="plot-n" style={{ color: accent }}>
                 {Math.round(heroKcal).toLocaleString("en-US")}
               </span>
               <span className="text-sm text-muted-foreground">kcal a day{hero ? ` · ${hero.label.toLowerCase()} pace` : " · maintenance"}</span>
             </div>
           ) : null}
-          <ul className="mt-2 divide-y divide-border">
+          <ul className="mt-2 rows">
             <li className="flex items-baseline justify-between gap-3 py-1.5">
               <span className="text-sm">Maintenance</span>
               <span className="text-sm tabular-nums">{kcal(target.maintenance)}</span>
@@ -210,7 +210,7 @@ export function IntakeTargetCard({ target }: { target: IntakeTarget }) {
           <p className="mt-2 text-xs leading-snug text-muted-foreground">
             {target.direction === "noGoal" ? (
               <>
-                <Link href="/profile" className="text-brand underline-offset-2 hover:underline">
+                <Link href="/profile" className="font-medium text-foreground underline underline-offset-2">
                   Set a goal weight on You
                 </Link>{" "}
                 to see the intake for a slow and a standard pace.
@@ -227,7 +227,7 @@ export function IntakeTargetCard({ target }: { target: IntakeTarget }) {
 
 function ProteinLine({ proteinG }: { proteinG: { low: number; high: number } }) {
   return (
-    <p className="mt-2 flex items-baseline justify-between gap-3 border-t border-border pt-2 text-sm">
+    <p className="mt-2 flex items-baseline justify-between gap-3 border-t border-sep pt-2 text-sm">
       <span>Protein</span>
       <span className="font-semibold tabular-nums">
         {Math.round(proteinG.low)}–{Math.round(proteinG.high)} g <span className="text-xs font-normal text-muted-foreground">a day</span>

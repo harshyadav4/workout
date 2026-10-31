@@ -5,7 +5,8 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/features/auth/use-auth";
 import { useTour } from "@/features/tour/tour-store";
 import { RankBadge, RankUpNotice } from "@/features/home/hunter-rank";
-import { useWorkoutStore } from "@/features/workout/workout-store";
+import { useSelectedTodaySession, useWorkoutStore } from "@/features/workout/workout-store";
+import { resolveDayState } from "@/lib/schedule";
 
 // Date keys are plain YYYY-MM-DD days, so format in UTC — the day never shifts
 // under a timezone that way.
@@ -46,6 +47,10 @@ export function TodayHeader() {
   const activeDate = useWorkoutStore((state) => state.activeDate);
   const profileName = useWorkoutStore((state) => state.profile.name);
   const [greeting, setGreeting] = useState("Today");
+  const session = useSelectedTodaySession();
+  const scheduled = useWorkoutStore((state) => state.scheduledSessions);
+  // Mid-workout the top of the screen is the work: no greeting above it.
+  const logging = resolveDayState({ today: activeDate, session, sessions: scheduled, hasPlan: true }).kind === "logging";
 
   useEffect(() => {
     setGreeting(greetingFor(new Date().getHours()));
@@ -58,18 +63,23 @@ export function TodayHeader() {
     ? firstName(profileName)
     : firstName(user?.user_metadata?.full_name) ?? firstName(profileName);
 
+  if (logging) {
+    return <RankUpNotice />;
+  }
+
   return (
     <div>
-      {/* The rank rides on the date line, so the greeting keeps the full width. */}
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm font-medium text-muted-foreground">
-          {LONG_DAY.format(new Date(`${activeDate}T00:00:00Z`))}
-        </p>
+        <div className="min-w-0">
+          <p className="text-[13.5px] text-muted-foreground">
+            {LONG_DAY.format(new Date(`${activeDate}T00:00:00Z`))}
+          </p>
+          <h1 className="mt-0.5 font-heading text-[36px] leading-[1.05]">
+            {name ? `${greeting}, ${name}.` : `${greeting}.`}
+          </h1>
+        </div>
         <RankBadge name={name} />
       </div>
-      <h1 className="mt-1.5 font-display text-[34px] font-extrabold leading-none tracking-tight">
-        {name ? `${greeting}, ${name}.` : `${greeting}.`}
-      </h1>
       <RankUpNotice />
     </div>
   );

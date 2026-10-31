@@ -3,8 +3,8 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * A plaque. Lit top edge, soft gradient, a shadow that puts it on the page.
- * One nesting level: things inside a Card are wells or keys, never more Cards.
+ * A surface. A soft fill on the page that lets the sky through, no gradient and
+ * no glow. One nesting level: things inside a Card are rows, never more Cards.
  */
 export function Card({
   className,
@@ -18,13 +18,6 @@ export function CardHeader({
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) {
   return <div className={cn("space-y-1", className)} {...props} />;
-}
-
-export function CardTitle({
-  className,
-  ...props
-}: React.HTMLAttributes<HTMLHeadingElement>) {
-  return <h3 className={cn("text-[15px] font-bold tracking-tight", className)} {...props} />;
 }
 
 export function CardDescription({

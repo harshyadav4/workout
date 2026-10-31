@@ -44,6 +44,7 @@ export function SwipeRow({
   children: React.ReactNode;
 }) {
   const front = useRef<HTMLDivElement>(null);
+  const behind = useRef<HTMLButtonElement>(null);
   const drag = useRef<Drag | null>(null);
   const justSwiped = useRef(false);
   const [open, setOpen] = useState(false);
@@ -55,6 +56,13 @@ export function SwipeRow({
     }
     element.style.transition = animate ? "transform 200ms ease-out" : "none";
     element.style.transform = x === 0 ? "" : `translateX(${x}px)`;
+    // A row can be see-through (a surface in a list), so the red shows only in
+    // the gap the row has left.
+    const red = behind.current;
+    if (red) {
+      red.style.transition = animate ? "clip-path 200ms ease-out" : "none";
+      red.style.clipPath = `inset(0 0 0 ${Math.max(0, REVEAL + x)}px)`;
+    }
   };
 
   const remove = (width: number) => {
@@ -143,12 +151,13 @@ export function SwipeRow({
   return (
     <div data-swipe-row className={cn("relative overflow-hidden", className)}>
       <button
+        ref={behind}
         type="button"
         aria-label={label}
         aria-hidden={!open}
         tabIndex={open ? 0 : -1}
         onClick={() => remove(front.current?.offsetWidth ?? REVEAL)}
-        className="absolute inset-y-0 right-0 flex w-[88px] flex-col items-center justify-center gap-1 bg-danger text-[11px] font-semibold text-danger-foreground"
+        className="absolute inset-y-0 right-0 flex w-[88px] flex-col items-center justify-center gap-1 bg-danger text-[11px] font-semibold text-danger-foreground [clip-path:inset(0_0_0_88px)]"
       >
         <Trash2 className="h-5 w-5" aria-hidden />
         {label}

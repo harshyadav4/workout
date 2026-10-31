@@ -1,10 +1,11 @@
 "use client";
 
+import { BellRing } from "lucide-react";
 import { useEffect, useState, useSyncExternalStore } from "react";
 
+import { ListSwitch } from "@/components/ui/list";
 import { useAuth } from "@/features/auth/use-auth";
 import { pushSubscribed, pushSupported, subscribePush, unsubscribePush } from "@/features/pwa/push";
-import { cn } from "@/lib/utils";
 
 /*
  * "Rest alerts": a notification when a rest ends while the app is not on the
@@ -103,7 +104,7 @@ export function scheduleRestAlert(endsAt: number, body?: string): () => void {
 }
 
 /** The switch on the You page, in the style of Detailed timing. */
-export function RestAlertsToggle() {
+export function RestAlertsRow() {
   const on = useRestAlerts();
   const { user } = useAuth();
   const [mounted, setMounted] = useState(false);
@@ -150,27 +151,5 @@ export function RestAlertsToggle() {
     }
   };
 
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={on}
-      disabled={!available}
-      onClick={() => void toggle()}
-      className="flex min-h-14 w-full items-center justify-between gap-3 rounded-xl bg-muted px-4 py-3 text-left transition-colors active:bg-secondary disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-    >
-      <span>
-        <span className="block text-sm font-semibold">Rest alerts</span>
-        <span className="mt-0.5 block text-xs text-muted-foreground">{hint}</span>
-      </span>
-      <span aria-hidden className={cn("relative h-7 w-12 shrink-0 rounded-full transition-colors", on ? "bg-primary" : "well")}>
-        <span
-          className={cn(
-            "absolute top-1 h-5 w-5 rounded-full bg-card shadow-quiet transition-transform",
-            on ? "translate-x-6" : "translate-x-1"
-          )}
-        />
-      </span>
-    </button>
-  );
+  return <ListSwitch icon={BellRing} label="Rest alerts" hint={hint} on={on} disabled={!available} onToggle={() => void toggle()} />;
 }

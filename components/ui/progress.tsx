@@ -5,7 +5,7 @@ import * as ProgressPrimitive from "@radix-ui/react-progress";
 
 import { cn } from "@/lib/utils";
 
-/** A mana-blue fill in a well. The fill carries the key's top highlight so it reads as the same material. */
+/** A warm fill in a well. */
 export const Progress = React.forwardRef<
   React.ElementRef<typeof ProgressPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof ProgressPrimitive.Root>

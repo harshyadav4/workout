@@ -2,8 +2,8 @@
 
 import { Segmented } from "@/components/ui/segmented";
 import { useSwipeTabs } from "@/components/ui/use-swipe-tabs";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useDeferredValue, useEffect, useMemo, useState } from "react";
 
 import { MuscleMapCard } from "@/features/home/muscle-map-card";
 import { BodyWeightCard } from "@/features/progress/body-weight-card";
@@ -28,7 +28,7 @@ import { MuscleMatrixCard } from "@/features/progress/muscle-matrix-card";
 import { MuscleRankCard } from "@/features/progress/muscle-rank-card";
 import { Panel, Reveal, SectionRule } from "@/features/progress/panel";
 import { PRLedgerCard } from "@/features/progress/pr-ledger-card";
-import { ExerciseChips, ProgressFilters } from "@/features/progress/progress-filters";
+import { ExerciseChips, RangeMenu } from "@/features/progress/progress-filters";
 import { ProgressHeadline, RANGE_LABELS } from "@/features/progress/progress-headline";
 import { ProgressTableCard } from "@/features/progress/progress-table-card";
 import { SplitDriftCard } from "@/features/progress/split-drift-card";
@@ -45,9 +45,9 @@ import {
 } from "@/features/progress/muscle-insight-cards";
 import { WinsCard } from "@/features/progress/wins-card";
 import { YearSpine } from "@/features/progress/year-spine";
-import { ScienceView } from "@/features/progress/science-view";
-import { RingHeader, RingNotes, ScoreRings, ViewTabs, type RingId } from "@/features/progress/score-rings";
-import { SectionColors } from "@/features/progress/chart-theme";
+import { BodyScience, FatigueScience, RunningScience, StrengthScience } from "@/features/progress/science-view";
+import { ProgressCards, ProgressHero, RING_META, overviewLine, type RingId } from "@/features/progress/score-rings";
+import { SECTION_THEMES, SectionColors } from "@/features/progress/chart-theme";
 import {
   MilestonesCard,
   MonthCompareCard,
@@ -110,7 +110,7 @@ import {
 } from "@/lib/progress-scores";
 import { timedSessions } from "@/lib/session-time";
 import { equipmentInUse, suggestForHead } from "@/lib/suggestions";
-import { todayKey } from "@/lib/utils";
+import { cn, todayKey } from "@/lib/utils";
 
 // The baseline an acute:chronic ratio needs before it means anything.
 const LOAD_BASELINE_WEEKS = 4;
@@ -134,21 +134,15 @@ const MODES: { id: ProgressMode; label: string }[] = [
   { id: "cardio", label: "Cardio" }
 ];
 
-const RING_IDS: RingId[] = ["strength", "consistency", "body"];
-
-/** A view that opens from the URL: a ring's, or Science, which has no ring. */
-type OpenView = RingId | "science";
-const VIEW_IDS: OpenView[] = [...RING_IDS, "science"];
-
-/** The open view, from the URL's `?view=`: none (or an unknown one) is the summary. */
-function viewFromQuery(value: string | null): OpenView | undefined {
-  return VIEW_IDS.find((id) => id === value);
+/** The open card, from the URL's `?view=`: none (or an unknown one) is the overview. */
+function cardFromQuery(value: string | null): RingId | undefined {
+  return RING_META.find((card) => card.id === value)?.id;
 }
 
 /**
- * The view lives in the URL (`/progress?view=body`), so a link — and the
- * guided tour — can open a view. Suspense: the search params are only known
- * in the browser.
+ * The open card lives in the URL (`/progress?view=body`), so a link — and the
+ * guided tour — can open one. Suspense: the search params are only known in the
+ * browser.
  */
 export function ProgressDashboard() {
   return (
@@ -176,19 +170,23 @@ function ProgressDashboardView() {
   const [range, setRange] = useState<ProgressRange>("1y");
   const [custom, setCustom] = useState<DateWindow>();
   const [workoutId, setWorkoutId] = useState<string>();
-  // The summary first, the detail on demand: the rings are the navigation, and
-  // no ring open means the summary. The exercise chip only exists inside
-  // Strength, so it is cleared on the way out rather than silently scoping the
-  // other views.
+  // The overview first, the detail on demand: the three cards are the only
+  // navigation, and none open means the overview. The exercise chip only exists
+  // inside Strength, so it is cleared on the way out rather than silently scoping
+  // the other cards.
   const [mode, setMode] = useState<ProgressMode>("gym");
-  const router = useRouter();
   const params = useSearchParams();
-  const openView = viewFromQuery(params.get("view"));
-  // The ring lit up is the open view, except Science, which has no ring: it
-  // is the formulas, not a score. Indexing `rings` by it would throw.
-  const ringView = openView && openView !== "science" ? openView : undefined;
-  const openRing = (id?: OpenView) => {
-    router.replace(id ? `/progress?view=${id}` : "/progress", { scroll: false });
+  const urlCard = cardFromQuery(params.get("view"));
+  // A tap answers in the same frame: the heading and the card change now, and the
+  // charts behind them, twenty-odd of them, follow at low priority (`shownCard`).
+  const [card, setCard] = useState(urlCard);
+  useEffect(() => setCard(urlCard), [urlCard]);
+  const shownCard = useDeferredValue(card);
+  const openRing = (id?: RingId) => {
+    setCard(id);
+    // Not the router: this page reads the view in the browser, so there is nothing
+    // to ask the server for, and the wait for its answer read as a dead tap.
+    window.history.replaceState(null, "", id ? `/progress?view=${id}` : "/progress");
     if (id !== "strength") {
       setWorkoutId(undefined);
     }
@@ -389,20 +387,379 @@ function ProgressDashboardView() {
     };
   }, [selected, view]);
 
+  // Built once per card and range, so a tap re-renders the heading and not this.
+  const charts = useMemo(
+    () =>
+    shownCard === "strength" ? (
+      <SectionColors section="strength">
+        {/* Lift chips live inside Strength: elsewhere they scoped cards that
+            never said so. */}
+        <ExerciseChips
+          exercises={view.exercises}
+          workoutId={workoutId}
+          onWorkoutChange={setWorkoutId}
+        />
+
+        <TopSetWall logs={view.scoped} exercises={view.scopedExercises} groupOf={liftGroups} />
+
+        {/* Weight and reps need the per-set grain, like the estimate below. */}
+        {setLogs.length > 0 ? (
+          <WeightRepsCard
+            setLogs={filterByWindow(setLogs, view.window)}
+            exercises={view.scopedExercises}
+            workoutId={workoutId}
+          />
+        ) : null}
+
+        <Reveal
+          ready={sessionCount >= 2}
+          title="Strength growth"
+          need={`${2 - sessionCount} more workout${sessionCount === 1 ? "" : "s"}`}
+        >
+          <StrengthGrowthCard growth={view.growth} groupOf={liftGroups} />
+        </Reveal>
+
+        <StrengthRatioCard ratios={extras.ratios} groupOf={liftGroups} />
+
+        {/* Gated on set_logs, not on session count: the estimate needs the per-set
+            grain, and an account whose whole history predates that table has
+            nothing to feed it however many sessions it has. */}
+        {setLogs.length > 0 ? (
+          <OneRepMaxCard
+            // Scoped to the range like every other card here. Passing the whole
+            // history alongside window-scoped exercises showed an all-time best
+            // under a "four weeks" filter, with nothing in the caption saying so.
+            setLogs={filterByWindow(setLogs, view.window)}
+            exercises={view.scopedExercises}
+          />
+        ) : null}
+
+        <Reveal
+          ready={sessionCount >= 2}
+          title="Records"
+          need="your second workout"
+        >
+          <PRLedgerCard entries={lifetime.ledger} days={lifetime.sincePR} />
+        </Reveal>
+
+        <RecordsMonthCard months={extras.recordsPerMonth} />
+
+        <SectionRule label="How much" hint="weight lifted" />
+
+        {/* Thresholds are in sessions, not logs: two exercises on a Tuesday is
+            one session, and it is sessions the charts need more of. */}
+        <Reveal
+          ready={sessionCount >= 3}
+          title="Weight lifted"
+          need={`${3 - sessionCount} more workout${3 - sessionCount === 1 ? "" : "s"}`}
+        >
+          <VolumeTrendCard points={view.trend} bucket={view.bucket} />
+        </Reveal>
+
+        <VolumeDetailCard summary={view.summary} previous={view.previousSummary} />
+
+        {/* ACWR compares the last week against a four-week baseline. Before that
+            baseline exists the ratio is arithmetic on nothing. */}
+        <Reveal
+          ready={weeksOfHistory >= LOAD_BASELINE_WEEKS}
+          title="This week vs normal"
+          need={`${LOAD_BASELINE_WEEKS - weeksOfHistory} more week${
+            LOAD_BASELINE_WEEKS - weeksOfHistory === 1 ? "" : "s"
+          } of training`}
+        >
+          <LoadCard points={lifetime.load} />
+        </Reveal>
+
+        <CumulativeCard
+          points={lifetime.cumulative.points}
+          milestones={lifetime.cumulative.milestones}
+          total={lifetime.cumulative.total}
+        />
+
+        <StrengthScience
+          logs={logs}
+          setLogs={setLogs}
+          measurements={measurements}
+          profile={profile}
+          window={view.window}
+          today={activeDate}
+          liftGroups={liftGroups}
+        />
+
+        <SectionRule label="Workout history" hint="every number, as a list" />
+
+        <ProgressTableCard logs={view.scoped} />
+      </SectionColors>
+    ) : shownCard === "consistency" ? (
+      <SectionColors section="consistency">
+        <YearSpine weeks={view.calendar} streaks={view.streaks} range={range} />
+
+        <WeeklyGoalCard
+          weeks={extras.weeklySessions}
+          target={weeklyTarget}
+          bestMonth={extras.bestMonth}
+        />
+
+        <MonthCompareCard rows={extras.monthCompare} />
+
+        <MilestonesCard earned={extras.milestones.earned} next={extras.milestones.next} />
+
+        <Reveal
+          ready={sessionCount >= 6}
+          title="Training week"
+          need={`${6 - sessionCount} more workout${6 - sessionCount === 1 ? "" : "s"}`}
+        >
+          <RhythmCard rhythm={view.rhythm} rest={view.rest} />
+        </Reveal>
+
+        <SectionRule label="Time" hint="length and time of day" />
+
+        {/* All timed sessions, not the selected range: a few weeks of
+            timing inside a 4W window is too thin to read. */}
+        <SessionTimeSection sessions={timed} today={activeDate} />
+
+        <FatigueScience
+          logs={logs}
+          setLogs={setLogs}
+          scheduled={scheduled}
+          window={view.window}
+          today={activeDate}
+          liftGroups={liftGroups}
+        />
+      </SectionColors>
+    ) : shownCard === "body" ? (
+      <SectionColors section="body">
+        {/* Today on the whole history: "what can I train now" does not change
+            with the range chip. */}
+        <div data-tour="progress-recovery">
+          <RecoveryMapCard
+            recovery={recovery}
+            selectedMuscleId={selected?.id}
+            onSelectMuscle={setSelectedMuscle}
+          />
+        </div>
+
+        <SectionRule label="Training" hint="how you train each muscle" />
+
+        <MuscleMapCard
+          title="Muscles you trained"
+          description="Brighter means more training. Tap a muscle."
+          highlights={view.heat}
+          selectedMuscleId={selected?.id}
+          onSelectMuscle={setSelectedMuscle}
+          footer={
+            <MuscleHeroFooter
+              facts={drilldown?.facts}
+              onClear={() => setSelectedMuscle(undefined)}
+            />
+          }
+        />
+
+        {drilldown ? (
+          <div className="space-y-3">
+            <SectionRule label={drilldown.name} hint="this muscle only" />
+
+            {/* Measurements exist whether or not you trained the muscle in this
+                range, so this sits outside the untouched branch. It returns null
+                when the site has nothing recorded, so it never adds an empty card. */}
+            <MuscleGirthCard
+              name={drilldown.name}
+              muscleId={drilldown.muscleId}
+              measurements={measurements}
+              // Volume attributed to this muscle, so the callout compares the two
+              // halves of the same claim.
+              logs={attributeToMuscle(logs, drilldown.muscleId)}
+            />
+
+            {/* Four empty cards is the complaint that started this page. One is enough. */}
+            {drilldown.untouched ? (
+              <UntouchedMuscle name={drilldown.name} range={range} />
+            ) : (
+              <>
+                <MuscleDoseCard name={drilldown.name} setsPerWeek={drilldown.facts.setsPerWeek} />
+
+                <MuscleVolumeCard
+                  name={drilldown.name}
+                  points={drilldown.trend}
+                  bucket={view.bucket}
+                />
+
+                <MuscleLiftsCard
+                  name={drilldown.name}
+                  muscleId={drilldown.muscleId}
+                  logs={drilldown.logs}
+                />
+
+                <ConsistencyCard
+                  weeks={drilldown.calendar}
+                  title="Training days"
+                  subject="training days"
+                />
+              </>
+            )}
+          </div>
+        ) : null}
+
+        <SectionRule label="Balance" hint="how you split training" />
+
+        <BalanceCard pushPull={balance.pushPull} upperLower={balance.upperLower} />
+
+        <WeeklySetsCard sets={view.weeklySets} />
+
+        <GrowthTimelineCard weeks={extras.groupTimeline} />
+
+        <MuscleRankCard
+          muscleVolume={view.muscleVolume}
+          selectedMuscleId={selected?.id}
+          onSelectMuscle={(muscleId: MuscleId) => setSelectedMuscle(muscleId)}
+        />
+
+        <MuscleSplitCard groups={view.groups} />
+
+        <Reveal
+          ready={view.drift.rows.length >= MATRIX_MIN_COLUMNS}
+          title="Focus over time"
+          need={`${MATRIX_MIN_COLUMNS - view.drift.rows.length} more period${
+            MATRIX_MIN_COLUMNS - view.drift.rows.length === 1 ? "" : "s"
+          } of training`}
+        >
+          <SplitDriftCard drift={view.drift} />
+        </Reveal>
+
+        <Reveal
+          ready={view.matrix.columns.length >= MATRIX_MIN_COLUMNS}
+          title={view.matrix.bucket === "month" ? "Muscles by month" : "Muscles by week"}
+          need={`${MATRIX_MIN_COLUMNS - view.matrix.columns.length} more period${
+            MATRIX_MIN_COLUMNS - view.matrix.columns.length === 1 ? "" : "s"
+          } of training`}
+        >
+          <MuscleMatrixCard
+            matrix={view.matrix}
+            selectedMuscleId={selected?.id}
+            onSelectMuscle={(muscleId: MuscleId) => setSelectedMuscle(muscleId)}
+          />
+        </Reveal>
+
+        {/* One level below the group band, which is where the finding actually
+            lives: fourteen chest sets that were all flat pressing. */}
+        <Reveal
+          ready={sessionCount >= 3}
+          title="Muscle part sets"
+          need={`${3 - sessionCount} more workout${3 - sessionCount === 1 ? "" : "s"}`}
+        >
+          <HeadStimulusCard report={headStimulus} suggestions={headSuggestions} />
+        </Reveal>
+
+        <SectionRule label="Weight" hint="your weigh-ins" />
+
+        {/* Weight is one part of the body story, not a gate on it: without a
+            weigh-in this is one line, not an empty ring and two empty charts. */}
+        {latestFor(measurements, "weight") ? (
+          <>
+          {/* Full history, not the selected range: a monthly measurement inside a
+              one-month window is a single point and no trend at all. */}
+          <BodyWeightCard
+            measurements={measurements}
+            goalWeightKg={profile.goalWeightKg}
+            eta={extras.eta}
+          />
+
+          <WeightChangeCard
+            months={extras.weightChange}
+            goalWeightKg={profile.goalWeightKg}
+            // From the weigh-ins themselves, not the profile copy of them.
+            currentKg={latestFor(measurements, "weight")?.value}
+          />
+          </>
+        ) : (
+          <Panel title="Track your weight">
+            <p className="text-sm text-muted-foreground">
+              Add a weigh-in on You to see your trend.
+            </p>
+          </Panel>
+        )}
+
+        <BodyScience
+          logs={logs}
+          measurements={measurements}
+          profile={profile}
+          cardio={cardio}
+          timed={timed}
+          today={activeDate}
+        />
+      </SectionColors>
+    ) : (
+      <>
+          <div data-tour="progress-wins">
+            <WinsCard wins={wins} rangeLabel={range === "all" ? "All time" : `In the ${RANGE_LABELS[range]}`} />
+          </div>
+
+          {/* Nothing to add up on a new account: the heading already says where to start. */}
+          {logs.length > 0 ? (
+            <ProgressHeadline
+              range={range}
+              summary={view.summary}
+              previous={view.previousSummary}
+              window={view.window}
+              streaks={view.streaks}
+              weeklySets={view.weeklySets}
+              daysSincePR={lifetime.sincePR}
+              // The best of the main lifts, so the summary and the Strength ring
+              // talk about the same lifts.
+              topGain={[...mainLifts(view.scoped)].sort((a, b) => b.changePercent - a.changePercent)[0]}
+            />
+          ) : null}
+      </>
+    ),
+    [
+      activeDate,
+      balance,
+      cardio,
+      drilldown,
+      extras,
+      headStimulus,
+      headSuggestions,
+      liftGroups,
+      lifetime,
+      logs,
+      measurements,
+      profile,
+      range,
+      recovery,
+      scheduled,
+      selected,
+      sessionCount,
+      setLogs,
+      setSelectedMuscle,
+      shownCard,
+      timed,
+      view,
+      weeklyTarget,
+      weeksOfHistory,
+      wins,
+      workoutId
+    ]
+  );
+
   // Gym is on the left, Cardio on the right: a swipe left goes to Cardio.
   const swipe = useSwipeTabs((direction) => setMode(direction === "left" ? MODES[1].id : MODES[0].id));
 
   return (
-    <section className="space-y-4" {...swipe}>
-      <Segmented role="tablist" aria-label="Progress view" data-tour="progress-modes" options={MODES} value={mode} onChange={setMode} />
-
-      {/* Cardio keeps its own 12 weeks and its own kinds; the range and lift
-          filters are about lifting. */}
-      {mode === "cardio" ? <CardioProgress sessions={cardio} today={activeDate} /> : null}
-
-      {mode === "gym" ? (
-        <>
-          <ProgressFilters
+    <section className="space-y-3" {...swipe}>
+      <div className="flex items-center justify-between gap-2.5">
+        <Segmented
+          size="sm"
+          role="tablist"
+          aria-label="Progress view"
+          data-tour="progress-modes"
+          className="w-[172px]"
+          options={MODES}
+          value={mode}
+          onChange={setMode}
+        />
+        {/* Cardio keeps its own 12 weeks, so the range is about lifting. */}
+        {mode === "gym" ? (
+          <RangeMenu
             range={range}
             // Opening the picker seeds it with whatever range you were already on,
             // so the first thing you see is the window you just left, editable.
@@ -415,341 +772,34 @@ function ProgressDashboardView() {
             window={view.window}
             onWindowChange={setCustom}
             today={activeDate}
-            // Lift chips live inside Strength, under its header: elsewhere they
-            // scoped cards that never said so.
-            exercises={[]}
-            workoutId={workoutId}
-            onWorkoutChange={setWorkoutId}
           />
+        ) : null}
+      </div>
 
-          <ScoreRings rings={rings} selected={ringView} onSelect={openRing} />
+      {mode === "cardio" ? (
+        <SectionColors section="cardio">
+          <CardioProgress sessions={cardio} today={activeDate} />
+          {cardio.length > 0 ? <RunningScience cardio={cardio} /> : null}
+        </SectionColors>
+      ) : null}
 
-          <ViewTabs
-            view={openView ?? "summary"}
-            onChange={(next) => openRing(next === "summary" ? undefined : next)}
-          />
-
-          {ringView ? (
-            <RingHeader ring={rings[ringView]} />
-          ) : openView === "science" ? (
-            <p className="text-sm leading-snug text-muted-foreground">
-              Published formulas, run over your own log. Each card says what it computes and where the
-              formula comes from.
-            </p>
+      {mode === "gym" ? (
+        <>
+          {card ? (
+            <ProgressHero
+              title={RING_META.find((item) => item.id === card)?.label ?? ""}
+              sentence={rings[card].sentence}
+              color={SECTION_THEMES[card].accent}
+            />
           ) : (
-            <>
-              <RingNotes rings={rings} onSelect={openRing} />
-
-              <div data-tour="progress-wins">
-                <WinsCard wins={wins} rangeLabel={range === "all" ? "All time" : `In the ${RANGE_LABELS[range]}`} />
-              </div>
-
-              <MonthCompareCard rows={extras.monthCompare} />
-
-              <MilestonesCard earned={extras.milestones.earned} next={extras.milestones.next} />
-
-              <ProgressHeadline
-                range={range}
-                summary={view.summary}
-                previous={view.previousSummary}
-                window={view.window}
-                streaks={view.streaks}
-                weeklySets={view.weeklySets}
-                daysSincePR={lifetime.sincePR}
-                // The best of the main lifts, so the summary and the Strength ring
-                // talk about the same lifts.
-                topGain={[...mainLifts(view.scoped)].sort((a, b) => b.changePercent - a.changePercent)[0]}
-              />
-            </>
+            <ProgressHero title={overviewLine(rings.strength, range)} sentence={rings.strength.sentence} />
           )}
+
+          <ProgressCards rings={rings} selected={card} onSelect={openRing} />
+
+          {/* Dimmed for the moment the old card's charts are still up. */}
+          <div className={cn("space-y-3 transition-opacity duration-150", card !== shownCard && "opacity-50")}>{charts}</div>
         </>
-      ) : null}
-
-      {mode === "gym" && ringView === "strength" ? (
-        <SectionColors section="strength">
-          <ExerciseChips
-            exercises={view.exercises}
-            workoutId={workoutId}
-            onWorkoutChange={setWorkoutId}
-          />
-
-          <TopSetWall logs={view.scoped} exercises={view.scopedExercises} groupOf={liftGroups} />
-
-          {/* Weight and reps need the per-set grain, like the estimate below. */}
-          {setLogs.length > 0 ? (
-            <WeightRepsCard
-              setLogs={filterByWindow(setLogs, view.window)}
-              exercises={view.scopedExercises}
-              workoutId={workoutId}
-            />
-          ) : null}
-
-          <Reveal
-            ready={sessionCount >= 2}
-            title="Strength growth"
-            need={`${2 - sessionCount} more workout${sessionCount === 1 ? "" : "s"}`}
-          >
-            <StrengthGrowthCard growth={view.growth} groupOf={liftGroups} />
-          </Reveal>
-
-          <StrengthRatioCard ratios={extras.ratios} groupOf={liftGroups} />
-
-          {/* Gated on set_logs, not on session count: the estimate needs the per-set
-              grain, and an account whose whole history predates that table has
-              nothing to feed it however many sessions it has. */}
-          {setLogs.length > 0 ? (
-            <OneRepMaxCard
-              // Scoped to the range like every other card here. Passing the whole
-              // history alongside window-scoped exercises showed an all-time best
-              // under a "four weeks" filter, with nothing in the caption saying so.
-              setLogs={filterByWindow(setLogs, view.window)}
-              exercises={view.scopedExercises}
-            />
-          ) : null}
-
-          <Reveal
-            ready={sessionCount >= 2}
-            title="Records"
-            need="your second workout"
-          >
-            <PRLedgerCard entries={lifetime.ledger} days={lifetime.sincePR} />
-          </Reveal>
-
-          <RecordsMonthCard months={extras.recordsPerMonth} />
-
-          <SectionRule label="How much" hint="weight lifted" />
-
-          {/* Thresholds are in sessions, not logs: two exercises on a Tuesday is
-              one session, and it is sessions the charts need more of. */}
-          <Reveal
-            ready={sessionCount >= 3}
-            title="Weight lifted"
-            need={`${3 - sessionCount} more workout${3 - sessionCount === 1 ? "" : "s"}`}
-          >
-            <VolumeTrendCard points={view.trend} bucket={view.bucket} />
-          </Reveal>
-
-          <VolumeDetailCard summary={view.summary} previous={view.previousSummary} />
-
-          {/* ACWR compares the last week against a four-week baseline. Before that
-              baseline exists the ratio is arithmetic on nothing. */}
-          <Reveal
-            ready={weeksOfHistory >= LOAD_BASELINE_WEEKS}
-            title="This week vs normal"
-            need={`${LOAD_BASELINE_WEEKS - weeksOfHistory} more week${
-              LOAD_BASELINE_WEEKS - weeksOfHistory === 1 ? "" : "s"
-            } of training`}
-          >
-            <LoadCard points={lifetime.load} />
-          </Reveal>
-
-          <CumulativeCard
-            points={lifetime.cumulative.points}
-            milestones={lifetime.cumulative.milestones}
-            total={lifetime.cumulative.total}
-          />
-
-          <SectionRule label="Workout history" hint="every number, as a list" />
-
-          <ProgressTableCard logs={view.scoped} />
-        </SectionColors>
-      ) : null}
-
-      {mode === "gym" && ringView === "consistency" ? (
-        <SectionColors section="consistency">
-          <YearSpine weeks={view.calendar} streaks={view.streaks} range={range} />
-
-          <WeeklyGoalCard
-            weeks={extras.weeklySessions}
-            target={weeklyTarget}
-            bestMonth={extras.bestMonth}
-          />
-
-          <Reveal
-            ready={sessionCount >= 6}
-            title="Training week"
-            need={`${6 - sessionCount} more workout${6 - sessionCount === 1 ? "" : "s"}`}
-          >
-            <RhythmCard rhythm={view.rhythm} rest={view.rest} />
-          </Reveal>
-
-          <SectionRule label="Time" hint="length and time of day" />
-
-          {/* All timed sessions, not the selected range: a few weeks of
-              timing inside a 4W window is too thin to read. */}
-          <SessionTimeSection sessions={timed} today={activeDate} />
-        </SectionColors>
-      ) : null}
-
-      {mode === "gym" && ringView === "body" ? (
-        <SectionColors section="body">
-          {/* Today on the whole history: "what can I train now" does not change
-              with the range chip. */}
-          <div data-tour="progress-recovery">
-            <RecoveryMapCard
-              recovery={recovery}
-              selectedMuscleId={selected?.id}
-              onSelectMuscle={setSelectedMuscle}
-            />
-          </div>
-
-          <SectionRule label="Muscles" hint="how you train each muscle" />
-
-          <MuscleMapCard
-            title="Muscles you trained"
-            description="Brighter means more training. Tap a muscle."
-            highlights={view.heat}
-            selectedMuscleId={selected?.id}
-            onSelectMuscle={setSelectedMuscle}
-            footer={
-              <MuscleHeroFooter
-                facts={drilldown?.facts}
-                onClear={() => setSelectedMuscle(undefined)}
-              />
-            }
-          />
-
-          {drilldown ? (
-            <div className="space-y-3">
-              <SectionRule label={drilldown.name} hint="this muscle only" />
-
-              {/* Measurements exist whether or not you trained the muscle in this
-                  range, so this sits outside the untouched branch. It returns null
-                  when the site has nothing recorded, so it never adds an empty card. */}
-              <MuscleGirthCard
-                name={drilldown.name}
-                muscleId={drilldown.muscleId}
-                measurements={measurements}
-                // Volume attributed to this muscle, so the callout compares the two
-                // halves of the same claim.
-                logs={attributeToMuscle(logs, drilldown.muscleId)}
-              />
-
-              {/* Four empty cards is the complaint that started this page. One is enough. */}
-              {drilldown.untouched ? (
-                <UntouchedMuscle name={drilldown.name} range={range} />
-              ) : (
-                <>
-                  <MuscleDoseCard name={drilldown.name} setsPerWeek={drilldown.facts.setsPerWeek} />
-
-                  <MuscleVolumeCard
-                    name={drilldown.name}
-                    points={drilldown.trend}
-                    bucket={view.bucket}
-                  />
-
-                  <MuscleLiftsCard
-                    name={drilldown.name}
-                    muscleId={drilldown.muscleId}
-                    logs={drilldown.logs}
-                  />
-
-                  <ConsistencyCard
-                    weeks={drilldown.calendar}
-                    title="Training days"
-                    subject="training days"
-                  />
-                </>
-              )}
-            </div>
-          ) : null}
-
-          <SectionRule label="Balance" hint="how you split training" />
-
-          <BalanceCard pushPull={balance.pushPull} upperLower={balance.upperLower} />
-
-          <WeeklySetsCard sets={view.weeklySets} />
-
-          <GrowthTimelineCard weeks={extras.groupTimeline} />
-
-          <MuscleRankCard
-            muscleVolume={view.muscleVolume}
-            selectedMuscleId={selected?.id}
-            onSelectMuscle={(muscleId: MuscleId) => setSelectedMuscle(muscleId)}
-          />
-
-          <MuscleSplitCard groups={view.groups} />
-
-          <Reveal
-            ready={view.drift.rows.length >= MATRIX_MIN_COLUMNS}
-            title="Focus over time"
-            need={`${MATRIX_MIN_COLUMNS - view.drift.rows.length} more period${
-              MATRIX_MIN_COLUMNS - view.drift.rows.length === 1 ? "" : "s"
-            } of training`}
-          >
-            <SplitDriftCard drift={view.drift} />
-          </Reveal>
-
-          <Reveal
-            ready={view.matrix.columns.length >= MATRIX_MIN_COLUMNS}
-            title={view.matrix.bucket === "month" ? "Muscles by month" : "Muscles by week"}
-            need={`${MATRIX_MIN_COLUMNS - view.matrix.columns.length} more period${
-              MATRIX_MIN_COLUMNS - view.matrix.columns.length === 1 ? "" : "s"
-            } of training`}
-          >
-            <MuscleMatrixCard
-              matrix={view.matrix}
-              selectedMuscleId={selected?.id}
-              onSelectMuscle={(muscleId: MuscleId) => setSelectedMuscle(muscleId)}
-            />
-          </Reveal>
-
-          {/* One level below the group band, which is where the finding actually
-              lives: fourteen chest sets that were all flat pressing. */}
-          <Reveal
-            ready={sessionCount >= 3}
-            title="Muscle part sets"
-            need={`${3 - sessionCount} more workout${3 - sessionCount === 1 ? "" : "s"}`}
-          >
-            <HeadStimulusCard report={headStimulus} suggestions={headSuggestions} />
-          </Reveal>
-
-          <SectionRule label="Bodyweight" hint="your weigh-ins" />
-
-          {/* Weight is one part of the body story, not a gate on it: without a
-              weigh-in this is one line, not an empty ring and two empty charts. */}
-          {latestFor(measurements, "weight") ? (
-            <>
-            {/* Full history, not the selected range: a monthly measurement inside a
-                one-month window is a single point and no trend at all. */}
-            <BodyWeightCard
-              measurements={measurements}
-              goalWeightKg={profile.goalWeightKg}
-              eta={extras.eta}
-            />
-
-            <WeightChangeCard
-              months={extras.weightChange}
-              goalWeightKg={profile.goalWeightKg}
-              // From the weigh-ins themselves, not the profile copy of them.
-              currentKg={latestFor(measurements, "weight")?.value}
-            />
-            </>
-          ) : (
-            <Panel title="Track your weight">
-              <p className="text-sm text-muted-foreground">
-                Add a weigh-in on You to see your trend.
-              </p>
-            </Panel>
-          )}
-        </SectionColors>
-      ) : null}
-
-      {mode === "gym" && openView === "science" ? (
-        <SectionColors section="science">
-          <ScienceView
-            logs={logs}
-            setLogs={setLogs}
-            scheduled={scheduled}
-            measurements={measurements}
-            profile={profile}
-            cardio={cardio}
-            timed={timed}
-            window={view.window}
-            today={activeDate}
-            liftGroups={liftGroups}
-          />
-        </SectionColors>
       ) : null}
     </section>
   );

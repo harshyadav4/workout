@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { InfoNote } from "@/components/ui/info-note";
 import { Input } from "@/components/ui/input";
+import { ListSheet } from "@/components/ui/list";
 import { useAuth } from "@/features/auth/use-auth";
 import { useDietStore, useDietStoreApi } from "@/features/diet/diet-store";
 import { useSyncStatus } from "@/features/workout/sync-status";
@@ -44,6 +45,23 @@ function ConfirmWord({ value, onChange }: { value: string; onChange: (value: str
 }
 
 const confirmedWord = (typed: string) => typed.trim().toUpperCase() === CONFIRM_WORD;
+
+/**
+ * How a delete looks on the page: a quiet line, apart from the actions people
+ * use every week. No red and no button shape here. Almost nobody needs it, so it
+ * must not be the loudest thing on the page. The red waits in its sheet.
+ */
+function QuietDelete({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="mx-auto block min-h-11 rounded-full px-4 text-[13.5px] font-medium text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      {label}
+    </button>
+  );
+}
 
 /**
  * On every page while old data is archived: when it goes, and the way back.
@@ -286,67 +304,65 @@ export function DataDeletion() {
     setPending(false);
   };
 
-  if (!confirming) {
-    return (
-      <Button
-        variant="outline"
-        className="w-full border-danger/40 text-danger"
-        onClick={() => setConfirming(true)}
-      >
-        Delete all my data
-      </Button>
-    );
-  }
+  const close = () => {
+    setConfirming(false);
+    setTyped("");
+    setFailure(undefined);
+  };
 
   return (
-    <div className="rounded-xl border border-danger/40 p-4">
-      <InfoNote
-        heading={<p className="text-sm font-semibold text-danger">Delete all your data?</p>}
-        note={
-          <>
-            <p>You stay signed in.</p>
-            <p>
-              During the {DELETION_GRACE_DAYS} days, you can restore your data. You can keep your new data with it,
-              or replace your new data with it.
-            </p>
-            <p>After {DELETION_GRACE_DAYS} days, the app deletes it the next time you open the app.</p>
-          </>
-        }
-      />
-      <ul className="mt-1 space-y-1 text-sm text-muted-foreground">
-        <li>Deletes workouts, plans, records, weigh-ins, measurements, skills and your exercises.</li>
-        <li>Deletes from this phone and your account.</li>
-        <li>
-          <span className="font-semibold text-foreground">You have {DELETION_GRACE_DAYS} days to restore it.</span> Then you
-          cannot undo it.
-        </li>
-      </ul>
-      <p className="mt-2 text-xs text-muted-foreground">Tip: download a backup first.</p>
-      <ConfirmWord value={typed} onChange={setTyped} />
-      {failure ? <p className="mt-2 text-sm text-danger">{failure}</p> : null}
-      <div className="mt-3 flex gap-2">
-        <Button
-          variant="danger"
-          className="flex-1"
-          disabled={!confirmedWord(typed) || pending}
-          onClick={() => void request()}
-        >
-          {pending ? "Deleting…" : "Delete"}
-        </Button>
-        <Button
-          variant="secondary"
-          className="flex-1"
-          disabled={pending}
-          onClick={() => {
-            setConfirming(false);
-            setTyped("");
-            setFailure(undefined);
-          }}
-        >
-          Cancel
-        </Button>
-      </div>
-    </div>
+    <>
+      <QuietDelete label="Delete all my data" onClick={() => setConfirming(true)} />
+      <ListSheet
+        open={confirming}
+        onOpenChange={(open) => (open ? setConfirming(true) : close())}
+        title="Delete all your data?"
+        titleClassName="text-danger"
+      >
+        <InfoNote
+          heading={<p className="text-sm font-medium">How the {DELETION_GRACE_DAYS} days work</p>}
+          note={
+            <>
+              <p>You stay signed in.</p>
+              <p>
+                During the {DELETION_GRACE_DAYS} days, you can restore your data. You can keep your new data with it,
+                or replace your new data with it.
+              </p>
+              <p>After {DELETION_GRACE_DAYS} days, the app deletes it the next time you open the app.</p>
+            </>
+          }
+        />
+        <ul className="mt-1 space-y-1 text-sm text-muted-foreground">
+          <li>Deletes workouts, plans, records, weigh-ins, measurements, skills and your exercises.</li>
+          <li>Deletes from this phone and your account.</li>
+          <li>
+            <span className="font-semibold text-foreground">You have {DELETION_GRACE_DAYS} days to restore it.</span> Then you
+            cannot undo it.
+          </li>
+        </ul>
+        <p className="mt-2 text-xs text-muted-foreground">Tip: download a backup first.</p>
+        <ConfirmWord value={typed} onChange={setTyped} />
+        {failure ? <p className="mt-2 text-sm text-danger">{failure}</p> : null}
+        <div className="mt-3 flex gap-2">
+          <Button
+            variant="danger"
+            className="flex-1"
+            disabled={!confirmedWord(typed) || pending}
+            onClick={() => void request()}
+          >
+            {pending ? "Deleting…" : "Delete"}
+          </Button>
+          <Button
+            variant="secondary"
+            className="flex-1"
+            disabled={pending}
+            onClick={close}
+          >
+            Cancel
+          </Button>
+        </div>
+      </ListSheet>
+    </>
   );
 }
 
@@ -365,52 +381,46 @@ export function ClearThisPhone() {
     return <p className="text-center text-sm text-muted-foreground" role="status">Data on this phone is deleted.</p>;
   }
 
-  if (!confirming) {
-    return (
-      <Button
-        variant="outline"
-        className="w-full border-danger/40 text-danger"
-        onClick={() => setConfirming(true)}
-      >
-        Delete data on this phone
-      </Button>
-    );
-  }
+  const close = () => {
+    setConfirming(false);
+    setTyped("");
+  };
 
   return (
-    <div className="rounded-xl border border-danger/40 p-4">
-      <p className="text-sm font-semibold text-danger">Delete data on this phone?</p>
-      <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
-        <li>Deletes your workouts, plans, records and weigh-ins.</li>
-        <li>No other copy exists.</li>
-        <li className="font-semibold text-foreground">You cannot undo this.</li>
-      </ul>
-      <p className="mt-2 text-xs text-muted-foreground">Tip: download a backup first.</p>
-      <ConfirmWord value={typed} onChange={setTyped} />
-      <div className="mt-3 flex gap-2">
-        <Button
-          variant="danger"
-          className="flex-1"
-          disabled={!confirmedWord(typed)}
-          onClick={() => {
-            clearGuestData();
-            clearDietGuestData();
-            setDone(true);
-          }}
-        >
-          Delete
-        </Button>
-        <Button
-          variant="secondary"
-          className="flex-1"
-          onClick={() => {
-            setConfirming(false);
-            setTyped("");
-          }}
-        >
-          Cancel
-        </Button>
-      </div>
-    </div>
+    <>
+      <QuietDelete label="Delete data on this phone" onClick={() => setConfirming(true)} />
+      <ListSheet
+        open={confirming}
+        onOpenChange={(open) => (open ? setConfirming(true) : close())}
+        title="Delete data on this phone?"
+        titleClassName="text-danger"
+      >
+        <ul className="space-y-1 text-sm text-muted-foreground">
+          <li>Deletes your workouts, plans, records and weigh-ins.</li>
+          <li>No other copy exists.</li>
+          <li className="font-semibold text-foreground">You cannot undo this.</li>
+        </ul>
+        <p className="mt-2 text-xs text-muted-foreground">Tip: download a backup first.</p>
+        <ConfirmWord value={typed} onChange={setTyped} />
+        <div className="mt-3 flex gap-2">
+          <Button
+            variant="danger"
+            className="flex-1"
+            disabled={!confirmedWord(typed)}
+            onClick={() => {
+              clearGuestData();
+              clearDietGuestData();
+              close();
+              setDone(true);
+            }}
+          >
+            Delete
+          </Button>
+          <Button variant="secondary" className="flex-1" onClick={close}>
+            Cancel
+          </Button>
+        </div>
+      </ListSheet>
+    </>
   );
 }

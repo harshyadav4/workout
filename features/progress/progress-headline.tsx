@@ -2,8 +2,8 @@
 
 import { ArrowDownRight, ArrowRight, ArrowUpRight } from "lucide-react";
 
-import { Card } from "@/components/ui/card";
 import { formatSigned } from "@/features/progress/chart-theme";
+import { Panel } from "@/features/progress/panel";
 import {
   WEEKLY_SET_TARGET,
   percentChange,
@@ -60,26 +60,23 @@ export function ProgressHeadline({
   const cars = Math.round(summary.volume / CAR_KG);
 
   return (
-    <Card>
-      <p className="text-xs font-semibold text-muted-foreground">
-        Weight lifted · {RANGE_LABELS[range]}
-      </p>
-      <p className="mt-1.5 font-display text-3xl font-extrabold leading-none tracking-tight tabular-nums">
-        {formatBig(summary.volume)}
-        <span className="ml-1.5 align-baseline text-base font-medium text-muted-foreground">kg</span>
-      </p>
-      {cars >= MIN_CARS ? (
-        <p className="mt-1.5 text-sm text-muted-foreground">
-          About the weight of {formatVolume(cars)} cars.
+    <Panel title={`Weight lifted · ${RANGE_LABELS[range]}`} flush>
+      <div className="list-row px-4 pb-3 pt-3.5">
+        <p className="plot-n">
+          {formatBig(summary.volume)}
+          <span className="ml-1.5 text-[15px] font-normal text-muted-foreground">kg</span>
         </p>
-      ) : null}
-      <Delta change={change} days={windowDays(window)} />
-
-      <div className="mt-4 space-y-2">
-        {reading.good ? <Reading label="Going well" tone="good" text={reading.good} /> : null}
-        <Reading label="Try next" tone="next" text={reading.next} />
+        {cars >= MIN_CARS ? (
+          <p className="mt-0.5 text-[13.5px] text-muted-foreground">
+            About the weight of {formatVolume(cars)} cars.
+          </p>
+        ) : null}
+        <Delta change={change} days={windowDays(window)} />
       </div>
-    </Card>
+
+      {reading.good ? <Reading label="Going well" tone="good" text={reading.good} /> : null}
+      <Reading label="Try next" tone="next" text={reading.next} />
+    </Panel>
   );
 }
 
@@ -96,13 +93,11 @@ function formatBig(value: number) {
 
 function Reading({ label, tone, text }: { label: string; tone: "good" | "next"; text: string }) {
   return (
-    <div
-      className={`rounded-lg border-l-2 py-1 pl-3 ${tone === "good" ? "border-success" : "border-brand"}`}
-    >
-      <p className={`text-xs font-semibold ${tone === "good" ? "text-success" : "text-brand"}`}>
+    <div className="list-row px-4 py-2.5">
+      <p className={`text-[13px] font-medium ${tone === "good" ? "text-success" : "text-brand"}`}>
         {label}
       </p>
-      <p className="mt-0.5 text-sm leading-snug">{text}</p>
+      <p className="mt-px text-[15px] leading-snug">{text}</p>
     </div>
   );
 }
@@ -204,7 +199,7 @@ function Delta({ change, days }: { change?: number; days: number }) {
   const tone = flat ? "text-muted-foreground" : change > 0 ? "text-success" : "text-danger";
 
   return (
-    <p className={`mt-2 flex items-center gap-1.5 text-sm ${tone}`}>
+    <p className={`mt-1 flex items-center gap-1.5 text-[13.5px] ${tone}`}>
       <Icon className="h-4 w-4" aria-hidden />
       <span className="tabular-nums">{formatSigned(change)}%</span>
       <span className="text-muted-foreground">vs the previous {days} days</span>

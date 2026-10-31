@@ -5,9 +5,8 @@ import { Check, Minus, Plus, Trash2 } from "lucide-react";
 
 import { LiveTimerControl } from "@/features/home/live-timer";
 import { useDistanceUnit } from "@/features/workout/use-distance-unit";
-import { formatDistance, formatPace, fromUnit, toUnit } from "@/lib/cardio";
+import { type DistanceUnit, formatDistance, formatPace, fromUnit, toUnit } from "@/lib/cardio";
 import { formatClock } from "@/lib/timer";
-import { ManaBurst, ManaCharge, ManaVial } from "@/features/home/mana-vial";
 import { formatRest } from "@/features/home/rest-timer";
 import {
   ExerciseDemoThumb,
@@ -57,8 +56,20 @@ function lastSetLabel(setItem: PlannedSet): string {
     : `last time ${setItem.previousWeight} kg × ${setItem.previousReps}`;
 }
 
+/** "62.5 kg × 8", "45 s", "5 km · 28:30": the set, in the units it is done in. */
+function setSummary(setItem: PlannedSet, isTime: boolean, isDistance: boolean, unit: DistanceUnit) {
+  if (isDistance) {
+    return `${formatDistance(setItem.distanceKm ?? 0, unit)} · ${formatClock(setItem.durationSeconds ?? 0)}`;
+  }
+  if (isTime) {
+    const hold = `${setItem.durationSeconds ?? 0} s`;
+    return setItem.weight > 0 ? `${setItem.weight} kg · ${hold}` : hold;
+  }
+  return setItem.weight > 0 ? `${setItem.weight} kg × ${setItem.reps}` : `${setItem.reps} reps`;
+}
+
 /**
- * A drum: the number big in a well, a quiet key either side of it below. The
+ * A drum: the number in a field, with a quiet key on either side of it. The
  * number is the input — steppers are right for a nudge between sets; typing is
  * right for the jump from a 20 kg default to a 100 kg squat, which was 32 taps.
  */
@@ -105,111 +116,111 @@ function Drum({
   };
 
   return (
-    <div className="well flex flex-col items-center rounded-xl px-2.5 pb-2.5 pt-3">
-      <p className="text-[11px] font-semibold text-muted-foreground">{label}</p>
-      {/* Focus selects, so one tap then type replaces rather than appends.
-          Native spinners are off — this has its own. */}
-      <label className="mt-1 flex w-full items-baseline justify-center">
-        <span className="sr-only">{label}</span>
-        <input
-          type="number"
-          inputMode={decimal ? "decimal" : "numeric"}
-          step={step}
-          min={min}
-          max={max}
-          value={draft ?? value}
-          onFocus={(event) => event.target.select()}
-          onChange={(event) => {
-            setDraft(event.target.value);
-            const parsed = Number(event.target.value);
-            if (event.target.value.trim() !== "" && Number.isFinite(parsed)) {
-              onChange(clamp(parsed));
-            }
-          }}
-          onBlur={(event) => commitDraft(event.target.value)}
-          className="w-full min-w-0 bg-transparent text-center font-display text-[40px] font-extrabold leading-none tabular-nums tracking-tight text-foreground focus-visible:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-        />
-        <span className="ml-1 shrink-0 text-sm font-semibold text-muted-foreground">{suffix}</span>
-      </label>
-      <div className="mt-2.5 flex w-full gap-2">
+    <div className="well rounded-2xl pb-1 pt-1.5">
+      <p className="text-center text-[11.5px] font-medium text-muted-foreground">
+        {/* "Reps · reps" says it twice. */}
+        {suffix.toLowerCase() === label.toLowerCase() ? label : `${label} · ${suffix}`}
+      </p>
+      <div className="flex items-center">
         <button
           type="button"
           aria-label={`Decrease ${label}`}
-          className="key-quiet flex h-11 flex-1 items-center justify-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           onClick={() => onChange(clamp(value - step))}
         >
-          <Minus className="h-5 w-5" />
+          <Minus className="h-5 w-5" strokeWidth={1.8} />
         </button>
+        {/* Focus selects, so one tap then type replaces rather than appends.
+            Native spinners are off — this has its own. */}
+        <label className="min-w-0 flex-1">
+          <span className="sr-only">{label}</span>
+          <input
+            type="number"
+            inputMode={decimal ? "decimal" : "numeric"}
+            step={step}
+            min={min}
+            max={max}
+            value={draft ?? value}
+            onFocus={(event) => event.target.select()}
+            onChange={(event) => {
+              setDraft(event.target.value);
+              const parsed = Number(event.target.value);
+              if (event.target.value.trim() !== "" && Number.isFinite(parsed)) {
+                onChange(clamp(parsed));
+              }
+            }}
+            onBlur={(event) => commitDraft(event.target.value)}
+            className="w-full min-w-0 bg-transparent text-center text-[22px] font-semibold tabular-nums tracking-[-0.02em] text-foreground focus-visible:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+          />
+        </label>
         <button
           type="button"
           aria-label={`Increase ${label}`}
-          className="key-quiet flex h-11 flex-1 items-center justify-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           onClick={() => onChange(clamp(value + step))}
         >
-          <Plus className="h-5 w-5" />
+          <Plus className="h-5 w-5" strokeWidth={1.8} />
         </button>
       </div>
     </div>
   );
 }
 
-/** The logged chip: the solid key, lit with mana. */
-const DONE_TONE =
-  "mana-glow bg-gradient-to-b from-[hsl(var(--key-top))] to-[hsl(var(--key-bottom))] shadow-[inset_0_1px_0_rgba(255,255,255,0.6),0_0_0_1px_rgba(0,0,0,0.25)]";
-
-function SetChip({
+/** One set as one flat row: its number, what it holds, and a warm tick once logged. */
+function SetRow({
   index,
   setItem,
+  summary,
   isOpen,
   isStamped,
   onOpen
 }: {
   index: number;
   setItem: PlannedSet;
+  summary: string;
   isOpen: boolean;
   /** True for the one set just logged — carries the stamp animation. */
   isStamped: boolean;
-  onOpen?: () => void;
+  onOpen: () => void;
 }) {
-  const state = setItem.completed ? "done" : isOpen ? "open" : "pending";
-  // A golden-ratio step spreads the wave starts evenly, however many sets.
-  const phase = (index * 0.618) % 1;
-  const pill = (
-    <span className="relative block">
-      {state === "open" ? <ManaCharge /> : null}
-      {state === "done" ? (
-        <span className={cn("block h-3 w-[26px] rounded-full", DONE_TONE, isStamped && "set-chip-stamp")} />
-      ) : (
-        <ManaVial state={state} phase={phase} />
-      )}
-      {state === "done" && isStamped ? <ManaBurst /> : null}
-    </span>
-  );
-
-  if (!onOpen) {
-    return pill;
-  }
-
+  const state = setItem.completed ? "logged" : isOpen ? "in progress" : "not logged";
   return (
     <button
       type="button"
       onClick={onOpen}
-      aria-label={`Set ${index + 1}, ${state === "done" ? "logged" : state === "open" ? "in progress" : "not logged"}`}
+      aria-label={`Set ${index + 1}, ${state}. ${summary}`}
       aria-pressed={isOpen}
-      className="flex h-12 w-12 items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:bg-secondary/60"
+      className={cn(
+        "grid min-h-11 w-full grid-cols-[1.75rem_1fr_1.5rem] items-center rounded-xl px-2 text-left text-[15px] tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        isOpen ? "bg-hi font-semibold" : setItem.completed ? "text-muted-foreground" : ""
+      )}
     >
-      {pill}
+      <span className={cn("text-[13px]", setItem.type === "warmup" ? "font-semibold text-warning" : "text-muted-foreground")}>
+        {setItem.type === "warmup" ? "W" : index + 1}
+      </span>
+      <span>{summary}</span>
+      {setItem.completed ? (
+        <Check
+          className={cn("h-4 w-4 justify-self-end text-[var(--l2)]", isStamped && "set-chip-stamp")}
+          strokeWidth={2.6}
+          aria-hidden
+        />
+      ) : null}
     </button>
   );
 }
+
+/** The rare things next to the set you are logging. Quiet, and away from the main button. */
+const QUIET_ACTION =
+  "flex min-h-11 items-center gap-1.5 rounded-full px-3 text-[12.5px] font-medium text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 interface ExerciseLedgerProps {
   exercise: PlannedExercise;
   /** The one set open across the whole session, if it belongs to this exercise. */
   openSetId?: string;
-  /** The set logged last, session-wide — the only chip that stamps. */
+  /** The set logged last, session-wide — the only row that stamps. */
   stampedSetId?: string;
-  /** False while a session is only previewed — chips read, nothing edits. */
+  /** False while a session is only previewed — nothing edits. */
   interactive: boolean;
   onOpenSet: (setId: string) => void;
   onPatchSet: (setId: string, patch: Partial<PlannedSet>) => void;
@@ -230,28 +241,6 @@ interface ExerciseLedgerProps {
     onFinish: () => void;
     onCancel: () => void;
   };
-}
-
-
-/**
- * "Remove from today", inside the open exercise only. Two taps, no dialog: the
- * first arms it and says what the second does, and it disarms itself if the
- * second never comes. A modal would cover the set you are logging; a stray tap
- * mid-set should cost nothing. Quiet text, not an icon on every row — a row of
- * X's read as a list of things to get rid of.
- */
-function RemoveExerciseButton({ name, onRemove }: { name: string; onRemove: () => void }) {
-  // One tap. It used to arm and ask for a second; the Undo bar is the guard now.
-  return (
-    <button
-      type="button"
-      onClick={onRemove}
-      aria-label={`Remove ${name} from today`}
-      className="mx-auto mt-2 flex min-h-11 items-center justify-center rounded-lg px-4 text-xs font-semibold text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-    >
-      Remove from today
-    </button>
-  );
 }
 
 export function ExerciseLedger({
@@ -300,23 +289,6 @@ export function ExerciseLedger({
     ownedOpenSet.current = ownsOpenSet;
   }, [ownsOpenSet]);
 
-  // The check belongs beside the tally it annotates, wherever the tally lands.
-  const chips = (
-    <>
-      {isFinished ? <Check className="h-5 w-5 shrink-0 text-brand" aria-label="All sets logged" /> : null}
-      {exercise.sets.map((setItem, index) => (
-        <SetChip
-          key={setItem.id}
-          index={index}
-          setItem={setItem}
-          isOpen={setItem.id === openSetId}
-          isStamped={setItem.id === stampedSetId}
-          onOpen={interactive ? () => onOpenSet(setItem.id) : undefined}
-        />
-      ))}
-    </>
-  );
-
   // "4 × 5 · 70 kg · 2:30 rest" when nothing is logged yet; the tally once
   // something is. The plan's numbers are what you want to see before a set,
   // and the count is what you want after.
@@ -332,284 +304,293 @@ export function ExerciseLedger({
   const restLine = exercise.restSeconds ? ` · ${formatRest(exercise.restSeconds)} rest` : "";
 
   return (
-    // The open exercise is lit, so in a superset — two exercises taken in
-    // turns — it is plain which one the panel is logging.
-    <div
-      className={cn(
-        "border-b border-border py-3 last:border-b-0",
-        ownsOpenSet && "-mx-3 rounded-xl border-transparent bg-brand/[0.06] px-3 ring-1 ring-brand/30"
-      )}
-    >
+    // The open exercise is the one that is open, so in a superset — two exercises
+    // taken in turns — it is plain which one the panel is logging.
+    <div className="border-t border-sep px-4 py-3 first:border-t-0">
       {/* The whole head of the row is the way in — name, plan line and notes —
           so switching mid-session (the machine is busy, or a superset) is one
-          tap anywhere on it, not a hunt for a 26px chip. The name stays a real
-          button for keyboards and screen readers; this is the wide touch area. */}
+          tap anywhere on it. The name stays a real button for keyboards and
+          screen readers; this is the wide touch area. */}
       <div onClick={interactive ? onPick : undefined} className={cn(interactive && "cursor-pointer")}>
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1">
-            {interactive ? (
-              <button
-                type="button"
-                onClick={onPick}
-                aria-pressed={ownsOpenSet}
-                className={cn(
-                  "-my-2 min-h-11 min-w-0 truncate rounded-md py-2 text-left text-[15px] font-semibold leading-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  ownsOpenSet ? "text-brand" : isFinished ? "text-muted-foreground" : ""
-                )}
-              >
-                {exercise.templateName}
-              </button>
-            ) : (
-              <p className="truncate text-[15px] font-semibold leading-tight">{exercise.templateName}</p>
-            )}
-            {/* Clicks in the demo sheet bubble through the React tree even from
-                its portal; stopped here so watching a demo never re-picks a set.
-                Not on the open exercise: its panel's demo thumbnail is the same
-                door, and two of them a few rows apart is one too many. */}
-            {hasMedia && !ownsOpenSet ? (
-              <span onClick={(event) => event.stopPropagation()} className="contents">
-                <ExerciseMediaDialog datasetId={datasetId} gifUrl={gifUrl} name={exercise.templateName} />
-              </span>
-            ) : null}
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1">
+              {interactive ? (
+                <button
+                  type="button"
+                  onClick={onPick}
+                  aria-pressed={ownsOpenSet}
+                  className={cn(
+                    "min-w-0 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    ownsOpenSet
+                      ?"font-heading text-[30px] leading-[1.1]"
+                      : "-my-2 min-h-11 truncate py-2 text-[15.5px] font-medium leading-tight",
+                    isFinished && !ownsOpenSet ? "text-muted-foreground" : ""
+                  )}
+                >
+                  {exercise.templateName}
+                </button>
+              ) : (
+                <p className="truncate text-[15.5px] font-medium leading-tight">{exercise.templateName}</p>
+              )}
+              {/* Clicks in the demo sheet bubble through the React tree even from
+                  its portal; stopped here so watching a demo never re-picks a set.
+                  Not on the open exercise: its panel's demo thumbnail is the same
+                  door, and two of them a few rows apart is one too many. */}
+              {hasMedia && !ownsOpenSet ? (
+                <span onClick={(event) => event.stopPropagation()} className="contents">
+                  <ExerciseMediaDialog datasetId={datasetId} gifUrl={gifUrl} name={exercise.templateName} />
+                </span>
+              ) : null}
+            </div>
+            <p className="mt-0.5 text-[13px] text-muted-foreground tabular-nums">
+              {planLine}
+              {restLine}
+            </p>
           </div>
-          <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
-            {planLine}
-            {restLine}
-          </p>
+          {isFinished ? <Check className="h-5 w-5 shrink-0 text-[var(--l2)]" strokeWidth={2.4} aria-label="All sets logged" /> : null}
         </div>
-        {/* Read-only chips are small pills — they still fit beside the name, so
-            the row stays compact for a previewed or finished session. */}
-        {interactive ? null : (
-          <div className="flex max-w-[55%] flex-wrap items-center justify-end gap-1.5">{chips}</div>
-        )}
+
+        {/* The note the session was built with: a cue you read before the set. */}
+        {exercise.targetNotes ? (
+          <p className="mt-1.5 text-[13px] italic text-muted-foreground">{exercise.targetNotes}</p>
+        ) : null}
+
+        {/* Why the weight in the field is that number. A prescribed number with no
+            reason gets overridden on instinct, which is the same as having no rule
+            — so this is load-bearing, not a caption. Tinted to separate it from
+            the user's own note directly above. */}
+        {exercise.progressionNote ? (
+          <p className="mt-1.5 text-[13px] text-brand">{exercise.progressionNote}</p>
+        ) : null}
       </div>
-
-      {/* The note the session was built with. Full width and above the chips:
-          it is a cue you read before the set, not while one is open. */}
-      {exercise.targetNotes ? (
-        <p className="mt-1.5 text-xs italic text-muted-foreground">{exercise.targetNotes}</p>
-      ) : null}
-
-      {/* Why the weight in the field is that number. A prescribed number with no
-          reason gets overridden on instinct, which is the same as having no rule
-          — so this is load-bearing, not a caption. Brand-tinted to separate it
-          from the user's own note directly above. */}
-      {exercise.progressionNote ? (
-        <p className="mt-1.5 text-xs text-brand/80">{exercise.progressionNote}</p>
-      ) : null}
-      </div>
-
-      {/* Tappable chips get their own row: at a 48px target a five-set exercise
-          wrapped inside `max-w-[55%]` and pushed the exercise name to a stub. */}
-      {interactive ? <div className="mt-1 flex flex-wrap items-center gap-1.5">{chips}</div> : null}
 
       {interactive && openSet ? (
-        <div ref={panelRef} className="mt-2 scroll-mb-28 scroll-mt-24">
-          {/* Only the open set gets a demo, and it loops without being asked.
-              It answers "which one is this again" at the moment the question
-              actually comes up — behind a tap on the row above, nobody looks.
-              One at a time: six of these running down a session is a slot
-              machine, not a ledger. */}
-          <div className="flex items-center gap-3">
-            {hasMedia ? (
-              <ExerciseDemoThumb datasetId={datasetId} gifUrl={gifUrl} name={exercise.templateName} />
-            ) : null}
-            <div className="flex min-w-0 flex-1 items-baseline justify-between gap-2">
-              <p className="text-sm font-semibold">
-                Set {exercise.sets.indexOf(openSet) + 1}
-                <span className="text-muted-foreground"> of {exercise.sets.length}</span>
-              </p>
-              <p className="truncate text-xs text-muted-foreground tabular-nums">
-                {isDistance ? (
-                  <>target {formatClock(openSet.durationSeconds ?? 0)}</>
-                ) : isTime ? (
-                  <>target {openSet.durationSeconds ?? 0}s</>
-                ) : (
-                  lastSetLabel(openSet)
-                )}
-              </p>
-            </div>
+        <>
+          <div className="mt-2 space-y-0.5">
+            {exercise.sets.map((setItem, index) => (
+              <SetRow
+                key={setItem.id}
+                index={index}
+                setItem={setItem}
+                summary={setSummary(setItem, isTime, isDistance, unit)}
+                isOpen={setItem.id === openSetId}
+                isStamped={setItem.id === stampedSetId}
+                onOpen={() => onOpenSet(setItem.id)}
+              />
+            ))}
           </div>
 
-          {/* A run: how far and how long. The weight drum would only invite a 0. */}
-          {isDistance ? (
-            <>
-              <div className="mt-3 grid grid-cols-2 gap-2.5">
-                <Drum
-                  label="Distance"
-                  suffix={unit}
-                  value={Math.round(toUnit(openSet.distanceKm ?? 0, unit) * 100) / 100}
-                  step={DISTANCE_STEP}
-                  min={0}
-                  max={MAX_DISTANCE}
-                  decimal
-                  onChange={(value) => onPatchSet(openSet.id, { distanceKm: fromUnit(value, unit) })}
-                />
-                <Drum
-                  label="Time"
-                  suffix="min"
-                  value={Math.round(((openSet.durationSeconds ?? 0) / 60) * 10) / 10}
-                  step={1}
-                  min={0}
-                  max={MAX_RUN_SECONDS / 60}
-                  decimal
-                  onChange={(minutes) => onPatchSet(openSet.id, { durationSeconds: Math.round(minutes * 60) })}
-                />
+          {/* Below every set, not inside the open one, so the Log set button stays
+              where the thumb left it from one set to the next. */}
+          <div ref={panelRef} className="mt-3 scroll-mb-28 scroll-mt-24">
+            {/* Only the open set gets a demo, and it loops without being asked.
+                It answers "which one is this again" at the moment the question
+                actually comes up — behind a tap on the row above, nobody looks.
+                One at a time: six of these running down a session is a slot
+                machine, not a ledger. */}
+            <div className="flex items-center gap-3">
+              {hasMedia ? (
+                <ExerciseDemoThumb datasetId={datasetId} gifUrl={gifUrl} name={exercise.templateName} />
+              ) : null}
+              <div className="flex min-w-0 flex-1 items-baseline justify-between gap-2">
+                <p className="text-sm font-semibold">
+                  Set {exercise.sets.indexOf(openSet) + 1}
+                  <span className="text-muted-foreground"> of {exercise.sets.length}</span>
+                </p>
+                <p className="truncate text-[13px] text-muted-foreground tabular-nums">
+                  {isDistance ? (
+                    <>target {formatClock(openSet.durationSeconds ?? 0)}</>
+                  ) : isTime ? (
+                    <>target {openSet.durationSeconds ?? 0}s</>
+                  ) : (
+                    lastSetLabel(openSet)
+                  )}
+                </p>
               </div>
-              <p className="mt-2 text-center text-xs text-muted-foreground tabular-nums">
-                {formatClock(openSet.durationSeconds ?? 0)}
-                {formatPace(openSet.durationSeconds ?? 0, openSet.distanceKm ?? 0, unit)
-                  ? ` · ${formatPace(openSet.durationSeconds ?? 0, openSet.distanceKm ?? 0, unit)}`
-                  : ""}
-              </p>
-            </>
-          ) : (
-          <div className="mt-3 grid grid-cols-2 gap-2.5">
-            <Drum
-              label="Weight"
-              suffix="kg"
-              value={openSet.weight}
-              step={WEIGHT_STEP}
-              min={0}
-              max={MAX_WEIGHT}
-              decimal
-              onChange={(weight) => onPatchSet(openSet.id, { weight })}
-            />
-            {isTime ? (
-              <Drum
-                label="Hold"
-                suffix="sec"
-                value={openSet.durationSeconds ?? 0}
-                step={DURATION_STEP}
-                min={MIN_DURATION}
-                max={MAX_DURATION}
-                onChange={(durationSeconds) => onPatchSet(openSet.id, { durationSeconds })}
-              />
+            </div>
+
+            {/* A run: how far and how long. The weight drum would only invite a 0. */}
+            {isDistance ? (
+              <>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <Drum
+                    label="Distance"
+                    suffix={unit}
+                    value={Math.round(toUnit(openSet.distanceKm ?? 0, unit) * 100) / 100}
+                    step={DISTANCE_STEP}
+                    min={0}
+                    max={MAX_DISTANCE}
+                    decimal
+                    onChange={(value) => onPatchSet(openSet.id, { distanceKm: fromUnit(value, unit) })}
+                  />
+                  <Drum
+                    label="Time"
+                    suffix="min"
+                    value={Math.round(((openSet.durationSeconds ?? 0) / 60) * 10) / 10}
+                    step={1}
+                    min={0}
+                    max={MAX_RUN_SECONDS / 60}
+                    decimal
+                    onChange={(minutes) => onPatchSet(openSet.id, { durationSeconds: Math.round(minutes * 60) })}
+                  />
+                </div>
+                <p className="mt-2 text-center text-[13px] text-muted-foreground tabular-nums">
+                  {formatClock(openSet.durationSeconds ?? 0)}
+                  {formatPace(openSet.durationSeconds ?? 0, openSet.distanceKm ?? 0, unit)
+                    ? ` · ${formatPace(openSet.durationSeconds ?? 0, openSet.distanceKm ?? 0, unit)}`
+                    : ""}
+                </p>
+              </>
             ) : (
-              <Drum
-                label="Reps"
-                // The stored number is always the total across both sides — the
-                // split is display only. See lib/per-side.
-                suffix={exercise.perSide ? "total" : "reps"}
-                value={openSet.reps}
-                step={stepForSide(exercise.perSide)}
-                min={exercise.perSide ? stepForSide(true) : MIN_REPS}
-                max={MAX_REPS}
-                onChange={(reps) => onPatchSet(openSet.id, { reps })}
-              />
-            )}
-          </div>
-          )}
-          {/* Reps in reserve: how many more were left after the set. Rep sets
-              only — a hold ends at the clock and a run at the distance. Six
-              chips, not a drum: it is a judgement, and 0–5 is the whole range
-              anyone can judge. Optional, and tapping the chosen chip clears
-              it: a guess forced out of someone is worse than no answer. */}
-          {!isTime && !isDistance ? (
-            <div className="mt-2.5">
-              <p className="mb-1.5 text-xs font-medium text-muted-foreground">
-                Reps left in the tank
-                {openSet.rir === undefined ? <span className="text-muted-foreground/60"> · optional</span> : null}
-              </p>
-              <div role="group" aria-label="Reps left in the tank" className="grid grid-cols-6 gap-1.5">
-                {RIR_CHOICES.map((rir) => {
-                  const selected = openSet.rir === rir;
-                  return (
-                    <button
-                      key={rir}
-                      type="button"
-                      aria-pressed={selected}
-                      aria-label={`${rir} rep${rir === 1 ? "" : "s"} left in the tank`}
-                      onClick={() => onPatchSet(openSet.id, { rir: selected ? undefined : rir })}
-                      className={cn(
-                        "h-11 rounded-xl text-sm font-bold tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                        selected ? "bg-brand/15 text-brand ring-1 ring-brand/50" : "key-quiet text-muted-foreground"
-                      )}
-                    >
-                      {rir}
-                    </button>
-                  );
-                })}
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <Drum
+                  label="Weight"
+                  suffix="kg"
+                  value={openSet.weight}
+                  step={WEIGHT_STEP}
+                  min={0}
+                  max={MAX_WEIGHT}
+                  decimal
+                  onChange={(weight) => onPatchSet(openSet.id, { weight })}
+                />
+                {isTime ? (
+                  <Drum
+                    label="Hold"
+                    suffix="sec"
+                    value={openSet.durationSeconds ?? 0}
+                    step={DURATION_STEP}
+                    min={MIN_DURATION}
+                    max={MAX_DURATION}
+                    onChange={(durationSeconds) => onPatchSet(openSet.id, { durationSeconds })}
+                  />
+                ) : (
+                  <Drum
+                    label="Reps"
+                    // The stored number is always the total across both sides — the
+                    // split is display only. See lib/per-side.
+                    suffix={exercise.perSide ? "total" : "reps"}
+                    value={openSet.reps}
+                    step={stepForSide(exercise.perSide)}
+                    min={exercise.perSide ? stepForSide(true) : MIN_REPS}
+                    max={MAX_REPS}
+                    onChange={(reps) => onPatchSet(openSet.id, { reps })}
+                  />
+                )}
               </div>
-            </div>
-          ) : null}
-          {/* A hold or a run is timed, not typed: Start, go, Finish fills the
-              seconds. A hold aims at its target; a run just counts. */}
-          {(isTime || isDistance) && timer ? (
-            <LiveTimerControl
-              running={timer.setId === openSet.id}
-              startedAt={timer.startedAt}
-              targetSeconds={isTime ? openSet.durationSeconds : undefined}
-              onStart={() => timer.onStart(openSet.id)}
-              onFinish={timer.onFinish}
-              onCancel={timer.onCancel}
-            />
-          ) : null}
-          {exercise.perSide && openSet.reps > 0 ? (
-            <p className="mt-2 text-center text-xs text-muted-foreground">
-              {formatPerSide(openSet.reps, true)}
-            </p>
-          ) : null}
+            )}
+            {/* Reps in reserve: how many more were left after the set. Rep sets
+                only — a hold ends at the clock and a run at the distance. Six
+                chips, not a drum: it is a judgement, and 0–5 is the whole range
+                anyone can judge. Optional, and tapping the chosen chip clears
+                it: a guess forced out of someone is worse than no answer. */}
+            {!isTime && !isDistance ? (
+              <div className="mt-3">
+                <p className="mb-1.5 text-[12.5px] font-medium text-muted-foreground">
+                  Reps left in the tank
+                  {openSet.rir === undefined ? <span className="text-muted-foreground/70"> · optional</span> : null}
+                </p>
+                <div role="group" aria-label="Reps left in the tank" className="grid grid-cols-6 gap-1.5">
+                  {RIR_CHOICES.map((rir) => {
+                    const selected = openSet.rir === rir;
+                    return (
+                      <button
+                        key={rir}
+                        type="button"
+                        aria-pressed={selected}
+                        aria-label={`${rir} rep${rir === 1 ? "" : "s"} left in the tank`}
+                        onClick={() => onPatchSet(openSet.id, { rir: selected ? undefined : rir })}
+                        className={cn(
+                          "h-11 rounded-full text-sm font-semibold tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                          selected ? "bg-hi text-foreground ring-1 ring-foreground" : "well text-muted-foreground"
+                        )}
+                      >
+                        {rir}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+            {/* A hold or a run is timed, not typed: Start, go, Finish fills the
+                seconds. A hold aims at its target; a run just counts. */}
+            {(isTime || isDistance) && timer ? (
+              <LiveTimerControl
+                running={timer.setId === openSet.id}
+                startedAt={timer.startedAt}
+                targetSeconds={isTime ? openSet.durationSeconds : undefined}
+                onStart={() => timer.onStart(openSet.id)}
+                onFinish={timer.onFinish}
+                onCancel={timer.onCancel}
+              />
+            ) : null}
+            {exercise.perSide && openSet.reps > 0 ? (
+              <p className="mt-2 text-center text-[13px] text-muted-foreground">
+                {formatPerSide(openSet.reps, true)}
+              </p>
+            ) : null}
 
-          <div className="mt-3 flex gap-2">
             <button
               type="button"
               onClick={() => onLogSet(openSet.id)}
-              className="key flex h-14 flex-1 items-center justify-center gap-2 rounded-xl font-display text-[18px] font-bold tracking-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="key mt-3 flex h-14 w-full items-center justify-center gap-2 rounded-full text-base font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <Check className="h-5 w-5" strokeWidth={3} />
+              <Check className="h-5 w-5" strokeWidth={2.6} />
               {openSet.completed ? "Update set" : "Log set"}
             </button>
-            {/* A warm-up is logged so the ledger is honest about what happened,
-                then kept out of every total. Off by default: most sets are work.
-                Not on a run: an easy first km is just a slower row. */}
-            {isDistance ? null : (
-            <button
-              type="button"
-              role="switch"
-              aria-checked={openSet.type === "warmup"}
-              aria-label={openSet.type === "warmup" ? "Warm-up set. Not counted in totals" : "Mark as a warm-up set"}
-              title="Warm-up"
-              onClick={() =>
-                onPatchSet(openSet.id, {
-                  type: openSet.type === "warmup" ? "normal" : "warmup"
-                })
-              }
-              className={cn(
-                "flex h-14 w-14 shrink-0 items-center justify-center rounded-xl text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                openSet.type === "warmup"
-                  ? "bg-warning/15 text-warning ring-1 ring-warning/50"
-                  : "key-quiet text-muted-foreground"
+
+            <div className="mt-1 flex flex-wrap items-center justify-center">
+              {/* A warm-up is logged so the ledger is honest about what happened,
+                  then kept out of every total. Off by default: most sets are work.
+                  Not on a run: an easy first km is just a slower row. */}
+              {isDistance ? null : (
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={openSet.type === "warmup"}
+                  aria-label={openSet.type === "warmup" ? "Warm-up set. Not counted in totals" : "Mark as a warm-up set"}
+                  onClick={() =>
+                    onPatchSet(openSet.id, {
+                      type: openSet.type === "warmup" ? "normal" : "warmup"
+                    })
+                  }
+                  className={cn(QUIET_ACTION, openSet.type === "warmup" && "text-warning")}
+                >
+                  Warm-up
+                </button>
               )}
-            >
-              W
-            </button>
-            )}
-            <button
-              type="button"
-              onClick={onAddSet}
-              aria-label="Add a set to this exercise"
-              className="key-quiet flex h-14 w-14 shrink-0 items-center justify-center rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <Plus className="h-5 w-5" />
-            </button>
-            {exercise.sets.length > 1 ? (
-              <button
-                type="button"
-                onClick={() => onRemoveSet(openSet.id)}
-                aria-label={`Remove set ${exercise.sets.indexOf(openSet) + 1}`}
-                className="key-quiet flex h-14 w-14 shrink-0 items-center justify-center rounded-xl text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <Trash2 className="h-5 w-5" />
+              <button type="button" onClick={onAddSet} aria-label="Add a set to this exercise" className={QUIET_ACTION}>
+                <Plus className="h-3.5 w-3.5" aria-hidden />
+                Add set
               </button>
+              {exercise.sets.length > 1 ? (
+                <button
+                  type="button"
+                  onClick={() => onRemoveSet(openSet.id)}
+                  aria-label={`Remove set ${exercise.sets.indexOf(openSet) + 1}`}
+                  className={QUIET_ACTION}
+                >
+                  <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                  Remove set
+                </button>
+              ) : null}
+              {/* One tap. It used to arm and ask for a second; the Undo bar is the guard now. */}
+              {onRemove ? (
+                <button
+                  type="button"
+                  onClick={onRemove}
+                  aria-label={`Remove ${exercise.templateName} from today`}
+                  className={QUIET_ACTION}
+                >
+                  Remove from today
+                </button>
+              ) : null}
+            </div>
+            {openSet.type === "warmup" ? (
+              <p className="text-center text-[13px] text-warning">Warm-up sets do not count in totals.</p>
             ) : null}
           </div>
-          {openSet.type === "warmup" ? (
-            <p className="mt-2 text-xs text-warning">Warm-up sets do not count in totals.</p>
-          ) : null}
-          {onRemove ? <RemoveExerciseButton name={exercise.templateName} onRemove={onRemove} /> : null}
-        </div>
+        </>
       ) : null}
     </div>
   );

@@ -43,7 +43,7 @@ function clock(seconds: number) {
   return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
 }
 
-/** The Fatigue group of the Science tab. All of it is lifting tonnage: holds and runs move no volume. */
+/** The Fatigue group of the Progress science cards. All of it is lifting tonnage: holds and runs move no volume. */
 
 const STATE_COPY: Record<ReturnType<typeof formState>, string> = {
   fresh: "Fresh: rested relative to what you are used to.",
@@ -130,7 +130,7 @@ export function MonotonyCard({ weeks }: { weeks: WeekLoad[] }) {
                 <Cell key={week.key} fill={(week.monotony ?? 0) >= MONOTONY_WARN ? accent : CHART.quiet} />
               ))}
             </Bar>
-            <Tooltip content={<ChartTooltip labelFormat={(label) => `Week of ${formatDayKey(label)}`} format={(value) => value.toFixed(2)} />} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
+            <Tooltip content={<ChartTooltip labelFormat={(label) => `Week of ${formatDayKey(label)}`} format={(value) => value.toFixed(2)} />} cursor={{ fill: CHART.wash }} />
           </BarChart>
         </ResponsiveContainer>
       </Panel>
@@ -177,7 +177,7 @@ export function DropoffCard({ rows: all }: { rows: LiftDropoff[] }) {
                   <span className="ml-1.5 text-xs font-normal text-muted-foreground">{row.sessions} sessions</span>
                 </span>
               </div>
-              <div className="relative mt-1.5 h-2 rounded-full bg-muted">
+              <div className="relative mt-1.5 h-2 rounded-full bg-track">
                 <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${Math.min(100, Math.max(0, row.medianPercent))}%`, backgroundColor: row.flagged ? accent : CHART.quiet }} aria-hidden />
               </div>
             </li>
@@ -212,7 +212,7 @@ export function RestCard({ rows }: { rows: RestRow[] }) {
       {rows.length === 0 ? (
         <EmptyChart>Finished sessions with a planned rest and logged sets.</EmptyChart>
       ) : (
-        <ul className="divide-y divide-border">
+        <ul className="rows">
           {rows.map((row) => {
             const over = row.medianGap - row.plannedSeconds;
             return (
@@ -262,7 +262,7 @@ export function DensityCard({ points }: { points: DensityPoint[] }) {
             <XAxis {...axisProps} dataKey="date" tickFormatter={formatDayKey} minTickGap={30} />
             <YAxis {...axisProps} width={40} tickFormatter={formatCompact} />
             <Bar {...animationProps} dataKey="kgPerMin" name="kg/min" fill={accent} radius={[4, 4, 0, 0]} maxBarSize={22} />
-            <Tooltip content={<ChartTooltip labelFormat={formatDayKey} format={(value) => `${Math.round(value)} kg/min`} />} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
+            <Tooltip content={<ChartTooltip labelFormat={formatDayKey} format={(value) => `${Math.round(value)} kg/min`} />} cursor={{ fill: CHART.wash }} />
           </BarChart>
         </ResponsiveContainer>
       )}
@@ -303,14 +303,14 @@ export function EffectiveRepsCard({ report, maxes }: { report: EffectiveReport; 
                     <span className="ml-1.5 text-xs font-normal text-muted-foreground">{row.rated} sets</span>
                   </span>
                 </div>
-                <div className="relative mt-1.5 h-2 rounded-full bg-muted">
+                <div className="relative mt-1.5 h-2 rounded-full bg-track">
                   <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${(row.effective / top) * 100}%`, backgroundColor: accent }} aria-hidden />
                 </div>
               </li>
             ))}
           </ul>
           {maxes.length > 0 ? (
-            <ul className="mt-3 divide-y divide-border border-t border-border">
+            <ul className="mt-3 rows border-t border-sep">
               <li className="pt-2 text-xs font-medium text-muted-foreground">RIR-adjusted max</li>
               {maxes.map((row) => (
                 <li key={row.workoutId} className="flex items-baseline justify-between gap-3 py-1.5">

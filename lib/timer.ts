@@ -5,7 +5,7 @@
  * the page's JavaScript stops or is thrown out. So no timer here counts — each
  * keeps an absolute moment (when the rest ends, when the hold started) on the
  * device, and the screen works the time out from the clock whenever it is
- * looked at. Reopen the app mid-rest and the potion shows what is really left.
+ * looked at. Reopen the app mid-rest and the timer shows what is really left.
  *
  * Reads are defensive: storage can be full, blocked, or hold a copy written by
  * an older build, and a broken timer must never take the session down with it.
@@ -20,7 +20,7 @@ const STALE_LIVE_MS = 6 * 60 * 60 * 1000;
 export interface RestState {
   /** When the rest is over, ms since epoch. */
   endsAt: number;
-  /** The whole rest in seconds, for how full the potion is. */
+  /** The whole rest in seconds, for how full the bar is. */
   total: number;
 }
 

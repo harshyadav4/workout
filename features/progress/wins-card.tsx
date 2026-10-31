@@ -2,14 +2,16 @@
 
 import { Flame, Scale, TrendingUp, Trophy } from "lucide-react";
 
+import { SECTION_THEMES } from "@/features/progress/chart-theme";
 import { Panel } from "@/features/progress/panel";
 import type { Win, WinKind } from "@/lib/progress-scores";
 
-const ICONS: Record<WinKind, typeof Trophy> = {
-  record: Trophy,
-  strength: TrendingUp,
-  body: Scale,
-  streak: Flame
+/** Each win in the colour of the card it comes from. */
+const KINDS: Record<WinKind, { icon: typeof Trophy; color: string }> = {
+  record: { icon: Trophy, color: SECTION_THEMES.strength.accent },
+  strength: { icon: TrendingUp, color: SECTION_THEMES.strength.accent },
+  body: { icon: Scale, color: SECTION_THEMES.body.accent },
+  streak: { icon: Flame, color: SECTION_THEMES.consistency.accent }
 };
 
 /**
@@ -18,23 +20,25 @@ const ICONS: Record<WinKind, typeof Trophy> = {
  */
 export function WinsCard({ wins, rangeLabel }: { wins: Win[]; rangeLabel: string }) {
   return (
-    <Panel title="Your wins" caption={rangeLabel}>
+    <Panel title="Your wins" caption={rangeLabel} flush>
       {wins.length === 0 ? (
-        <p className="py-2 text-sm text-muted-foreground">
+        <p className="px-4 pb-4 pt-1 text-sm text-muted-foreground">
           Records, gains, and streaks show here as you train.
         </p>
       ) : (
-        <ul className="space-y-2">
+        <ul className="pt-1">
           {wins.map((win) => {
-            const Icon = ICONS[win.kind];
+            const { icon: Icon, color } = KINDS[win.kind];
             return (
-              <li key={`${win.kind}-${win.title}`} className="well flex items-start gap-3 rounded-lg p-3">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-success/15">
-                  <Icon className="h-4 w-4 text-success" aria-hidden />
-                </span>
+              <li
+                key={`${win.kind}-${win.title}`}
+                data-icon=""
+                className="list-row flex items-start gap-3 py-2.5 pl-4 pr-3.5"
+              >
+                <Icon className="mt-0.5 h-[18px] w-[18px] shrink-0" style={{ color }} strokeWidth={1.8} aria-hidden />
                 <span className="min-w-0">
-                  <span className="block text-sm font-semibold leading-snug">{win.title}</span>
-                  <span className="mt-0.5 block text-xs text-muted-foreground">{win.detail}</span>
+                  <span className="block text-[15px] font-medium leading-snug">{win.title}</span>
+                  <span className="mt-px block text-[13px] text-muted-foreground">{win.detail}</span>
                 </span>
               </li>
             );

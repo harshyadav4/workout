@@ -40,7 +40,7 @@ const PAGE_NAMES: Record<string, string> = { "/": "Today", "/plan": "Plan", "/pr
 const TAB_NAMES: Record<string, string> = {
   "/plan": "Schedule",
   "/plan?mode=build": "Build",
-  "/progress": "Summary",
+  "/progress": "Progress",
   "/progress?view=body": "Muscles"
 };
 
@@ -51,6 +51,9 @@ const SCROLL_SETTLE_MS = 400;
 function stepPlace(step: { route: string; query?: string }) {
   return step.query ? `${step.route}?${step.query}` : step.route;
 }
+
+/** The guide's kept word, [SYSTEM]: small and warm, above what it says. */
+const SYSTEM_LABEL = "text-xs font-medium text-brand";
 
 /** The guide never goes above this: room for the status bar. */
 const TOP_LIMIT = 16;
@@ -63,6 +66,12 @@ type Rect = { top: number; left: number; width: number; height: number };
 function measure(element: Element): Rect {
   const box = element.getBoundingClientRect();
   return { top: box.top - PAD, left: box.left - PAD, width: box.width + PAD * 2, height: box.height + PAD * 2 };
+}
+
+/** A lit tab: the ring stays on the dock, not past its edge and the screen's. */
+function hugTab(tab: Rect): Rect {
+  const inset = PAD - 2;
+  return { top: tab.top + inset, left: tab.left + inset, width: tab.width - inset * 2, height: tab.height - inset * 2 };
 }
 
 function reducedMotion() {
@@ -332,12 +341,12 @@ export function TourOverlay() {
       // not at the top: there it covered page headers like Gym / Cardio.
       <div className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+6.25rem)] z-[100] flex justify-center px-4">
         <div
-          className="plaque pointer-events-auto flex items-center gap-2 rounded-full py-1 pl-1 pr-1 text-xs shadow-lg"
+          className="plaque-solid pointer-events-auto flex items-center gap-2 rounded-full py-1 pl-2 pr-1 text-[13px]"
           role="status"
         >
-          <GuideSprite size={28} />
-          <span className="font-semibold">Sample data</span>
-          <Button size="sm" className="h-8 rounded-full px-3 text-xs" onClick={finish}>
+          <GuideSprite mood="still" size={26} />
+          <span className="font-medium">Sample data</span>
+          <Button variant="secondary" size="sm" className="ml-1 h-9 px-3.5 text-[13px]" onClick={finish}>
             Exit
           </Button>
         </div>
@@ -360,7 +369,7 @@ export function TourOverlay() {
   // Travelling: the next page's tab is lit, and the guide hovers just above
   // it, sprite over the tab, looking down at it.
   const tab = travel?.tab;
-  const lit = travel ? tab : current.target ? rect : undefined;
+  const lit = travel ? tab && hugTab(tab) : current.target ? rect : undefined;
   const travelWidth = Math.min(TRAVEL_WIDTH, frame.viewport.width - 32);
   const layout = tab
     ? {
@@ -390,17 +399,16 @@ export function TourOverlay() {
       {lit ? (
         <div
           key="spotlight"
-          className={`pointer-events-none absolute rounded-2xl ring-2 ring-brand ${motion}`}
+          className={`guide-spot pointer-events-none absolute ${motion}`}
           style={{
             top: lit.top,
             left: lit.left,
             width: lit.width,
-            height: lit.height,
-            boxShadow: "0 0 0 9999px rgba(4, 7, 12, 0.72)"
+            height: lit.height
           }}
         />
       ) : (
-        <div key="dim" className="absolute inset-0 bg-[rgba(4,7,12,0.72)]" />
+        <div key="dim" className="guide-dim absolute inset-0" />
       )}
 
       {/* Catches every tap outside the guide: the sample is to look at here,
@@ -426,13 +434,13 @@ export function TourOverlay() {
 
         {travel ? (
           <div
-            className="guide-bubble relative min-w-0 flex-1 p-3"
+            className="plaque-solid guide-bubble relative min-w-0 flex-1 px-3.5 py-3"
             role="status"
             aria-live="polite"
           >
-            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.22em] text-brand">[System]</span>
+            <span className={SYSTEM_LABEL}>[SYSTEM]</span>
             <p className="mt-0.5 text-sm">
-              Opening <span className="font-semibold text-brand">{travel.label}</span>
+              Opening <span className="font-medium">{travel.label}</span>
             </p>
           </div>
         ) : (
@@ -444,18 +452,18 @@ export function TourOverlay() {
           aria-modal="true"
           aria-labelledby="tour-title"
           aria-describedby="tour-body"
-          className="guide-bubble guide-pop relative min-w-0 flex-1 p-3.5"
+          className="plaque-solid guide-bubble guide-pop relative min-w-0 flex-1 p-3.5"
           onClick={typing.finish}
         >
           <div className="flex items-center justify-between gap-2">
-            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.22em] text-brand">
-              [System] · {step + 1}/{TOUR_STEPS.length}
+            <span className={`${SYSTEM_LABEL} tabular-nums`}>
+              [SYSTEM] · {step + 1}/{TOUR_STEPS.length}
             </span>
             {last ? null : (
               <button
                 type="button"
                 onClick={finish}
-                className="-mr-1.5 flex h-8 items-center gap-1 rounded-full px-2 text-xs font-semibold text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="-my-3 -mr-1.5 flex h-11 items-center gap-1 rounded-full px-2 text-xs font-medium text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 Skip
                 <X className="h-3.5 w-3.5" aria-hidden />
@@ -467,11 +475,11 @@ export function TourOverlay() {
             id="tour-title"
             ref={titleRef}
             tabIndex={-1}
-            className="mt-1 font-display text-base font-extrabold leading-snug tracking-tight focus-visible:outline-none"
+            className="mt-1.5 font-heading text-[23px] leading-[1.14] focus-visible:outline-none"
           >
             {current.title}
           </h2>
-          <p id="tour-body" className="mt-1 text-[13px] leading-relaxed text-muted-foreground">
+          <p id="tour-body" className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">
             {/* Read whole by screen readers; drawn letter by letter on top of
                 an invisible copy, which holds the bubble at its full size. */}
             <span className="sr-only">{current.body}</span>
@@ -491,11 +499,11 @@ export function TourOverlay() {
               </Button>
             </div>
           ) : (
-            <div className="mt-3 flex items-center justify-between gap-2">
+            <div className="mt-3 flex items-center gap-2.5">
               <Button
-                variant="secondary"
+                variant="ghost"
                 size="icon"
-                className="h-11 w-11 shrink-0"
+                className="-ml-2 h-11 w-11 shrink-0 text-muted-foreground"
                 aria-label="Back"
                 disabled={step === 0}
                 onClick={() => goTo(step - 1)}
@@ -504,9 +512,9 @@ export function TourOverlay() {
               </Button>
               {/* One thin bar, not a dot per step: sixteen dots wrapped onto
                   two rows in a bubble this narrow. The count is in the header. */}
-              <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-muted-foreground/20" aria-hidden>
+              <div className="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-track" aria-hidden>
                 <div
-                  className={`h-full rounded-full bg-brand ${motion}`}
+                  className={`h-full rounded-full bg-[var(--l2)] ${motion}`}
                   style={{ width: `${((step + 1) / TOUR_STEPS.length) * 100}%` }}
                 />
               </div>

@@ -159,10 +159,12 @@ export interface Spend {
   perDay: number;
   /** The calendar month `today` is in. */
   thisMonth: number;
+  /** The week `today` is in. */
+  thisWeek: number;
   weeks: { week: string; costInr: number }[];
 }
 
-/** `thisMonth` needs the whole history, because the range on screen may be shorter than a month. */
+/** `thisMonth` and `thisWeek` need the whole history, because the range on screen may not hold them. */
 export function spend(
   days: readonly ScheduledMealDay[],
   window: DateWindow,
@@ -176,10 +178,13 @@ export function spend(
   });
   const month = today.slice(0, 7);
   const monthDays = days.filter((day) => day.date.startsWith(month));
+  const weekStart = weekStartKey(today);
+  const weekDays = days.filter((day) => weekStartKey(day.date) === weekStart);
   return {
     total: summarizeItems(intake).costInr,
     perDay: averageIntake(intake).costInr,
     thisMonth: summarizeItems(dailyIntake(monthDays, { start: `${month}-01`, end: today })).costInr,
+    thisWeek: summarizeItems(dailyIntake(weekDays, { start: weekStart, end: today })).costInr,
     weeks: [...byWeek.entries()]
       .map(([week, costInr]) => ({ week, costInr: Math.round(costInr * 100) / 100 }))
       .sort((a, b) => a.week.localeCompare(b.week))

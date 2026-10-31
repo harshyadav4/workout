@@ -195,7 +195,7 @@ export function ExerciseMediaView({ datasetId, gifUrl, name, onBack }: ExerciseM
             type="button"
             onClick={onBack}
             aria-label="Back"
-            className="key-quiet flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-foreground"
+            className="key-quiet flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-foreground"
           >
             <ChevronLeft className="h-4 w-4" />
           </button>

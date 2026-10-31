@@ -1,10 +1,11 @@
 "use client";
 
-import { AlertTriangle, Check, ClipboardCopy, ClipboardPaste, Sparkles } from "lucide-react";
+import { AlertTriangle, Check, ClipboardCopy, ClipboardPaste } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DRAWER_CONTENT, SHEET_FOOT } from "@/components/ui/dialog";
+import { ListRow, SheetRows } from "@/components/ui/list";
 import { useDietStore, useDietStoreApi } from "@/features/diet/diet-store";
 import { MealNumbers } from "@/features/diet/meal-numbers";
 import { useWorkoutStoreApi } from "@/features/workout/workout-store";
@@ -14,7 +15,7 @@ import { averageIntake, dailyIntake } from "@/lib/diet-metrics";
 import { formatMealTime } from "@/lib/meal-schedule";
 import { loadFoods, type Food } from "@/lib/foods";
 import { shiftKey } from "@/lib/progress-metrics";
-import { todayKey } from "@/lib/utils";
+import { cn, todayKey } from "@/lib/utils";
 
 type View = "start" | "paste" | "review" | "done";
 
@@ -36,6 +37,7 @@ export function DietAiImportSheet({ open, onOpenChange }: { open: boolean; onOpe
   const [view, setView] = useState<View>("start");
   const [copied, setCopied] = useState(false);
   const [pasted, setPasted] = useState("");
+  const [showBox, setShowBox] = useState(false);
   const [error, setError] = useState<string>();
   const [plan, setPlan] = useState<DietImport>();
   // Loaded when the sheet opens, because the copy must happen inside the tap. If
@@ -51,6 +53,7 @@ export function DietAiImportSheet({ open, onOpenChange }: { open: boolean; onOpe
     setView("start");
     setCopied(false);
     setPasted("");
+    setShowBox(false);
     setError(undefined);
     setPlan(undefined);
   };
@@ -77,6 +80,7 @@ export function DietAiImportSheet({ open, onOpenChange }: { open: boolean; onOpe
       today
     });
     setCopied(true);
+    setError(undefined);
     void navigator.clipboard.writeText(text).catch(() => {
       setCopied(false);
       setError("Your phone blocked the clipboard. Allow it and try again.");
@@ -100,6 +104,8 @@ export function DietAiImportSheet({ open, onOpenChange }: { open: boolean; onOpe
       setPasted(text);
       check(text);
     } catch {
+      // Denied or unsupported: the box below is the way in.
+      setShowBox(true);
       setError("Your phone blocked the clipboard. Paste into the box below.");
     }
   };
@@ -119,34 +125,34 @@ export function DietAiImportSheet({ open, onOpenChange }: { open: boolean; onOpe
         }
       }}
     >
-      <DialogContent className="max-h-[88dvh] overflow-y-auto">
+      <DialogContent className={`${DRAWER_CONTENT} max-h-[88dvh] overflow-y-auto`}>
         {view === "start" ? (
           <>
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-brand" />
-                Build with AI
-              </DialogTitle>
+            <DialogHeader className="pr-9">
+              <DialogTitle>Build with AI</DialogTitle>
               <DialogDescription>An AI chat writes your meal plans and schedule, free.</DialogDescription>
             </DialogHeader>
-            <ol className="space-y-2.5 text-sm">
+            <ol className="space-y-2.5 text-[15px]">
               {STEPS.map((step, index) => (
                 <li key={step} className="flex gap-3">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand/15 text-xs font-bold text-brand">
-                    {index + 1}
-                  </span>
-                  <span className="pt-0.5">{step}</span>
+                  <span className="w-4 shrink-0 text-muted-foreground tabular-nums">{index + 1}</span>
+                  <span>{step}</span>
                 </li>
               ))}
             </ol>
-            <Button size="lg" className="mt-5 h-14 w-full" onClick={copy}>
+            <Button size="lg" className="mt-5 w-full" onClick={copy}>
               {copied ? <Check className="h-5 w-5" /> : <ClipboardCopy className="h-5 w-5" />}
               {copied ? "Copied" : "Copy the question"}
             </Button>
+            {copied ? (
+              <p className="mt-3 text-center text-sm text-muted-foreground" role="status">
+                Now paste it into your AI chat
+              </p>
+            ) : null}
             {error ? <p className="mt-3 text-sm text-danger">{error}</p> : null}
             <Button
               variant="secondary"
-              className="mt-4 w-full"
+              className="mt-2 w-full"
               onClick={() => {
                 setError(undefined);
                 setView("paste");
@@ -157,26 +163,16 @@ export function DietAiImportSheet({ open, onOpenChange }: { open: boolean; onOpe
           </>
         ) : view === "paste" ? (
           <>
-            <DialogHeader>
+            <DialogHeader className="pr-9">
               <DialogTitle>Add my plan</DialogTitle>
               <DialogDescription>Copy the plan from your AI chat, then paste it.</DialogDescription>
             </DialogHeader>
-            <Button size="lg" className="h-16 w-full" onClick={() => void paste()}>
+            <Button size="lg" className="w-full" onClick={() => void paste()}>
               <ClipboardPaste className="h-5 w-5" />
               Paste the answer
             </Button>
-            <textarea
-              aria-label="The AI answer"
-              className="well mt-3 h-32 w-full rounded-xl p-3 text-sm"
-              placeholder="Or paste the answer here"
-              value={pasted}
-              onChange={(event) => setPasted(event.target.value)}
-            />
-            <Button variant="secondary" className="mt-2 w-full" disabled={!pasted.trim()} onClick={() => check(pasted)}>
-              Check this answer
-            </Button>
             {error ? (
-              <div className="mt-4 rounded-xl bg-danger/10 p-4 ring-1 ring-danger/25" role="alert">
+              <div className="mt-4 rounded-2xl bg-danger/10 p-4" role="alert">
                 <p className="flex items-start gap-2 text-sm font-semibold">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-danger" />
                   {error}
@@ -184,62 +180,92 @@ export function DietAiImportSheet({ open, onOpenChange }: { open: boolean; onOpe
                 <p className="mt-1 text-sm text-muted-foreground">Send this message to the AI, and ask it to fix the plan.</p>
               </div>
             ) : null}
+            {showBox ? (
+              <textarea
+                aria-label="The AI answer"
+                rows={6}
+                placeholder="Press and hold here, then Paste"
+                value={pasted}
+                onChange={(event) => {
+                  setPasted(event.target.value);
+                  setError(undefined);
+                }}
+                className="well mt-4 w-full rounded-lg px-4 py-3 text-base text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowBox(true)}
+                className="mt-3 min-h-11 w-full text-center text-sm font-medium text-muted-foreground underline-offset-4 hover:underline"
+              >
+                Paste by hand
+              </button>
+            )}
+            <div className="mt-4 flex gap-2">
+              <Button variant="secondary" className="flex-1" onClick={() => setView("start")}>
+                Back
+              </Button>
+              {showBox ? (
+                <Button className="flex-1" disabled={!pasted.trim()} onClick={() => check(pasted)}>
+                  Check plan
+                </Button>
+              ) : null}
+            </div>
           </>
         ) : view === "review" && plan ? (
           <>
-            <DialogHeader>
+            <DialogHeader className="pr-9">
               <DialogTitle>Check your plan</DialogTitle>
               <DialogDescription>
                 The numbers are the AI&apos;s estimates. You can change them after you add the plan.
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-3">
+            <div className="space-y-5">
               {plan.mealPlans.map((item) => (
-                <div key={item.id} className="rounded-xl bg-muted p-3">
-                  <p className="font-semibold">{item.name}</p>
-                  <MealNumbers totals={item.summary} />
-                  <ul className="mt-2 space-y-1 text-sm">
+                <section key={item.id}>
+                  <h3 className="font-heading text-[23px] leading-tight">{item.name}</h3>
+                  <MealNumbers totals={item.summary} className="mt-0.5" />
+                  <SheetRows>
                     {item.items.map((meal) => (
-                      <li key={meal.id} className="flex justify-between gap-3">
-                        <span className="min-w-0">{meal.name}</span>
-                        <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{formatMealTime(meal.time)}</span>
-                      </li>
+                      <ListRow key={meal.id} label={meal.name} value={formatMealTime(meal.time)} />
                     ))}
-                  </ul>
-                </div>
+                  </SheetRows>
+                </section>
               ))}
-              {plan.mealScheduleConfig ? (
-                <p className="text-sm text-muted-foreground">It also fills your diet calendar for 8 weeks. Days you have ticked do not change.</p>
-              ) : (
-                <p className="text-sm text-muted-foreground">It has no schedule. Put the plans on days in Schedule.</p>
-              )}
+              <p className="text-sm text-muted-foreground">
+                {plan.mealScheduleConfig
+                  ? "It also fills your diet calendar for 8 weeks. Days you have ticked do not change."
+                  : "It has no schedule. Put the plans on days in Schedule."}
+              </p>
               {missingCost ? <p className="text-sm text-warning">Some meals have no cost. Add it in Build to count your spend.</p> : null}
             </div>
-            <Button
-              size="lg"
-              className="mt-4 w-full"
-              onClick={() => {
-                importPlan(plan);
-                setView("done");
-              }}
-            >
-              Add to my diet
-            </Button>
-            <Button variant="secondary" className="mt-2 w-full" onClick={() => setView("paste")}>
-              Back
-            </Button>
+            <div className={cn(SHEET_FOOT, "mt-4 flex gap-2")}>
+              <Button variant="secondary" className="flex-1" onClick={() => setView("paste")}>
+                Back
+              </Button>
+              <Button
+                className="flex-1"
+                onClick={() => {
+                  importPlan(plan);
+                  setView("done");
+                }}
+              >
+                Add to my diet
+              </Button>
+            </div>
           </>
         ) : (
           <>
-            <DialogHeader>
+            <DialogHeader className="pr-9">
               <DialogTitle className="flex items-center gap-2">
-                <Check className="h-5 w-5 text-success" />
+                <Check className="h-5 w-5 text-[var(--l2)]" strokeWidth={2.6} aria-hidden />
                 Your plan is in
               </DialogTitle>
               <DialogDescription>Today&apos;s meals are on the Meals tab.</DialogDescription>
             </DialogHeader>
             <Button
-              className="w-full"
+              size="lg"
+              className="mt-4 w-full"
               onClick={() => {
                 onOpenChange(false);
                 reset();

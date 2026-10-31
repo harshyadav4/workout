@@ -5,148 +5,210 @@
 /*
  * Two skins, one set of tokens.
  *
- * Graphite is the palette in `:root`, so it is what renders if the theme script
- * fails. Paper is a class. Every colour the UI touches is a token here — no
+ * Dusk is the palette in `:root`, so it is what renders if the theme script
+ * fails. Dawn is a class. Every colour the UI touches is a token here — no
  * `white/5` hairlines, no hard-coded hex in components — so a skin is a block
  * of numbers and nothing else.
  *
- * Surfaces are physical: a plaque has a lit top edge and a shadow underneath,
- * a key presses down, a well is pressed in. Those live in `--shadow-*` and the
- * `.plaque` / `.key` / `.well` classes below, and flip with the skin too.
+ * The idea is light rising over a calm ground. Warm light (`--l1` to `--l3`, and
+ * the `--key-*` names older code still reads) marks progress and nothing else.
+ * The main action is plain `--primary`. Surfaces are one soft level with no glow;
+ * they live in the `.plaque` / `.key` / `.well` classes below.
  */
 :root {
-  --background: 225 13% 6%;
-  --foreground: 60 13% 94%;
-  --card: 222 19% 11%;
-  --card-foreground: 60 13% 94%;
-  --popover: 222 19% 11%;
-  --popover-foreground: 60 13% 94%;
-  /* The plaque's gradient, top to bottom. */
-  --surface-top: 223 12% 12%;
-  --surface-bottom: 216 11% 9%;
-  /* A pressed-in area: the set drums, the chips not yet logged. */
-  --well: 225 15% 5%;
+  /* The two fonts in use (app/fonts.ts). You → Theme can write others over these. */
+  --font-sans: var(--font-instrument-sans);
+  --font-heading: var(--font-outfit);
 
-  /* Mana blue: a lit cyan that deepens as it falls, like glowing fluid in a
-     tube — the key is a gradient from `--key-top` to `--key-bottom` with a
-     blue glow under it. Ink on the deep end 5.2:1, on the flat fill 8:1. */
-  --primary: 197 100% 55%;
-  --primary-foreground: 225 13% 6%;
-  --key-top: 190 100% 66%;
-  --key-bottom: 210 100% 50%;
-  /* The accent as *text* and rings. The same mana blue here; a deep ink blue
-     on Paper, where this one on white sits under 3:1. `text-brand`, never
-     `text-primary`. */
-  --brand: 198 100% 62%;
+  --background: 232.9 54.8% 12.2%;
+  --foreground: 220 43% 97%;
+  --card: 235.4 43.8% 17.5%;
+  --card-foreground: 220 43% 97%;
+  --popover: 235.4 43.8% 17.5%;
+  --popover-foreground: 220 43% 97%;
+  /* The ring's empty track. */
+  --well: 234 38% 16%;
 
-  --secondary: 222 12% 17%;
-  --secondary-foreground: 60 13% 94%;
-  --muted: 222 12% 14%;
-  --muted-foreground: 75 4% 60%;
-  --accent: 205 70% 64%;
-  --accent-foreground: 225 13% 6%;
-  --border: 222 14% 16%;
-  --input: 222 12% 17%;
-  --ring: 198 100% 62%;
-  --success: 150 55% 48%;
-  --warning: 40 95% 58%;
-  --danger: 4 75% 60%;
-  --danger-foreground: 225 13% 6%;
+  /* In the page: see-through, so the sky carries through a surface instead of
+     stopping at its edge. Floating things use `--card`, which is solid. */
+  --surface: rgba(176, 178, 255, 0.085);
+  --surface-edge: rgba(196, 196, 255, 0.1);
+  --sep: rgba(255, 255, 255, 0.08);
+  --field: rgba(255, 255, 255, 0.08);
+  --hi: rgba(255, 255, 255, 0.11);
+  --track: rgba(255, 255, 255, 0.14);
+  --scrim: rgba(6, 8, 30, 0.55);
+  --dock: rgb(34, 37, 78);
+  --dock-edge: rgba(255, 255, 255, 0.1);
 
-  --shadow-plaque: inset 0 1px 0 rgba(255, 255, 255, 0.09), 0 16px 36px rgba(0, 0, 0, 0.5);
-  --shadow-key: inset 0 1px 0 rgba(255, 255, 255, 0.6), inset 0 -3px 0 rgba(0, 0, 0, 0.16), 0 10px 24px rgba(30, 160, 255, 0.32);
-  --shadow-key-pressed: inset 0 1px 0 rgba(255, 255, 255, 0.4), inset 0 -1px 0 rgba(0, 0, 0, 0.16), 0 3px 8px rgba(30, 160, 255, 0.22);
-  --shadow-quiet: inset 0 1px 0 rgba(255, 255, 255, 0.1), inset 0 -2px 0 rgba(0, 0, 0, 0.35), 0 6px 14px rgba(0, 0, 0, 0.4);
-  --shadow-quiet-pressed: inset 0 1px 0 rgba(255, 255, 255, 0.06), inset 0 -1px 0 rgba(0, 0, 0, 0.35), 0 2px 5px rgba(0, 0, 0, 0.35);
-  --shadow-well: inset 0 2px 5px rgba(0, 0, 0, 0.7), inset 0 -1px 0 rgba(255, 255, 255, 0.05);
-  --shadow-dock: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 18px 40px rgba(0, 0, 0, 0.6);
+  /* The sky at the top of every page: dusk, blue moving into indigo, with warm
+     light in one corner and violet on the other side. Static: one paint. */
+  --sky: radial-gradient(120% 52% at 78% -4%, rgba(255, 166, 122, 0.32) 0%, rgba(255, 128, 128, 0.1) 36%, rgba(255, 128, 128, 0) 62%),
+    radial-gradient(85% 42% at 4% 30%, rgba(124, 96, 224, 0.17) 0%, rgba(124, 96, 224, 0.133) 22%, rgba(124, 96, 224, 0.06) 43%, rgba(124, 96, 224, 0.01) 61%, rgba(124, 96, 224, 0) 72%),
+    linear-gradient(180deg, #283a8a 0%, #1e2b70 24%, #171f54 48%, #11163b 72%, #0e1230 100%);
+
+  /* Light low on the page, on screen as you scroll (`.app-glow`), so colour does
+     not stop where the sky ends. */
+  --app-glow: radial-gradient(78% 44% at 4% 100%, rgba(122, 94, 222, 0.14) 0%, rgba(122, 94, 222, 0.11) 22%, rgba(122, 94, 222, 0.049) 43%, rgba(122, 94, 222, 0.009) 61%, rgba(122, 94, 222, 0) 72%),
+    radial-gradient(72% 40% at 100% 62%, rgba(70, 108, 226, 0.09) 0%, rgba(70, 108, 226, 0.071) 22%, rgba(70, 108, 226, 0.032) 43%, rgba(70, 108, 226, 0.005) 61%, rgba(70, 108, 226, 0) 72%);
+  /* The noise on the sky and the glow, so the gradients do not band. */
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+
+  /* Progress, and only progress: faint to full. */
+  --l1: #ffe4c9;
+  --l2: #ffb68c;
+  --l3: #ff9078;
+  --sun: #fff2e6;
+  /* Ink on that light, in both themes. */
+  --on-warm: #2a1606;
+
+  /* The one thing on a screen you are meant to press: plain, no gradient, no
+     glow. White here, ink on Dawn. */
+  --primary: 220 43% 97%;
+  --primary-foreground: 217 37% 7%;
+  /* `--l1` and `--l3` as hsl, for the code that fills a bar or a ring with them. */
+  --key-top: 30 100% 89%;
+  --key-bottom: 11 100% 74%;
+  /* The accent as *text* and rings. Warm here; a deeper burnt orange on Dawn,
+     where this one on white sits under 3:1. `text-brand`, never `text-primary`. */
+  --brand: 25 100% 74%;
+
+  --secondary: 234 30% 22%;
+  --secondary-foreground: 220 43% 97%;
+  --muted: 234 34% 17%;
+  --muted-foreground: 226 26% 77%;
+  --accent: 25 100% 74%;
+  --accent-foreground: 217 37% 7%;
+  --border: 234 28% 20%;
+  --input: 234 30% 22%;
+  --ring: 220 43% 90%;
+  --success: 153 55% 66%;
+  --warning: 38 95% 62%;
+  --danger: 6 100% 76%;
+  --danger-foreground: 217 37% 7%;
+
+  --shadow-plaque: inset 0 0 0 1px var(--surface-edge);
+  --shadow-float: inset 0 0 0 1px var(--surface-edge), 0 16px 48px rgba(0, 0, 0, 0.35);
+  --shadow-key: 0 0 #0000;
+  --shadow-quiet: 0 0 #0000;
+  --shadow-well: 0 0 #0000;
+  --shadow-dock: inset 0 0 0 1px var(--dock-edge), 0 12px 32px rgba(0, 0, 0, 0.22);
   /* The dock as glass, on iOS only (see `.dock` below). */
-  --glass-fill: rgba(30, 33, 40, 0.62);
-  /* S rank's rim on the crest: the one warm colour in the mana set. */
+  --glass-fill: rgba(34, 37, 78, 0.72);
+  /* S rank's rim on the crest. */
   --rank-gold: 42 90% 62%;
-  --glass-edge: rgba(255, 255, 255, 0.14);
-  --glass-pill: rgba(255, 255, 255, 0.12);
-  --shadow-glass: inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(255, 255, 255, 0.04), 0 14px 34px rgba(0, 0, 0, 0.45);
+  --glass-edge: rgba(255, 255, 255, 0.1);
+  --glass-pill: rgba(255, 255, 255, 0.11);
+  --shadow-glass: inset 0 0 0 1px var(--glass-edge), 0 12px 32px rgba(0, 0, 0, 0.22);
 
-  /* The body map. It sits on a well; idle muscles are a quiet grey; heat is a
-     crimson ramp that brightens on this dark ground. Crimson, not mana blue:
-     that is the accent, and a muscle must never look like a button. */
-  --map-surface: 225 15% 5%;
-  --map-idle: #6f7581;
+  /* The body map. Idle muscles are a quiet grey; heat is the same warm light as
+     everything else that shows work, and it brightens on this dark ground. The
+     selected muscle's ring is cool, so it still reads on a muscle already hot. */
+  --map-idle: #5a6374;
+  --map-select: #8ec5ff;
   --body-line: rgba(14, 15, 18, 0.55);
-  --heat-1: #f5b3c6;
-  --heat-2: #f085a4;
-  --heat-3: #e95a85;
-  --heat-4: #dd356a;
-  --heat-5: #c21a52;
-
-  --font-sans: "Inter", "Segoe UI", system-ui, sans-serif;
-  --font-display: "Bricolage Grotesque", "Inter", system-ui, sans-serif;
+  --heat-1: #ffd9a8;
+  --heat-2: #ffc07a;
+  --heat-3: #ffa35c;
+  --heat-4: #ff8348;
+  --heat-5: #f25f3a;
 
   /* Chart chrome. Recharts takes these as props rather than classes — see
      features/progress/chart-theme.tsx. */
-  --chart-grid: rgba(154, 156, 148, 0.18);
-  --chart-axis: rgba(226, 228, 220, 0.62);
+  --chart-grid: rgba(255, 255, 255, 0.08);
+  --chart-axis: rgba(232, 238, 250, 0.62);
   --chart-rest: rgba(255, 255, 255, 0.05);
-  --chart-surface: 222 19% 11%;
+  --chart-surface: 235.4 43.8% 17.5%;
+  /* Each Progress card's colour, as bare channels: every shade is this hue at
+     another opacity (features/progress/chart-theme). */
+  --s-strength: 232 128 62;
+  --s-consistency: 0 186 142;
+  --s-body: 158 140 238;
+  --s-cardio: 80 156 244;
+  --s-science: 228 118 165;
 }
 
-/* Paper. Warm off-white ground, white plaques, the same mana-blue key, deep
-   ink blue wherever the accent is text. */
+/* Dawn. The same sky at first light: pale periwinkle, a warm corner, white
+   surfaces with a soft shadow, and ink for the main action. */
 :root.light {
-  --background: 45 24% 93%;
-  --foreground: 228 11% 9%;
+  --background: 235 52% 96%;
+  --foreground: 222 36% 9%;
   --card: 0 0% 100%;
-  --card-foreground: 228 11% 9%;
+  --card-foreground: 222 36% 9%;
   --popover: 0 0% 100%;
-  --popover-foreground: 228 11% 9%;
-  --surface-top: 0 0% 100%;
-  --surface-bottom: 48 33% 97%;
-  --well: 45 19% 88%;
+  --popover-foreground: 222 36% 9%;
+  --well: 235 20% 92%;
 
-  --brand: 207 90% 36%;
+  --surface: #ffffff;
+  --surface-edge: rgba(15, 20, 32, 0.03);
+  --sep: rgba(15, 20, 32, 0.08);
+  --field: #f0f1f7;
+  --hi: rgba(15, 20, 32, 0.07);
+  --track: rgba(15, 20, 32, 0.12);
+  --scrim: rgba(15, 20, 32, 0.32);
+  --dock: rgb(255, 255, 255);
+  --dock-edge: rgba(15, 20, 32, 0.06);
 
-  --secondary: 47 19% 91%;
-  --secondary-foreground: 228 11% 9%;
-  --muted: 45 27% 94%;
-  --muted-foreground: 86 3% 42%;
-  --accent: 205 65% 38%;
+  --sky: radial-gradient(120% 52% at 78% -6%, rgba(255, 176, 138, 0.6) 0%, rgba(255, 170, 170, 0.2) 36%, rgba(255, 170, 170, 0) 62%),
+    radial-gradient(85% 42% at 4% 26%, rgba(160, 140, 245, 0.22) 0%, rgba(160, 140, 245, 0.172) 22%, rgba(160, 140, 245, 0.077) 43%, rgba(160, 140, 245, 0.013) 61%, rgba(160, 140, 245, 0) 72%),
+    linear-gradient(180deg, #b2c0f0 0%, #ccd5f6 24%, #e3e6f9 50%, #eff0fa 78%);
+
+  --app-glow: radial-gradient(78% 42% at 4% 100%, rgba(160, 140, 245, 0.16) 0%, rgba(160, 140, 245, 0.125) 22%, rgba(160, 140, 245, 0.056) 43%, rgba(160, 140, 245, 0.01) 61%, rgba(160, 140, 245, 0) 72%),
+    radial-gradient(72% 38% at 100% 64%, rgba(255, 190, 150, 0.16) 0%, rgba(255, 190, 150, 0.125) 22%, rgba(255, 190, 150, 0.056) 43%, rgba(255, 190, 150, 0.01) 61%, rgba(255, 190, 150, 0) 72%);
+
+  --l1: #f2a35c;
+  --l2: #e4733a;
+  --l3: #bd3a18;
+  --sun: #bd3a18;
+
+  --primary: 222 36% 9%;
+  --primary-foreground: 0 0% 100%;
+  --key-top: 28 85% 65%;
+  --key-bottom: 12 77% 42%;
+  --brand: 20 75% 38%;
+
+  --secondary: 235 20% 92%;
+  --secondary-foreground: 222 36% 9%;
+  --muted: 235 20% 94%;
+  --muted-foreground: 230 12% 32%;
+  --accent: 20 75% 38%;
   --accent-foreground: 0 0% 100%;
-  --border: 45 10% 88%;
-  --input: 47 19% 91%;
-  --ring: 207 90% 36%;
-  --success: 150 55% 32%;
-  --warning: 35 90% 40%;
-  --danger: 4 70% 45%;
+  --border: 235 15% 90%;
+  --input: 235 20% 92%;
+  --ring: 222 36% 30%;
+  --success: 156 66% 33%;
+  --warning: 35 90% 38%;
+  --danger: 4 63% 48%;
   --danger-foreground: 0 0% 100%;
 
-  --shadow-plaque: inset 0 1px 0 #fff, 0 1px 2px rgba(20, 20, 20, 0.06), 0 14px 32px rgba(20, 20, 20, 0.09);
-  --shadow-key: inset 0 1px 0 rgba(255, 255, 255, 0.7), inset 0 -3px 0 rgba(0, 0, 0, 0.14), 0 8px 20px rgba(20, 120, 220, 0.24);
-  --shadow-key-pressed: inset 0 1px 0 rgba(255, 255, 255, 0.5), inset 0 -1px 0 rgba(0, 0, 0, 0.14), 0 3px 8px rgba(20, 120, 220, 0.16);
-  --shadow-quiet: inset 0 1px 0 #fff, inset 0 -2px 0 rgba(20, 20, 20, 0.08), 0 4px 10px rgba(20, 20, 20, 0.08);
-  --shadow-quiet-pressed: inset 0 1px 0 #fff, inset 0 -1px 0 rgba(20, 20, 20, 0.08), 0 1px 3px rgba(20, 20, 20, 0.08);
-  --shadow-well: inset 0 2px 3px rgba(20, 20, 20, 0.12);
-  --shadow-dock: inset 0 1px 0 #fff, 0 2px 4px rgba(20, 20, 20, 0.06), 0 18px 40px rgba(20, 20, 20, 0.14);
-  --glass-fill: rgba(255, 255, 255, 0.68);
+  --shadow-plaque: inset 0 0 0 1px var(--surface-edge), 0 1px 2px rgba(60, 50, 130, 0.05), 0 10px 28px rgba(60, 50, 130, 0.09);
+  --shadow-float: inset 0 0 0 1px var(--surface-edge), 0 2px 6px rgba(16, 24, 40, 0.06), 0 16px 48px rgba(16, 24, 40, 0.14);
+  --shadow-dock: inset 0 0 0 1px var(--dock-edge), 0 2px 4px rgba(16, 24, 40, 0.05), 0 12px 32px rgba(16, 24, 40, 0.12);
+  --glass-fill: rgba(255, 255, 255, 0.76);
   --rank-gold: 38 85% 42%;
-  --glass-edge: rgba(255, 255, 255, 0.75);
-  --glass-pill: rgba(255, 255, 255, 0.8);
-  --shadow-glass: inset 0 1px 0 rgba(255, 255, 255, 0.95), 0 2px 6px rgba(20, 20, 20, 0.06), 0 14px 32px rgba(20, 20, 20, 0.16);
+  --glass-edge: rgba(15, 20, 32, 0.06);
+  --glass-pill: rgba(15, 20, 32, 0.07);
+  --shadow-glass: inset 0 0 0 1px var(--glass-edge), 0 2px 4px rgba(16, 24, 40, 0.05), 0 12px 32px rgba(16, 24, 40, 0.12);
 
-  /* On Paper the ramp deepens instead: more ink is more. */
-  --map-surface: 45 19% 88%;
-  --map-idle: #cfcbc0;
+  /* On Dawn the ramp deepens instead: more ink is more. */
+  --map-idle: #cdd2d9;
+  --map-select: #1f6fd6;
   --body-line: rgba(20, 20, 20, 0.45);
-  --heat-1: #ef8aa8;
-  --heat-2: #e05a85;
-  --heat-3: #c93b68;
-  --heat-4: #a62a53;
-  --heat-5: #821f42;
+  --heat-1: #f9c48e;
+  --heat-2: #f5a262;
+  --heat-3: #ee7f3f;
+  --heat-4: #e05d2b;
+  --heat-5: #b9431a;
 
-  --chart-grid: rgba(71, 75, 65, 0.16);
-  --chart-axis: rgba(51, 55, 48, 0.7);
-  --chart-rest: rgba(20, 20, 20, 0.06);
+  --chart-grid: rgba(15, 20, 32, 0.08);
+  --chart-axis: rgba(15, 20, 32, 0.62);
+  --chart-rest: rgba(15, 20, 32, 0.06);
   --chart-surface: 0 0% 100%;
+  --s-strength: 183 55 0;
+  --s-consistency: 0 125 92;
+  --s-body: 115 74 195;
+  --s-cardio: 31 102 201;
+  --s-science: 180 41 101;
 }
 
 * {
@@ -268,8 +330,8 @@ body {
   touch-action: pan-x pan-y;
 }
 
-/* Every tappable answers a press. Keys have their own (`.key:active` moves
-   the key down); this is the floor for the plain buttons — rows, chips, icons,
+/* Every tappable answers a press. Keys have their own (`.key:active` presses
+   them in); this is the floor for the plain buttons — rows, chips, icons,
    table cells — which otherwise felt like tapping glass. */
 button:not(.key):not(.key-quiet):not(:disabled):active,
 [role="button"]:active {
@@ -388,10 +450,6 @@ body {
      with the toolbar hidden, so every full-height page scrolled a little. */
   min-height: 100vh;
   min-height: 100dvh;
-  /* One soft light from above. Not a colour wash — the same hue as the
-     ground, a little brighter, so the plaques read as lit. */
-  background-image: radial-gradient(140% 60% at 50% -10%, hsl(var(--surface-top)) 0%, hsl(var(--background)) 55%);
-  background-attachment: fixed;
 }
 
 button,
@@ -424,24 +482,80 @@ label {
   padding-bottom: calc(env(safe-area-inset-bottom) + 6.25rem);
 }
 
-/* Materials. */
+/* Materials. One soft level: a surface on the page, a field or a quiet key on
+   that surface, and nothing deeper. */
 
 .plaque {
-  background-image: linear-gradient(180deg, hsl(var(--surface-top)) 0%, hsl(var(--surface-bottom)) 100%);
-  border: 1px solid hsl(var(--border));
+  background-color: var(--surface);
   box-shadow: var(--shadow-plaque);
+}
+
+/* The same surface where it floats over the page — a menu, a bar, a tooltip, a
+   sheet. See-through there would show what scrolls beneath. */
+.plaque-solid,
+.sheet {
+  background-color: hsl(var(--card));
+  box-shadow: var(--shadow-float);
+}
+
+/* The sky behind every page: it scrolls away with the page, and the ground takes
+   over. The fine grain stops a gradient this soft from banding on a phone. */
+.app-sky {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: -1;
+  height: 40rem;
+  background: var(--sky);
+  pointer-events: none;
+}
+
+.app-sky::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.05;
+  background-image: var(--grain);
+  /* Faded out before the sky ends, or the grain draws a line across the page. */
+  -webkit-mask-image: linear-gradient(#000 45%, transparent 92%);
+  mask-image: linear-gradient(#000 45%, transparent 92%);
+}
+/* Over the sky and under the page: same z-index, later in the tree. Fixed, so a
+   see-through surface shifts tone a little as it scrolls over it. */
+.app-glow {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: var(--app-glow);
+  pointer-events: none;
+}
+.app-glow::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.04;
+  background-image: var(--grain);
 }
 
 .key {
   color: hsl(var(--primary-foreground));
-  background-image: linear-gradient(180deg, hsl(var(--key-top)) 0%, hsl(var(--key-bottom)) 100%);
-  box-shadow: var(--shadow-key);
-  transition: transform 120ms ease-out, box-shadow 120ms ease-out;
+  background-color: hsl(var(--primary));
+  transition: transform 120ms ease-out, opacity 120ms ease-out;
 }
 
+/* Google's G needs a plain ground, so this button keeps it whatever main-button
+   colour someone picked on You. */
+.key.google-key,
+.google-key {
+  color: #0b0d1a;
+  background-color: #f4f6fb;
+}
+:root.light .google-key {
+  color: #ffffff;
+  background-color: #0f141f;
+}
 .key:active {
-  transform: translateY(2px);
-  box-shadow: var(--shadow-key-pressed);
+  transform: scale(0.98);
+  opacity: 0.92;
 }
 
 /* The segmented control's one key, sliding to the chosen segment. */
@@ -457,29 +571,119 @@ label {
 
 .key-quiet {
   color: hsl(var(--foreground));
-  background-image: linear-gradient(180deg, hsl(var(--secondary)) 0%, hsl(var(--muted)) 100%);
-  box-shadow: var(--shadow-quiet);
-  transition: transform 120ms ease-out, box-shadow 120ms ease-out;
+  background-color: var(--hi);
+  transition: transform 120ms ease-out, opacity 120ms ease-out;
 }
 
 .key-quiet:active {
-  transform: translateY(1px);
-  box-shadow: var(--shadow-quiet-pressed);
+  transform: scale(0.98);
+  opacity: 0.92;
 }
 
 .well {
-  background-color: hsl(var(--well));
-  box-shadow: var(--shadow-well);
+  background-color: var(--field);
 }
 
-/* The dock: a plaque in the surface's own material, the active key tinted. */
+/* Rows in one surface (components/ui/list.tsx). The line belongs to the lower
+   row and starts where its text starts, past the icon, as a phone's settings do. */
+.list-row {
+  position: relative;
+}
+
+.list-row + .list-row::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 1rem;
+  height: 1px;
+  background: var(--sep);
+}
+
+.list-row[data-icon] + .list-row[data-icon]::before {
+  left: 3rem;
+}
+
+/* In a sheet the rows have no surface, so the line ends with the sheet's content. */
+.sheet .list-row + .list-row::before {
+  right: 1rem;
+}
+
+/* Rows inside a padded surface: the lines run to the surface's right edge, as a
+   `.list-row` line does. */
+.rows {
+  margin-right: -1rem;
+}
+
+.rows > * {
+  padding-right: 1rem;
+}
+
+.rows > * + * {
+  border-top: 1px solid var(--sep);
+}
+
+/* The one big number on a chart. */
+.plot-n {
+  font-size: 30px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.plot-n > span {
+  letter-spacing: 0;
+}
+
+/* The arc's light draws in once, on arrival. Plain numbers in the keyframes:
+   a `var()` there takes an animation off the compositor. */
+@media (prefers-reduced-motion: no-preference) {
+  .arc-draw {
+    stroke-dasharray: 1;
+    animation: arc-draw 1.1s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+@keyframes arc-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* One slim line above the page's work: a notice, never a card. */
+.notice-line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 3rem;
+  padding: 0.25rem 0.25rem 0.25rem 0.875rem;
+  border-radius: 1.125rem;
+  background-color: var(--hi);
+  font-size: 13.5px;
+}
+
+/* Several notices may want to speak; the first with something to say does, and
+   the next waits until it is closed. A stack of them pushed the workout down the
+   screen, and the workout is why anyone opened the app. */
+.one-notice > :not(:first-child) {
+  display: none;
+}
+
+.one-notice:empty {
+  display: none;
+}
+
+/* The dock: a solid pill floating clear of the edge, the active tab a soft pill
+   inside it. No colour: it says where you are, it is not the thing to press. */
 .dock {
-  background-image: linear-gradient(180deg, hsl(var(--secondary)) 0%, hsl(var(--surface-bottom)) 100%);
+  background-color: var(--dock);
 }
 
 .dock-active {
-  background-color: hsl(var(--brand) / 0.12);
-  color: hsl(var(--brand));
+  background-color: var(--hi);
+  color: hsl(var(--foreground));
 }
 
 /*
@@ -487,13 +691,11 @@ label {
  * clear, blurred and colour-boosted over whatever scrolls beneath, with a lit
  * edge, and the active key a brighter pill of glass. `-webkit-touch-callout`
  * exists only in iOS WebKit — every browser there, none anywhere else — so
- * Android and desktop keep the solid plaque without any user-agent sniffing.
+ * Android and desktop keep the solid pill without any user-agent sniffing.
  */
 @supports (-webkit-touch-callout: none) {
   .dock {
-    background-image: none;
     background-color: var(--glass-fill);
-    border-color: var(--glass-edge);
     box-shadow: var(--shadow-glass);
     -webkit-backdrop-filter: blur(24px) saturate(180%);
     backdrop-filter: blur(24px) saturate(180%);
@@ -501,7 +703,6 @@ label {
 
   .dock-active {
     background-color: var(--glass-pill);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 1px 6px rgba(0, 0, 0, 0.18);
   }
 }
 
@@ -517,7 +718,7 @@ label {
   }
 }
 
-/* The one moment: the chip stamps as it fills. Applied to the chip that was
+/* The one moment: the tick stamps as the set is logged. Applied to the set that was
    just logged, so it plays on the tap and nowhere else — not on page load,
    not as the panel moves down the ledger. A spring: overshoot, undershoot,
    settle. */
@@ -543,391 +744,25 @@ label {
   }
 }
 
-/* The set chips as vials (features/home/mana-vial.tsx). The wave is the
-   potion's: one wave period (12px) per loop. Pending rolls slowly, the open
-   set faster and with a breathing glow. The level glides when a chip changes
-   state, so picking a set visibly charges it. */
-.mana-vial-level {
-  transition: transform 400ms cubic-bezier(0.34, 1.3, 0.64, 1);
+/* A screen's few large words. Here, not on each heading, so the font can change
+   in one place. */
+.font-heading {
+  font-weight: var(--heading-weight, 500);
+  letter-spacing: var(--heading-track, -0.02em);
 }
 
-.mana-vial-wave {
-  animation: potion-wave 2.6s linear infinite;
-}
-
-.mana-vial-wave-fast {
-  animation-duration: 1.3s;
-}
-
-.mana-vial-open {
-  animation: mana-vial-breathe 1.8s ease-in-out infinite;
-}
-
-@keyframes mana-vial-breathe {
-  0%,
-  100% {
-    box-shadow: var(--shadow-well), 0 0 0 1.5px hsl(var(--brand) / 0.7), 0 0 6px hsl(var(--brand) / 0.35);
-  }
-  50% {
-    box-shadow: var(--shadow-well), 0 0 0 1.5px hsl(var(--brand)), 0 0 14px hsl(var(--brand) / 0.65);
-  }
-}
-
-/* Solo Leveling mana around the open vial and on a logged set
-   (features/home/mana-vial.tsx). A blue-violet aura breathes behind the vial;
-   two short arcs crackle a few seconds apart, never together. Logging a set
-   fires one burst: the aura flashes and four bolts strike out, ~0.6s, once.
-   Bolts are white-hot on night, deep mana blue on paper. */
-.mana-aura {
-  background: radial-gradient(closest-side, hsl(var(--brand) / 0.6), hsl(265 90% 70% / 0.35) 60%, transparent);
-  filter: blur(4px);
-  animation: mana-aura 2.4s ease-in-out infinite;
-}
-
-@keyframes mana-aura {
-  0%,
-  100% {
-    opacity: 0.5;
-    transform: scale(0.94);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.08);
-  }
-}
-
-.mana-bolt {
-  fill: none;
-  stroke: #fff;
-  stroke-width: 1;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  filter: drop-shadow(0 0 1.5px hsl(var(--brand))) drop-shadow(0 0 3px hsl(265 90% 70%));
-  opacity: 0;
-  animation: mana-bolt 3.2s linear infinite;
-}
-
-.mana-bolt-late {
-  animation-duration: 4.1s;
-  animation-delay: 1.5s;
-}
-
-:root.light .mana-bolt {
-  stroke: hsl(var(--brand));
-  filter: drop-shadow(0 0 2px hsl(265 80% 60% / 0.6));
-}
-
-/* A crackle: dark most of the loop, then flash, flicker, flash, gone. */
-@keyframes mana-bolt {
-  0%,
-  70% {
-    opacity: 0;
-  }
-  71%,
-  72.5% {
-    opacity: 1;
-  }
-  74% {
-    opacity: 0.25;
-  }
-  75%,
-  77% {
-    opacity: 1;
-  }
-  80%,
-  100% {
-    opacity: 0;
-  }
-}
-
-.mana-burst-aura {
-  background: radial-gradient(closest-side, hsl(var(--brand) / 0.8), hsl(265 90% 70% / 0.45) 55%, transparent);
-  filter: blur(3px);
-  opacity: 0;
-  animation: mana-burst-aura 600ms ease-out;
-}
-
-@keyframes mana-burst-aura {
-  0% {
-    opacity: 0;
-    transform: scale(0.6);
-  }
-  25% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-    transform: scale(1.5);
-  }
-}
-
-.mana-burst-bolts {
-  opacity: 0;
-  animation: mana-burst-bolts 600ms ease-out;
-}
-
-.mana-burst-bolts .mana-bolt {
-  animation: none;
-  opacity: 1;
-}
-
-@keyframes mana-burst-bolts {
-  0% {
-    opacity: 0;
-    transform: scale(0.7);
-  }
-  15% {
-    opacity: 1;
-  }
-  30% {
-    opacity: 0.35;
-  }
-  45% {
-    opacity: 1;
-    transform: scale(1.05);
-  }
-  100% {
-    opacity: 0;
-    transform: scale(1.15);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .mana-aura {
-    animation: none;
-    opacity: 0.8;
-  }
-
-  .mana-bolt,
-  .mana-burst-aura,
-  .mana-burst-bolts {
-    animation: none;
-    display: none;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .mana-vial-wave,
-  .mana-vial-open {
-    animation: none;
-  }
-
-  .mana-vial-open {
-    box-shadow: var(--shadow-well), 0 0 0 1.5px hsl(var(--brand)), 0 0 8px hsl(var(--brand) / 0.5);
-  }
-
-  .mana-vial-level {
-    transition: none;
-  }
-}
-
-/*
- * The login page: an iron aisle, plates burning with mana, behind the pitch. The art is night, so
- * the page is night on either skin — this re-points the tokens it uses at
- * Graphite's values rather than reaching for hex in the component. Nothing
- * outside `.login-night` sees these.
- */
-.login-night {
-  --background: 225 13% 6%;
-  --foreground: 60 13% 94%;
-  --card: 222 19% 11%;
-  --secondary: 222 12% 17%;
-  --muted: 222 12% 14%;
-  --muted-foreground: 75 4% 66%;
-  --border: 222 14% 16%;
-  --brand: 198 100% 62%;
-  --ring: 198 100% 62%;
-  --shadow-quiet: inset 0 1px 0 rgba(255, 255, 255, 0.1), inset 0 -2px 0 rgba(0, 0, 0, 0.35), 0 6px 14px rgba(0, 0, 0, 0.4);
-  --shadow-quiet-pressed: inset 0 1px 0 rgba(255, 255, 255, 0.06), inset 0 -1px 0 rgba(0, 0, 0, 0.35), 0 2px 5px rgba(0, 0, 0, 0.35);
-  color-scheme: dark;
-  background-color: hsl(var(--background));
-  color: hsl(var(--foreground));
-}
-
-/* The iron shows through at the top; by the headline the picture has faded
-   to the page colour, so the words sit on ground, not on the glow. */
-.login-night-shade {
-  background: linear-gradient(
-    180deg,
-    hsl(var(--background) / 0.1) 0%,
-    hsl(var(--background) / 0.25) 30%,
-    hsl(var(--background) / 0.8) 52%,
-    hsl(var(--background) / 0.96) 66%,
-    hsl(var(--background)) 100%
-  );
-}
-
-/*
- * Mana: the light Solo Leveling layer on Home. The key's own gradient, given a
- * glow, so the ring, the rest bar and the rank read as one charged material.
- */
-.mana-glow {
-  filter: drop-shadow(0 0 5px hsl(var(--primary) / 0.55));
-}
-
+/* A bar that fills: warm light, no glow. */
 .mana-fill {
-  background-image: linear-gradient(90deg, hsl(var(--key-bottom)) 0%, hsl(var(--key-top)) 100%);
-  box-shadow: 0 0 8px hsl(var(--primary) / 0.6);
+  background-image: linear-gradient(90deg, hsl(var(--key-top)) 0%, hsl(var(--key-bottom)) 100%);
   transition: width 500ms linear;
 }
 
-/* The recovery potion (features/home/recovery-potion.tsx): the level glides,
-   the surface rolls, two bubbles rise. Motion is the surface only — the level
-   is the information, so it still moves with reduced motion. */
-.potion-level {
-  transition: transform 500ms linear;
-}
-
-.potion-wave {
-  animation: potion-wave 1.8s linear infinite;
-}
-
-.potion-bubble {
-  animation: potion-bubble 2.2s ease-in infinite;
-}
-
-.potion-bubble-late {
-  animation-delay: 1.1s;
-}
-
-@keyframes potion-wave {
-  to {
-    transform: translateX(12px);
-  }
-}
-
-@keyframes potion-bubble {
-  0% {
-    opacity: 0;
-    transform: translateY(0);
-  }
-  20% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(-12px);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .potion-wave,
-  .potion-bubble {
-    animation: none;
-  }
-
-  .potion-bubble {
-    opacity: 0;
-  }
-}
-
-/* The artifacts (features/home/artifacts.tsx). Each moves once, on arrival. */
-.artifact-unroll {
-  transform-box: fill-box;
-  transform-origin: left center;
-  animation: artifact-unroll 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
-}
-
-.artifact-rise {
-  animation: artifact-rise 900ms ease-out both;
-}
-
-.artifact-lid {
-  transform-box: fill-box;
-  transform-origin: left bottom;
-  animation: artifact-lid 700ms cubic-bezier(0.3, 1.4, 0.5, 1) 200ms both;
-}
-
-.artifact-beam {
-  animation: artifact-beam 900ms ease-out 350ms both;
-}
-
-@keyframes artifact-unroll {
-  from {
-    transform: scaleX(0.15);
-    opacity: 0.3;
-  }
-}
-
-@keyframes artifact-rise {
-  from {
-    transform: translateY(5px);
-    opacity: 0;
-  }
-}
-
-@keyframes artifact-lid {
-  to {
-    transform: rotate(-24deg) translate(-1px, -2px);
-  }
-}
-
-@keyframes artifact-beam {
-  from {
-    opacity: 0;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .artifact-unroll,
-  .artifact-rise,
-  .artifact-beam {
-    animation: none;
-  }
-
-  /* Still open: the chest says "new rank" by being open, not by moving. */
-  .artifact-lid {
-    animation: none;
-    transform: rotate(-24deg) translate(-1px, -2px);
-  }
-}
-
-.artifact-wake {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: artifact-wake 700ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
-}
-
-@keyframes artifact-wake {
-  from {
-    opacity: 0.2;
-    transform: scale(0.85);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .artifact-wake {
-    animation: none;
-  }
-}
-
-/* The page wallpapers (components/layout/artifact-wallpaper.tsx): texture, not
-   a picture, behind the whole screen. The cards are solid, so nothing typed
-   or read ever sits on it. */
-/* The many: faint, in the accent like the finds, so the whole wallpaper is
-   one blue set. Each glows and dims in place on its own beat. Opacity only:
-   cheap enough for a full screen of them. */
-/*
- * The many sit still. Twenty-eight of them glowing on their own beats was
- * twenty-eight animations under every page, each one a little main-thread
- * work on every frame, and at 9% nobody saw the beat anyway. The three rare
- * ones keep it (below).
- */
-.artifact-common {
-  color: hsl(var(--brand));
-  opacity: 0.09;
-}
-
-/* The rare finds: lit in the accent and alive — glow, dim, glow — each on its
-   own beat (the delay is set per find), still behind the content. The outer
-   span pulses; the inner svg keeps its own turn. With reduced motion they
-   stay lit and still. */
 /* The rank crest, until Skills has been found (features/skills/skill-doors):
-   a slow breath of mana around the chip every few seconds, and nothing more.
-   The only hint the crest is a door. */
-/* The glow is a layer over the chip whose opacity breathes: a box-shadow
-   that changed size was repainted on every frame, for as long as Home was
-   open. Opacity runs on the compositor and paints nothing. */
+   a thin line of warm light breathes around the ring a few times on each visit,
+   then rests. The only hint the crest is a door. */
+/* The line is a layer over the crest whose opacity breathes: a box-shadow
+   that changed size was repainted on every frame. Opacity runs on the
+   compositor and paints nothing. */
 .skills-hint {
   position: relative;
 }
@@ -935,13 +770,13 @@ label {
 .skills-hint::after {
   content: "";
   position: absolute;
-  /* The chip's own 1px border: the ring hugs the border box, as the old box-shadow did. */
-  inset: -1px;
+  /* Clear of the crest's own ring, so the two read as two lines. */
+  inset: -3px;
   border-radius: inherit;
   pointer-events: none;
-  box-shadow: 0 0 0 2px hsl(var(--brand) / 0.35), 0 0 14px hsl(var(--brand) / 0.45);
+  box-shadow: 0 0 0 1.5px hsl(var(--brand) / 0.6);
   opacity: 0;
-  animation: skills-hint 4.5s ease-in-out infinite;
+  animation: skills-hint 4.5s ease-in-out 4;
 }
 
 @keyframes skills-hint {
@@ -961,76 +796,6 @@ label {
     opacity: 1;
     box-shadow: 0 0 0 1px hsl(var(--brand) / 0.35);
   }
-}
-
-/*
- * The glow is one fixed drop-shadow; only opacity and scale move. Both run on
- * the compositor, so the pulse costs no paint. Animating the shadow itself
- * (it used to grow from 2px to 14px) re-rasterised three blurred glyphs on
- * every frame, forever, under every page — and on iPhone the glass dock
- * blurred that again. That was most of the app's idle cost.
- *
- * The keyframes hold plain numbers on purpose: a `var()` inside a keyframe
- * takes the animation off the compositor and back onto the main thread
- * (measured: it doubled Home's idle cost), so light mode gets its own set.
- */
-.artifact-rare {
-  color: hsl(var(--brand));
-  filter: drop-shadow(0 0 4px hsl(var(--brand) / 0.75)) drop-shadow(0 0 10px hsl(var(--brand) / 0.35));
-  animation: artifact-pulse 3s ease-in-out infinite;
-}
-
-@keyframes artifact-pulse {
-  0%,
-  100% {
-    opacity: 0.12;
-    transform: scale(0.92);
-  }
-  50% {
-    opacity: 0.65;
-    transform: scale(1.08);
-  }
-}
-
-:root.light .artifact-rare {
-  filter: drop-shadow(0 0 4px hsl(var(--brand) / 0.6)) drop-shadow(0 0 10px hsl(var(--brand) / 0.3));
-  animation-name: artifact-pulse-light;
-}
-
-@keyframes artifact-pulse-light {
-  0%,
-  100% {
-    opacity: 0.12;
-    transform: scale(0.92);
-  }
-  50% {
-    opacity: 0.5;
-    transform: scale(1.08);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .artifact-rare {
-    animation: none;
-    opacity: 0.4;
-    filter: drop-shadow(0 0 4px hsl(var(--brand) / 0.9));
-  }
-}
-
-/* The rank chip: a small System window — dark glass, one lit edge, the letter
-   in the key's gradient. Square-ish on purpose; a circle read as an avatar. */
-.rank-chip {
-  border: 1px solid hsl(var(--brand) / 0.4);
-  background-image: linear-gradient(180deg, hsl(var(--secondary)) 0%, hsl(var(--well)) 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 0 16px hsl(var(--brand) / 0.18);
-}
-
-.rank-letter {
-  background-image: linear-gradient(180deg, hsl(var(--key-top)) 0%, hsl(var(--key-bottom)) 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  filter: drop-shadow(0 0 6px hsl(var(--primary) / 0.5));
 }
 
 /* "Quest cleared" and "Level up" arrive the way a System notice does: a line
@@ -1133,11 +898,12 @@ label {
 }
 
 
-/* Tour guide (features/tour/guide-sprite.tsx): a wisp that floats, blinks,
-   sways its flame tail, hops when it speaks and leans when it flies. Each one
+/* Tour guide (features/tour/guide-sprite.tsx): a small warm light that floats,
+   blinks, sways its tail, hops when it speaks and leans when it flies. Each one
    stops under reduced motion — the sprite then simply stands where it is. */
-.guide-sprite {
-  filter: drop-shadow(0 0 6px rgba(92, 200, 255, 0.55));
+.guide-still .guide-blink,
+.guide-still .guide-tail {
+  animation: none;
 }
 
 .guide-float {
@@ -1223,31 +989,45 @@ label {
   }
 }
 
-/* The guide's speech bubble: the sprite's own blue for its edge and glow,
-   very round, with a tail pointing back at the sprite's mouth. The sprite is
+/* The guide's speech bubble: `.plaque-solid` gives the surface and its edge;
+   this adds the corners and a tail pointing back at the sprite. The sprite is
    always left of the bubble (features/tour/tour.tsx), so the tail is too. */
 .guide-bubble {
-  border-radius: 24px;
-  background-image: linear-gradient(180deg, hsl(var(--surface-top)) 0%, hsl(var(--surface-bottom)) 100%);
-  border: 1px solid rgba(92, 200, 255, 0.55);
-  box-shadow:
-    0 0 0 3px rgba(92, 200, 255, 0.12),
-    0 0 28px rgba(92, 200, 255, 0.28),
-    0 20px 40px rgba(0, 0, 0, 0.45);
+  border-radius: 22px;
 }
 
 .guide-bubble::before {
   content: "";
   position: absolute;
   top: 24px;
-  left: -7px;
-  width: 13px;
-  height: 13px;
-  background: hsl(var(--surface-top));
-  border-left: 1px solid rgba(92, 200, 255, 0.55);
-  border-bottom: 1px solid rgba(92, 200, 255, 0.55);
-  border-bottom-left-radius: 4px;
+  left: -5px;
+  width: 11px;
+  height: 11px;
+  background-color: hsl(var(--card));
+  box-shadow: inset 1px -1px 0 var(--surface-edge);
+  border-bottom-left-radius: 3px;
   transform: rotate(45deg);
+}
+
+/* The dim, and the spotlight cut out of it with a thin warm ring. Stronger than
+   a sheet's `--scrim`: the page under it has to fall right back. */
+:root {
+  --guide-dim: rgba(3, 6, 12, 0.7);
+}
+
+:root.light {
+  --guide-dim: rgba(15, 20, 32, 0.44);
+}
+
+.guide-dim {
+  background-color: var(--guide-dim);
+}
+
+.guide-spot {
+  border-radius: 22px;
+  box-shadow:
+    0 0 0 1.5px var(--l2),
+    0 0 0 9999px var(--guide-dim);
 }
 
 .guide-pop {

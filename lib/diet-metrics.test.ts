@@ -76,6 +76,8 @@ assert.equal(meterTone(50, 0), "none");
   assert.equal(result.weeks.reduce((sum, w) => sum + w.costInr, 0), 170);
   assert.equal(spend(days, { start: TODAY, end: TODAY }, TODAY).thisMonth, 170, "this month ignores a shorter range");
   assert.equal(spend([day("2026-10-30", [meal("eaten")])], WINDOW, TODAY).thisMonth, 0, "last month is not this month");
+  assert.equal(spend([day(TODAY, [meal("eaten")])], { start: "2026-09-01", end: "2026-09-30" }, TODAY).thisWeek, 50, "this week ignores a past range");
+  assert.equal(spend([day("2026-11-08", [meal("eaten")])], WINDOW, TODAY).thisWeek, 0, "last Sunday is not this week");
 }
 
 // macros

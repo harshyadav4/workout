@@ -6,7 +6,7 @@ import {
   MUSCLE_IDLE_COLOR,
   type BodyMuscleHighlight
 } from "@/features/body/body-map-shared";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription } from "@/components/ui/card";
 import type { MuscleId } from "@/lib/types";
 
 /** The shades only mean something if the scale is on screen next to them. */
@@ -35,9 +35,9 @@ function HeatLegend() {
 }
 
 /**
- * The two figures on one well, front and back side by side, with the legend
- * under them. The figure is drawn in the skin's own greys, so it belongs to the
- * card instead of sitting on it like a sticker.
+ * The two figures on the card's own surface, front and back side by side, with
+ * the legend under them. The figure is drawn in the skin's own greys, so it
+ * belongs to the card instead of sitting on it like a sticker.
  */
 export function MuscleMapCard({
   title,
@@ -57,19 +57,18 @@ export function MuscleMapCard({
   selectedMuscleName?: string;
   selectedMuscleDescription?: string;
   onSelectMuscle?: (muscleId?: string) => void;
-  /** Replaces the default selected-muscle plaque where the caller has more to say. */
+  /** Replaces the default selected-muscle text where the caller has more to say. */
   footer?: React.ReactNode;
   /** The guided tour's `data-tour` marker, on the figures: the whole card is taller than a phone. */
   tourId?: string;
 }) {
   return (
-    <Card className="overflow-hidden">
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
-      </CardHeader>
+    <section className="space-y-2">
+      <h2 className="px-1 text-[13.5px] font-semibold text-muted-foreground">{title}</h2>
+      <Card className="overflow-hidden">
+      <CardDescription>{description}</CardDescription>
       <CardContent>
-        <div className="well rounded-xl p-3" data-tour={tourId}>
+        <div data-tour={tourId}>
           <div className="grid grid-cols-2 gap-2">
             <div>
               <p className="mb-2 text-center text-[11px] font-semibold text-muted-foreground">Front</p>
@@ -93,17 +92,17 @@ export function MuscleMapCard({
           <HeatLegend />
         </div>
         {footer ?? (
-          <div className="mt-3 rounded-lg bg-muted p-4">
-            <p className="text-xs font-semibold text-muted-foreground">Selected muscle</p>
-            <p className="mt-1.5 font-display text-xl font-bold tracking-tight">
+          <div className="mt-4 border-t border-sep pt-3">
+            <p className="font-heading text-[26px] leading-tight">
               {selectedMuscleName ?? "Tap a muscle"}
             </p>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-0.5 text-sm text-muted-foreground">
               {selectedMuscleDescription ?? "Tap a muscle to see how much work it gets."}
             </p>
           </div>
         )}
       </CardContent>
-    </Card>
+      </Card>
+    </section>
   );
 }

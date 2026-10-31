@@ -1,8 +1,10 @@
 "use client";
 
+import { Smartphone } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Input } from "@/components/ui/input";
+import { ListRow, ListSheetRow, ListSwitch, SheetDone, SheetRows } from "@/components/ui/list";
 import { useAuth } from "@/features/auth/use-auth";
 import {
   DEFAULT_REMINDERS,
@@ -12,13 +14,13 @@ import {
   subscribePush,
   type ReminderSettings
 } from "@/features/pwa/push";
-import { cn } from "@/lib/utils";
 
 /**
- * The Reminders card on You: two times and six switches, saved to the
- * account. The server sends them (supabase/functions/send-daily-reminders),
- * so they reach a locked phone — which means they need the account and a push
- * subscription, the same one Rest alerts use.
+ * The Phone reminders row on You, and its sheet: two times and six switches,
+ * saved to the account. The server sends them
+ * (supabase/functions/send-daily-reminders), so they reach a locked phone —
+ * which means they need the account and a push subscription, the same one Rest
+ * alerts use.
  */
 
 const SWITCHES: { key: keyof Omit<ReminderSettings, "timezone" | "morningTime" | "eveningTime">; label: string; hint: string; when: "morning" | "evening" }[] = [
@@ -31,7 +33,7 @@ const SWITCHES: { key: keyof Omit<ReminderSettings, "timezone" | "morningTime" |
   { key: "recap", label: "Weekly recap", hint: "Sunday: sessions, volume, records.", when: "evening" }
 ];
 
-export function RemindersCard() {
+export function RemindersRow() {
   const { user } = useAuth();
   const [settings, setSettings] = useState<ReminderSettings>(DEFAULT_REMINDERS);
   const [loaded, setLoaded] = useState(false);
@@ -88,83 +90,70 @@ export function RemindersCard() {
   };
 
   if (!user) {
-    return (
-      <div className="rounded-xl bg-muted px-4 py-3">
-        <p className="text-sm font-semibold">Reminders</p>
-        <p className="mt-0.5 text-xs text-muted-foreground">Sign in to get reminders on this phone.</p>
-      </div>
-    );
+    return <ListRow icon={Smartphone} label="Phone reminders" value="Sign in first" />;
   }
 
   return (
-    <div className="space-y-2 rounded-xl bg-muted p-3">
-      <div className="px-1">
-        <p className="text-sm font-semibold">Reminders</p>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          Sent to this phone at the times below, even when it is locked.
-        </p>
-      </div>
-      <div className="grid grid-cols-2 gap-2">
-        <label className="text-xs font-medium text-muted-foreground">
+    <ListSheetRow
+      icon={Smartphone}
+      label="Phone reminders"
+      value={loaded ? (anyOn ? "On" : "Off") : undefined}
+      description="Sent to this phone at the times below, even when it is locked."
+    >
+      <div className="grid grid-cols-2 gap-3">
+        <label className="text-[13.5px] font-medium text-muted-foreground">
           Morning
           <Input
             type="time"
-            className="mt-1"
+            className="mt-1.5"
             value={settings.morningTime}
             disabled={!loaded}
             onChange={(event) => event.target.value && void save({ ...settings, morningTime: event.target.value })}
           />
         </label>
-        <label className="text-xs font-medium text-muted-foreground">
+        <label className="text-[13.5px] font-medium text-muted-foreground">
           Evening
           <Input
             type="time"
-            className="mt-1"
+            className="mt-1.5"
             value={settings.eveningTime}
             disabled={!loaded}
             onChange={(event) => event.target.value && void save({ ...settings, eveningTime: event.target.value })}
           />
         </label>
       </div>
-      {SWITCHES.map((item) => {
-        const on = settings[item.key];
-        return (
-          <button
-            key={item.key}
-            type="button"
-            role="switch"
-            aria-checked={on}
-            disabled={!loaded}
-            onClick={() => void save({ ...settings, [item.key]: !on })}
-            className="flex min-h-14 w-full items-center justify-between gap-3 rounded-lg bg-card/60 px-3 py-2.5 text-left transition-colors active:bg-secondary disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <span>
-              <span className="block text-sm font-semibold">
-                {item.label}
-                <span className="ml-1.5 text-[11px] font-medium text-muted-foreground">{item.when}</span>
-              </span>
-              <span className="mt-0.5 block text-xs text-muted-foreground">{item.hint}</span>
-            </span>
-            <span aria-hidden className={cn("relative h-7 w-12 shrink-0 rounded-full transition-colors", on ? "bg-primary" : "well")}>
-              <span
-                className={cn(
-                  "absolute top-1 h-5 w-5 rounded-full bg-card shadow-quiet transition-transform",
-                  on ? "translate-x-6" : "translate-x-1"
-                )}
+      <div className="mt-2">
+        <SheetRows>
+          {SWITCHES.map((item) => {
+            const on = settings[item.key];
+            return (
+              <ListSwitch
+                key={item.key}
+                label={
+                  <>
+                    {item.label}
+                    <span className="ml-1.5 text-[11px] font-medium text-muted-foreground">{item.when}</span>
+                  </>
+                }
+                hint={item.hint}
+                on={on}
+                disabled={!loaded}
+                onToggle={() => void save({ ...settings, [item.key]: !on })}
               />
-            </span>
-          </button>
-        );
-      })}
+            );
+          })}
+        </SheetRows>
+      </div>
       {note ? (
-        <p className="px-1 text-xs text-warning" role="status">
+        <p className="mt-2 text-[13px] text-warning" role="status">
           {note}
         </p>
       ) : anyOn ? (
-        <p className="px-1 text-xs text-muted-foreground">
+        <p className="mt-2 text-[13px] text-muted-foreground">
           Times follow this phone's clock ({settings.timezone.replace(/_/g, " ")}).
         </p>
       ) : null}
-    </div>
+      <SheetDone />
+    </ListSheetRow>
   );
 }

@@ -92,7 +92,7 @@ export function getIntensity(highlights: BodyMuscleHighlight[], muscleId: Muscle
  * Anything the day did not work at all — a body part at rest reads neutral.
  *
  * The colours are CSS variables, not hex: the map sits on a well that is near
- * black on Graphite and warm grey on Paper, and no single ramp reads on both.
+ * black on Blue hour and pale grey on Dawn, and no single ramp reads on both.
  * `globals.css` defines `--map-idle` and `--heat-1` to `--heat-5` per skin.
  */
 export const MUSCLE_IDLE_COLOR = "var(--map-idle)";
@@ -106,10 +106,9 @@ export const MUSCLE_IDLE_COLOR = "var(--map-idle)";
  * primary lift lands near 100, but its supporting muscles sit in the teens, and
  * even splitting those apart is the point of the map.
  *
- * On Graphite the ramp brightens as it heats — on a dark ground, more light is
- * more. On Paper it deepens. Both are monotone in lightness, both keep every
- * step clear of the idle grey, and both stay warm so effort never borrows the
- * orange that means "go".
+ * On Blue hour the ramp brightens as it heats — on a dark ground, more light is
+ * more. On Dawn it deepens. Both are monotone in lightness and both keep every
+ * step clear of the idle grey.
  */
 export const MUSCLE_HEAT_STEPS = [
   { upTo: 15, color: "var(--heat-1)" },
@@ -136,13 +135,14 @@ export function getHeatColor(intensity: number) {
  */
 /**
  * The halo on the muscle you are pointing at. Only ever one at a time.
- * Brand-coloured, not the foreground: a dark halo on Paper read as a stain.
- * Two parts, because iOS Safari does not apply CSS `filter` to elements inside
- * an SVG: the drop-shadow glow where it works, and a brand-coloured stroke
- * around the muscle everywhere — on iPhone that outline is the whole of it.
+ * Cool, not the foreground: a dark halo on Dawn read as a stain, and a warm one
+ * vanishes on a muscle already hot. Two parts, because iOS Safari does not apply
+ * CSS `filter` to elements inside an SVG: the drop-shadow glow where it works,
+ * and a stroke around the muscle everywhere — on iPhone that outline is the whole
+ * of it.
  */
-const GLOW = "drop-shadow(0 0 2px hsl(var(--brand))) drop-shadow(0 0 6px hsl(var(--brand)))";
-const RING = "hsl(var(--brand))";
+const GLOW = "drop-shadow(0 0 2px var(--map-select)) drop-shadow(0 0 6px var(--map-select))";
+const RING = "var(--map-select)";
 
 export function muscleHeatVars(highlights: BodyMuscleHighlight[], glowMuscleId?: MuscleId) {
   const lit = glowMuscleId ? resolveMuscleIds(glowMuscleId) : [];

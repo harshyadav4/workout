@@ -1,33 +1,32 @@
 import { MobileShell } from "@/components/layout/mobile-shell";
 import { AreaView } from "@/features/diet/area-view";
-import { DietTargetsCard } from "@/features/diet/diet-targets-card";
-import { InstallCard } from "@/features/pwa/install-card";
-import { MeasurementsCard } from "@/features/profile/measurements-card";
+import { DietTargetsRow } from "@/features/diet/diet-targets-card";
+import { BodyGroup, WeightToday } from "@/features/profile/measurements-card";
 import {
   AccountSection,
+  AppSection,
   DataSection,
-  GoalsSection,
-  HelpSection,
-  ProfileHeader,
-  SettingsSection
+  GoalRow,
+  ProfileHeader
 } from "@/features/profile/profile-details";
 
 // A Server Component with the client leaves below it, like the other three
-// pages. One section per job, in the order people come here for them: who
-// you are, your goals, your body, the app, your data, and the account last.
-// The install card goes first, above everything: it renders nothing once the
-// app is installed, and until then it is the one thing worth doing here.
+// pages. One short list, in the order people come here for it: who you are, the
+// one reading taken often, your body, the app, your data, and the account last.
+// Every form stays in a bottom sheet until it is asked for.
 export default function ProfilePage() {
   return (
-    <MobileShell title="You" wallpaper="you">
-      <InstallCard />
-      <ProfileHeader />
-      <AreaView workout={<GoalsSection />} diet={<DietTargetsCard />} />
-      <MeasurementsCard />
-      <SettingsSection />
-      <DataSection />
-      <HelpSection />
-      <AccountSection />
+    <MobileShell title="You">
+      <div className="space-y-6">
+        <ProfileHeader />
+        <div className="space-y-6" data-tour="profile-body">
+          <WeightToday />
+          <BodyGroup goal={<AreaView workout={<GoalRow />} diet={<DietTargetsRow />} />} />
+        </div>
+        <AppSection />
+        <DataSection />
+        <AccountSection />
+      </div>
     </MobileShell>
   );
 }

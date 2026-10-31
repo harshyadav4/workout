@@ -105,7 +105,7 @@ export function WorkoutPicker({ confirmLabel, onConfirm }: WorkoutPickerProps) {
       </div>
 
       {group ? (
-        <div className="mt-4 space-y-2">
+        <div className="mt-3">
           {options.map((template) => {
             const picked = pickedIds.includes(template.id);
             const defaults = template.defaultSets?.[0];
@@ -115,15 +115,12 @@ export function WorkoutPicker({ confirmLabel, onConfirm }: WorkoutPickerProps) {
                 type="button"
                 aria-pressed={picked}
                 onClick={() => toggle(template.id)}
-                className={cn(
-                  "flex min-h-14 w-full items-center gap-3 rounded-lg px-4 py-3 text-left transition-colors",
-                  picked ? "bg-brand/12 ring-1 ring-brand/50" : "bg-muted active:bg-secondary"
-                )}
+                className="flex min-h-14 w-full items-center gap-3 border-t border-sep py-3 text-left transition-colors first:border-t-0"
               >
                 <span
                   className={cn(
                     "flex h-6 w-6 shrink-0 items-center justify-center rounded-full",
-                    picked ? "bg-primary text-primary-foreground" : "well"
+                    picked ? "bg-primary text-primary-foreground" : "bg-field"
                   )}
                 >
                   {picked ? <Check className="h-4 w-4" /> : null}
@@ -140,7 +137,7 @@ export function WorkoutPicker({ confirmLabel, onConfirm }: WorkoutPickerProps) {
             );
           })}
 
-          <Button size="lg" className="w-full" disabled={pickedIds.length === 0} onClick={confirm}>
+          <Button size="lg" className="mt-3 w-full" disabled={pickedIds.length === 0} onClick={confirm}>
             <Dumbbell className="h-4 w-4" />
             {pickedIds.length === 0
               ? "Pick exercises"
@@ -158,7 +155,7 @@ export function QuickStart() {
 
   return (
     <Card>
-      <h3 className="font-display text-[22px] font-extrabold leading-none tracking-tight">Train now</h3>
+      <h3 className="font-heading text-[30px] leading-tight">Train now</h3>
       <div className="mt-1">
         <WorkoutPicker
           confirmLabel="Start workout"

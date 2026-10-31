@@ -77,7 +77,7 @@ export function LoadCard({ points }: { points: LoadPoint[] }) {
                 yAxisId="ratio"
                 x1={highlight[0].key}
                 x2={highlight[highlight.length - 1].key}
-                fill="rgba(255,255,255,0.04)"
+                fill={CHART.wash}
                 stroke="none"
               />
             ) : null}
@@ -86,8 +86,8 @@ export function LoadCard({ points }: { points: LoadPoint[] }) {
               yAxisId="ratio"
               y1={LOAD_BAND.low}
               y2={LOAD_BAND.high}
-              fill="rgba(255,255,255,0.05)"
-              stroke="rgba(255,255,255,0.10)"
+              fill={CHART.wash}
+              stroke={CHART.grid}
             />
             <ReferenceLine
               yAxisId="ratio"

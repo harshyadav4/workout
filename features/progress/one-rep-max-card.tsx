@@ -8,7 +8,6 @@ import { TopSetChart } from "@/features/progress/strength-cards";
 import { bestEstimate, MAX_ELIGIBLE_REPS, oneRepMaxSeries, weightForReps } from "@/lib/one-rep-max";
 import { formatDayKey, type ExerciseTotal } from "@/lib/progress-metrics";
 import type { SetLog } from "@/lib/types";
-import { cn } from "@/lib/utils";
 
 /** The reps a calculator row is worth showing. Singles and doubles are the ask. */
 const CALCULATOR_REPS = [1, 3, 5, 8, 10];
@@ -53,7 +52,7 @@ export function OneRepMaxCard({
       {rows.length === 0 ? (
         <EmptyChart>No sets of {MAX_ELIGIBLE_REPS} reps or fewer in this range.</EmptyChart>
       ) : (
-        <ul className="space-y-1">
+        <ul className="rows">
           {rows.map(({ exercise, estimate }) => {
             const open = openId === exercise.workoutId;
             return (
@@ -61,13 +60,10 @@ export function OneRepMaxCard({
                 <button
                   type="button"
                   onClick={() => setOpenId(open ? undefined : exercise.workoutId)}
-                  className={cn(
-                    "flex min-h-[44px] w-full items-baseline justify-between gap-3 rounded-lg px-2 text-left",
-                    open && "bg-muted"
-                  )}
+                  className="flex min-h-[44px] w-full items-baseline justify-between gap-3 py-2 text-left"
                 >
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm">{exercise.name}</span>
+                    <span className="block truncate text-[15px] font-medium">{exercise.name}</span>
                     <span className="block text-xs text-muted-foreground">
                       from {estimate?.fromWeight}kg × {estimate?.fromReps} on{" "}
                       {formatDayKey(estimate?.date ?? "")}
@@ -79,7 +75,7 @@ export function OneRepMaxCard({
                 </button>
 
                 {open ? (
-                  <div className="px-2 pb-2">
+                  <div className="pb-3">
                     <TopSetChart
                       points={oneRepMaxSeries(setLogs, exercise.workoutId).map((point) => ({
                         date: point.date,
@@ -92,7 +88,7 @@ export function OneRepMaxCard({
                       {CALCULATOR_REPS.map((reps) => (
                         <li
                           key={reps}
-                          className="rounded-full bg-muted px-2.5 py-1 text-xs tabular-nums"
+                          className="rounded-full bg-hi px-2.5 py-1 text-xs tabular-nums"
                         >
                           {weightForReps(estimate?.value ?? 0, reps)}kg × {reps}
                         </li>

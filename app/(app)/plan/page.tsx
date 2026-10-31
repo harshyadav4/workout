@@ -7,7 +7,7 @@ import { PlanDashboard } from "@/features/planner/plan-dashboard";
 
 export default function PlanPage() {
   return (
-    <MobileShell title="Plan" wallpaper="plan">
+    <MobileShell title="Plan">
       {/* Both read ?mode from the URL, which needs a boundary here. */}
       <Suspense>
         <AreaView workout={<PlanDashboard />} diet={<DietPlan />} />

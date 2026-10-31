@@ -48,7 +48,7 @@ export function PRLedgerCard({ entries, days }: { entries: PREntry[]; days?: num
         <EmptyChart>Lift more than last time on an exercise to set one.</EmptyChart>
       ) : (
         <>
-          <ol className="divide-y divide-border">
+          <ol className="rows">
             {shown.map((entry) => (
               <li
                 key={`${entry.date}-${entry.workoutId}`}
@@ -72,7 +72,7 @@ export function PRLedgerCard({ entries, days }: { entries: PREntry[]; days?: num
             <button
               type="button"
               onClick={() => setExpanded((current) => !current)}
-              className="mt-2 min-h-[44px] w-full rounded-xl bg-muted text-xs font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="mt-2 min-h-[44px] w-full rounded-full text-[13.5px] font-medium text-muted-foreground transition-colors hover:text-foreground active:bg-hi focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {expanded ? "Show fewer" : `All ${entries.length} records`}
             </button>

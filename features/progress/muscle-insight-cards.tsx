@@ -4,7 +4,7 @@ import { Line, LineChart, ReferenceArea, ResponsiveContainer, YAxis } from "rech
 
 import { BackBody, FrontBody } from "@/features/body/lazy";
 import { MUSCLE_IDLE_COLOR } from "@/features/body/body-map-shared";
-import { GROUP_COLORS, animationProps } from "@/features/progress/chart-theme";
+import { CHART, GROUP_COLORS, animationProps } from "@/features/progress/chart-theme";
 import { Panel } from "@/features/progress/panel";
 import type {
   BalancePair,
@@ -95,21 +95,19 @@ export function RecoveryMapCard({
         </>
       }
     >
-      <div className="well rounded-xl p-3">
-        <div className="grid grid-cols-2 gap-2">
-          <FrontBody
-            className="mx-auto h-[14rem] w-auto max-w-full"
-            style={colors}
-            onSelectMuscle={onSelectMuscle}
-            selectedMuscleId={selectedMuscleId}
-          />
-          <BackBody
-            className="mx-auto h-[14rem] w-auto max-w-full"
-            style={colors}
-            onSelectMuscle={onSelectMuscle}
-            selectedMuscleId={selectedMuscleId}
-          />
-        </div>
+      <div className="grid grid-cols-2 gap-2">
+        <FrontBody
+          className="mx-auto h-[14rem] w-auto max-w-full"
+          style={colors}
+          onSelectMuscle={onSelectMuscle}
+          selectedMuscleId={selectedMuscleId}
+        />
+        <BackBody
+          className="mx-auto h-[14rem] w-auto max-w-full"
+          style={colors}
+          onSelectMuscle={onSelectMuscle}
+          selectedMuscleId={selectedMuscleId}
+        />
       </div>
 
       <ul className="mt-3 space-y-2">
@@ -225,8 +223,7 @@ export function BalanceCard({ pushPull, upperLower }: { pushPull?: BalancePair; 
 
   return (
     <Panel
-      title="Balance"
-      caption="Opposite sides compared"
+      title="Opposite sides"
       note={
         <>
           Push moves weight away from you (bench press); pull moves it toward you (rows). Much more
@@ -243,9 +240,9 @@ export function BalanceCard({ pushPull, upperLower }: { pushPull?: BalancePair; 
   );
 }
 
-/** Two colours from the section trio, so the halves differ for every reader. */
-const LEFT = "#2f8deb";
-const RIGHT = "#cf6f17";
+/** Two colours far apart, so the halves differ for every reader. */
+const LEFT = CHART.accent;
+const RIGHT = CHART.series[1];
 
 function BalanceBar({ item }: { item: BalancePair }) {
   const left = Math.round(item.leftShare);
@@ -262,13 +259,12 @@ function BalanceBar({ item }: { item: BalancePair }) {
         </span>
       </div>
       <div
-        className="relative mt-1.5 flex h-3 overflow-hidden rounded-full"
+        className="relative mt-1.5 flex h-2 gap-0.5 overflow-hidden rounded-full"
         role="img"
         aria-label={`${item.left} ${left}%, ${item.right} ${100 - left}%`}
       >
         <span style={{ width: `${left}%`, backgroundColor: LEFT }} />
-        {/* A surface gap between the halves, so they never merge. */}
-        <span className="w-0.5 bg-card" />
+        {/* The gap between the halves shows the surface, so they never merge. */}
         <span className="flex-1" style={{ backgroundColor: RIGHT }} />
         <span className="absolute inset-y-0 left-1/2 w-px bg-foreground/50" aria-hidden />
       </div>

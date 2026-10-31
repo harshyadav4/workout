@@ -8,7 +8,7 @@ import { RIEGEL_EXPONENT, VDOT_MIN_KM, type BestVdot, type PaceZone, type RacePr
 import { formatDayKey } from "@/lib/progress-metrics";
 import { cn } from "@/lib/utils";
 
-/** The Cardio group of the Science tab. Needs one run of at least 1.5 km with a time. */
+/** The Cardio group of the Progress science cards. Needs one run of at least 1.5 km with a time. */
 
 function clockLong(seconds: number) {
   const whole = Math.round(seconds);
@@ -48,7 +48,7 @@ export function VdotCard({ best }: { best?: BestVdot }) {
         NEED
       ) : (
         <div className="flex items-baseline gap-2">
-          <span className="font-display text-4xl font-bold tracking-tight tabular-nums">{best.vdot.toFixed(1)}</span>
+          <span className="plot-n">{best.vdot.toFixed(1)}</span>
           <span className="text-sm text-muted-foreground">ml O₂ per kg per minute, estimated</span>
         </div>
       )}
@@ -75,7 +75,7 @@ export function RacePredictorCard({ best, predictions }: { best?: BestVdot; pred
       {!best ? (
         NEED
       ) : (
-        <ul className="divide-y divide-border">
+        <ul className="rows">
           {predictions.map((race) => (
             <li key={race.label} className="flex items-baseline justify-between gap-3 py-1.5">
               <span className="text-sm">
@@ -127,7 +127,7 @@ export function PaceZonesCard({ zones }: { zones: PaceZone[] }) {
                   {paceLabel(zone.fast, unit)}–{paceLabel(zone.slow, unit)}
                 </span>
               </div>
-              <div className="relative mt-1 h-2 rounded-full bg-muted" aria-hidden>
+              <div className="relative mt-1 h-2 rounded-full bg-track" aria-hidden>
                 <span
                   className="absolute inset-y-0 rounded-full"
                   style={{

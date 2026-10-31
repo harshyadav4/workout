@@ -19,3 +19,11 @@ yarn-error.log*
 
 # Supabase CLI link state
 supabase/.temp/
+
+graphify-out/
+
+# Local screenshots for comparing colours and fonts, and the two pages that show them.
+design-preview/colour/
+design-preview/fonts/
+design-preview/colour-directions.html
+design-preview/font-choices.html

@@ -53,8 +53,8 @@ export function MuscleHeroFooter({
 }) {
   if (!facts) {
     return (
-      <div className="mt-4 rounded-xl bg-muted p-4 text-center">
-        <p className="font-display text-lg font-bold tracking-tight">Tap a muscle</p>
+      <div className="mt-4 border-t border-sep pt-4">
+        <p className="font-heading text-[26px] leading-tight">Tap a muscle</p>
         <p className="mt-1 text-sm text-muted-foreground">
           See its exercises, sets, and last workout.
         </p>
@@ -63,24 +63,24 @@ export function MuscleHeroFooter({
   }
 
   return (
-    <div className="mt-4 rounded-xl bg-muted p-4">
+    <div className="mt-4 border-t border-sep pt-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="font-display text-2xl font-extrabold leading-none tracking-tight">{facts.name}</p>
-          <p className="mt-1 text-xs font-semibold text-muted-foreground">
+          <p className="font-heading text-[26px] leading-tight">{facts.name}</p>
+          <p className="mt-0.5 text-[13px] text-muted-foreground">
             #{facts.rank} of {facts.total} by weight lifted · {facts.share.toFixed(1)}%
           </p>
         </div>
         <button
           type="button"
           onClick={onClear}
-          className="key-quiet flex h-10 shrink-0 items-center rounded-full px-4 text-xs font-semibold text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="key-quiet flex h-11 shrink-0 items-center rounded-full px-4 text-xs font-semibold text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           Clear
         </button>
       </div>
 
-      <div className="mt-3 grid grid-cols-3 gap-2">
+      <div className="mt-3 grid grid-cols-3 gap-3">
         <Figure
           label="Last trained"
           value={
@@ -100,12 +100,12 @@ export function MuscleHeroFooter({
 
 function Figure({ label, value }: { label: string; value: string }) {
   return (
-    <div className="well rounded-lg p-2.5">
+    <div>
       {/* Two lines tall, so the values stay level when a long label wraps. */}
-      <p className="min-h-8 text-xs font-semibold text-muted-foreground">
+      <p className="min-h-8 text-[13px] leading-tight text-muted-foreground">
         {label}
       </p>
-      <p className="mt-1 truncate text-base font-semibold leading-none">{value}</p>
+      <p className="mt-0.5 truncate text-base font-medium tabular-nums leading-tight">{value}</p>
     </div>
   );
 }
@@ -137,9 +137,9 @@ export function MuscleDoseCard({ name, setsPerWeek }: { name: string; setsPerWee
         </>
       }
     >
-      <p className="font-display text-3xl font-extrabold leading-none tracking-tight tabular-nums">
+      <p className="plot-n">
         {setsPerWeek.toFixed(1)}
-        <span className="ml-2 align-baseline font-sans text-xs font-medium text-muted-foreground">
+        <span className="ml-2 text-[13px] font-normal text-muted-foreground">
           sets / week
         </span>
       </p>

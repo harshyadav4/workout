@@ -1,26 +1,28 @@
 "use client";
 
-import { CalendarDays, ChevronLeft, ChevronRight, SlidersHorizontal, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Plus, SlidersHorizontal } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DRAWER_CONTENT } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DRAWER_CONTENT, SHEET_FOOT } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { ListGroup, ListRow, ListSheet, SheetRows } from "@/components/ui/list";
 import { Segmented } from "@/components/ui/segmented";
 import { ThemedSelect } from "@/components/ui/select";
 import { usePendingRemoval } from "@/components/ui/use-pending-removal";
 import { useDietStore } from "@/features/diet/diet-store";
 import { MealDayPreview } from "@/features/diet/meal-day-preview";
-import { MealNumbers } from "@/features/diet/meal-numbers";
+import { MealNumbers, planLine } from "@/features/diet/meal-numbers";
 import { isDayTouched, summarizeItems } from "@/lib/meal-schedule";
-import { shiftKey } from "@/lib/progress-metrics";
+import { formatDayKey, shiftKey } from "@/lib/progress-metrics";
 import { maxScheduleEnd } from "@/lib/schedule";
-import { buildWeekDates, todayKey } from "@/lib/utils";
+import { buildWeekDates, cn, todayKey } from "@/lib/utils";
 
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const DEFAULT_WEEKS = 8;
 const HORIZON_WARNING_DAYS = 14;
+
+const MONTH = new Intl.DateTimeFormat("en-US", { month: "long" });
 
 function weekLabel(offset: number) {
   if (offset === 0) {
@@ -43,6 +45,7 @@ export function DietSchedule({ onGoBuild }: { onGoBuild: () => void }) {
   const generate = useDietStore((state) => state.generateMealSchedule);
   const scheduleDay = useDietStore((state) => state.scheduleMealDay);
   const removeDay = useDietStore((state) => state.removeScheduledMealDay);
+  // Removed days hide at once and go after the Undo bar.
   const removal = usePendingRemoval();
 
   // Read after mount: the server does not know this phone's date.
@@ -53,16 +56,29 @@ export function DietSchedule({ onGoBuild }: { onGoBuild: () => void }) {
   const [selectedDate, setSelectedDate] = useState("");
   const selected = selectedDate || today;
   const selectedDay = weekDates.find((item) => item.key === selected) ?? weekDates[0];
-  const day = days.find((item) => item.date === selected);
+  const dayOn = (date: string) => days.find((item) => item.date === date && !removal.hidden.has(item.id));
+  const day = dayOn(selected);
   const isPast = selected < today;
+  const dayName = `${selectedDay.dayLabel} ${selectedDay.dayNumber}`;
 
+  // The week is what you look at; the form is what you touch twice a season.
   const [open, setOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [choosing, setChoosing] = useState(false);
+  const [confirmation, setConfirmation] = useState<string | null>(null);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [kind, setKind] = useState<"same" | "week">("same");
   const [everyDay, setEveryDay] = useState("");
   const [weekly, setWeekly] = useState<Record<number, string>>({});
+
+  // Landing on today whenever that week holds it, so stepping away and back returns where you started.
+  const changeWeek = (offset: number) => {
+    const dates = buildWeekDates(offset);
+    setWeekOffset(offset);
+    setSelectedDate(dates.some((item) => item.key === today) ? today : dates[0].key);
+    setConfirmation(null);
+  };
 
   const openDialog = () => {
     const start = today;
@@ -75,7 +91,6 @@ export function DietSchedule({ onGoBuild }: { onGoBuild: () => void }) {
     setKind(values.length > 0 && !allSame ? "week" : "same");
     setEveryDay(allSame ? values[0] : mealPlans[0]?.id ?? "");
     setWeekly(saved);
-    setConfirming(false);
     setOpen(true);
   };
 
@@ -85,7 +100,9 @@ export function DietSchedule({ onGoBuild }: { onGoBuild: () => void }) {
         ? Object.fromEntries(WEEKDAY_LABELS.map((_, index) => [index, everyDay]))
         : Object.fromEntries(Object.entries(weekly).filter(([, id]) => id));
     generate({ startDate, endDate, weekly: chosen });
+    setConfirming(false);
     setOpen(false);
+    setConfirmation(`Your diet schedule runs until ${formatDayKey(endDate)}.`);
   };
 
   const nothingChosen = kind === "same" ? !everyDay : !Object.values(weekly).some(Boolean);
@@ -101,167 +118,207 @@ export function DietSchedule({ onGoBuild }: { onGoBuild: () => void }) {
       return;
     }
     const from = daysLeft > 0 ? config.endDate : today;
-    generate({ ...config, startDate: today, endDate: shiftKey(from, DEFAULT_WEEKS * 7) });
+    const next = shiftKey(from, DEFAULT_WEEKS * 7);
+    generate({ ...config, startDate: today, endDate: next });
+    setConfirmation(`Your diet schedule runs until ${formatDayKey(next)}.`);
   };
 
   if (mealPlans.length === 0) {
     return (
-      <Card>
-        <CardContent className="space-y-4 py-8 text-center">
-          <p className="text-sm text-muted-foreground">Build a meal plan first. Then plan your weeks here.</p>
-          <Button onClick={onGoBuild}>Go to Build</Button>
-        </CardContent>
-      </Card>
+      <div className="px-1 pt-3">
+        <h2 className="font-heading text-[34px] leading-[1.08]">Nothing to schedule yet</h2>
+        <p className="mt-2.5 text-[15px] text-muted-foreground">Build a meal plan first. Then plan your weeks here.</p>
+        <Button className="mt-5 w-full" size="lg" onClick={onGoBuild}>
+          Go to Build
+        </Button>
+      </div>
     );
   }
 
   const planOptions = mealPlans.map((plan) => ({ value: plan.id, label: plan.name }));
-  const totals = day ? summarizeItems(day.items) : undefined;
+  const configValues = Object.values(config?.weekly ?? {});
+  const configSame = configValues.length === 7 && new Set(configValues).size === 1;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {runningOut ? (
-        <div className="rounded-xl bg-warning/10 p-4 ring-1 ring-warning/25">
-          <div className="flex items-start gap-3">
-            <CalendarDays className="mt-0.5 h-5 w-5 shrink-0 text-warning" />
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold">
-                {daysLeft === 0 ? "Your diet schedule has ended" : `Your diet schedule ends in ${daysLeft} day${daysLeft === 1 ? "" : "s"}`}
-              </p>
-              <Button variant="secondary" className="mt-3 w-full" onClick={extend}>
-                Add {DEFAULT_WEEKS} weeks
-              </Button>
-            </div>
-          </div>
+        <div className="notice-line">
+          <p className="min-w-0 flex-1">
+            {daysLeft === 0 ? "Your diet schedule has ended." : `Your diet schedule ends in ${daysLeft} day${daysLeft === 1 ? "" : "s"}.`}
+          </p>
+          <button
+            type="button"
+            onClick={extend}
+            className="h-11 shrink-0 rounded-full px-2.5 font-semibold underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Add {DEFAULT_WEEKS} weeks
+          </button>
         </div>
       ) : null}
 
-      <Card>
-        <div className="flex items-center justify-between gap-2">
-          <h3 className="min-w-0 truncate font-display text-[22px] font-extrabold leading-none tracking-tight">
-            {selectedDay.monthLabel}
-            <span className="text-muted-foreground"> · {weekLabel(weekOffset)}</span>
-          </h3>
-          <div className="flex shrink-0 items-center gap-1.5">
-            <button
-              type="button"
-              aria-label="Previous week"
-              className="key-quiet flex h-10 w-10 items-center justify-center rounded-full"
-              onClick={() => {
-                setWeekOffset(weekOffset - 1);
-                setSelectedDate(buildWeekDates(weekOffset - 1)[0].key);
-              }}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
+      <section>
+        <div className="flex items-center justify-between gap-2 pl-1">
+          <h2 className="min-w-0 truncate font-heading text-[30px] leading-tight">
+            {MONTH.format(selectedDay.date)}
+            <span className="ml-2 font-sans text-[13.5px] tracking-normal text-muted-foreground">{weekLabel(weekOffset)}</span>
+          </h2>
+          <div className="flex shrink-0 items-center">
             {weekOffset !== 0 ? (
               <button
                 type="button"
-                className="key-quiet flex h-10 items-center justify-center rounded-full px-3 text-xs font-semibold"
-                onClick={() => {
-                  setWeekOffset(0);
-                  setSelectedDate(today);
-                }}
+                className="flex h-11 items-center rounded-full px-3 text-[13.5px] font-semibold active:bg-hi"
+                onClick={() => changeWeek(0)}
               >
                 Today
               </button>
             ) : null}
             <button
               type="button"
-              aria-label="Next week"
-              className="key-quiet flex h-10 w-10 items-center justify-center rounded-full"
-              onClick={() => {
-                setWeekOffset(weekOffset + 1);
-                setSelectedDate(buildWeekDates(weekOffset + 1)[0].key);
-              }}
+              aria-label="Previous week"
+              className="flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground active:bg-hi"
+              onClick={() => changeWeek(weekOffset - 1)}
             >
-              <ChevronRight className="h-4 w-4" />
+              <ChevronLeft className="h-5 w-5" strokeWidth={1.8} />
+            </button>
+            <button
+              type="button"
+              aria-label="Next week"
+              className="flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground active:bg-hi"
+              onClick={() => changeWeek(weekOffset + 1)}
+            >
+              <ChevronRight className="h-5 w-5" strokeWidth={1.8} />
             </button>
           </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-7 gap-1.5">
+        {/* Seven days and no boxes: the chosen day is the only one with a shape. One
+            dot says what the day is: bright for a plan, warm once you have eaten from it. */}
+        <div className="mt-2.5 grid grid-cols-7 gap-0.5">
           {weekDates.map((item) => {
-            const hasDay = days.some((candidate) => candidate.date === item.key && !removal.hidden.has(candidate.id));
+            const onDay = dayOn(item.key);
+            const ate = onDay?.items.some((meal) => meal.status === "eaten");
             const isSelected = item.key === selected;
+            const isToday = item.key === today;
             return (
               <button
                 key={item.key}
                 type="button"
                 aria-current={isSelected ? "date" : undefined}
-                aria-label={`${item.dayLabel} ${item.dayNumber}${hasDay ? ", meals planned" : ""}`}
+                aria-label={`${item.dayLabel} ${item.dayNumber}${onDay ? `, ${onDay.planName}${ate ? ", meals eaten" : ""}` : ""}`}
                 onClick={() => setSelectedDate(item.key)}
-                className={`flex flex-col items-center gap-1.5 rounded-lg px-0.5 pb-2 pt-2 transition-colors ${
-                  isSelected ? "key-quiet ring-2 ring-brand" : "well"
-                }`}
+                className={cn("flex flex-col items-center gap-1.5 rounded-2xl pb-2 pt-2 transition-colors", isSelected && "bg-hi")}
               >
-                <span className={`text-[10px] font-semibold ${item.key === today ? "text-brand" : "text-muted-foreground"}`}>
-                  {item.dayLabel}
-                </span>
-                <span className="font-display text-lg font-extrabold leading-none tracking-tight">{item.dayNumber}</span>
-                <span aria-hidden className={`h-1.5 w-6 rounded-full ${hasDay ? "bg-primary" : "bg-transparent"}`} />
+                <span className={cn("text-[11.5px] font-medium", isToday ? "text-brand" : "text-muted-foreground")}>{item.dayLabel}</span>
+                <span className={cn("text-[18px] font-semibold leading-none tabular-nums", isToday && "text-brand")}>{item.dayNumber}</span>
+                <span
+                  aria-hidden
+                  className={cn("h-1.5 w-1.5 rounded-full", !onDay ? "bg-transparent" : ate ? "bg-[var(--l2)]" : "bg-foreground/75")}
+                />
               </button>
             );
           })}
         </div>
+      </section>
 
-        <div className="mt-4">
-          <p className="mb-2 text-sm font-semibold">
-            {selectedDay.dayLabel} {selectedDay.dayNumber}
-          </p>
-          {day && !removal.hidden.has(day.id) ? (
-            <div className="rounded-lg bg-muted p-2">
-              <div className="flex min-h-10 items-center justify-between gap-3 pl-2">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold">{day.planName}</p>
-                  {totals ? (
-                    <MealNumbers totals={totals} />
-                  ) : null}
-                </div>
-                {/* A day with a tick on it is a record, so it stays. */}
-                {isPast || isDayTouched(day) ? null : (
-                  <button
-                    type="button"
-                    aria-label={`Remove ${day.planName} from this day`}
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted-foreground active:bg-secondary"
-                    onClick={() => removal.remove(day.id, `${day.planName} removed`, () => removeDay(day.id))}
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
+      <ListGroup title={`${selected === today ? "Today · " : ""}${dayName}`}>
+        {day ? (
+          <>
+            <div className="list-row flex items-start gap-3 py-3.5 pl-4 pr-3.5">
+              <div className="min-w-0 flex-1">
+                <h3 className="break-words font-heading text-[28px] leading-[1.12]">{day.planName}</h3>
+                <MealNumbers totals={summarizeItems(day.items)} className="mt-1" />
               </div>
-              <div className="mt-2">
-                <MealDayPreview items={day.items} />
-              </div>
+              {isPast ? null : (
+                <button
+                  type="button"
+                  aria-label={`Change or remove ${day.planName}`}
+                  className="key-quiet h-11 shrink-0 rounded-full px-4 text-[13.5px] font-semibold"
+                  onClick={() => setChoosing(true)}
+                >
+                  Change
+                </button>
+              )}
             </div>
-          ) : (
-            <p className="rounded-lg bg-muted px-4 py-3 text-sm text-muted-foreground">No meals planned.</p>
-          )}
-          {isPast ? null : (
-            <div className="mt-3">
-              <ThemedSelect
-                aria-label={day ? "Change this day's plan" : "Put a plan on this day"}
-                value=""
-                onValueChange={(id) => {
-                  if (id) {
-                    scheduleDay(selected, id);
-                  }
+            <MealDayPreview items={day.items} />
+          </>
+        ) : (
+          <>
+            <p className="list-row flex min-h-[54px] items-center pl-4 pr-3.5 text-[15px] text-muted-foreground">No meals planned.</p>
+            {isPast ? null : <ListRow icon={Plus} label="Add meal plan" noChevron onClick={() => setChoosing(true)} />}
+          </>
+        )}
+      </ListGroup>
+
+      {isPast ? <p className="-mt-3 px-1 text-[13px] text-muted-foreground">Past days stay as your history.</p> : null}
+
+      {confirmation ? (
+        <p className="-mt-2 flex items-center gap-1.5 px-1 text-[13.5px]" role="status">
+          <Check className="h-4 w-4 shrink-0 text-[var(--l2)]" strokeWidth={2.4} aria-hidden />
+          {confirmation}
+        </p>
+      ) : null}
+
+      {/* The first thing to do with a plan, until it is done. After that the form
+          is a row at the foot of the page. */}
+      {config ? (
+        <ListGroup>
+          <ListRow
+            icon={SlidersHorizontal}
+            label="Edit schedule"
+            hint={`${configSame ? "Same every day" : "By weekday"} · until ${formatDayKey(config.endDate)}`}
+            onClick={openDialog}
+          />
+        </ListGroup>
+      ) : (
+        <Button className="w-full" size="lg" onClick={openDialog}>
+          Set up schedule
+        </Button>
+      )}
+
+      <ListSheet
+        open={choosing}
+        onOpenChange={setChoosing}
+        title={`${day ? "Change" : "Add to"} ${dayName}`}
+        description={day && isDayTouched(day) ? "Meals you have ticked or skipped stay." : undefined}
+      >
+        <SheetRows>
+          {mealPlans.map((plan) => {
+            const onDay = day?.mealPlanId === plan.id;
+            return (
+              <ListRow
+                key={plan.id}
+                label={plan.name}
+                hint={<span className="tabular-nums">{planLine(plan)}</span>}
+                value={onDay ? "On this day" : undefined}
+                disabled={onDay}
+                noChevron
+                onClick={() => {
+                  scheduleDay(selected, plan.id);
+                  setChoosing(false);
                 }}
-                options={[{ value: "", label: day ? "Change this day's plan" : "Put a plan on this day" }, ...planOptions]}
               />
-            </div>
-          )}
-        </div>
-      </Card>
-
-      <Button variant="secondary" className="w-full" onClick={openDialog}>
-        <SlidersHorizontal className="h-4 w-4" />
-        {config ? "Change my diet schedule" : "Set my diet schedule"}
-      </Button>
+            );
+          })}
+        </SheetRows>
+        {/* A day with a tick on it is a record, so it stays. The rare one: quiet,
+            under the common one, and it can be undone. */}
+        {day && !isDayTouched(day) ? (
+          <button
+            type="button"
+            className="mt-2 h-11 w-full rounded-full text-sm font-medium text-danger transition-colors active:bg-hi"
+            onClick={() => {
+              removal.remove(day.id, `${day.planName} removed`, () => removeDay(day.id));
+              setChoosing(false);
+            }}
+          >
+            Remove from this day
+          </button>
+        ) : null}
+      </ListSheet>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className={`${DRAWER_CONTENT} max-h-[88dvh] overflow-y-auto`}>
-          <DialogHeader>
+          <DialogHeader className="pr-9">
             <DialogTitle>Your diet schedule</DialogTitle>
             <DialogDescription>Choose dates, then a plan for the days.</DialogDescription>
           </DialogHeader>
@@ -284,6 +341,7 @@ export function DietSchedule({ onGoBuild }: { onGoBuild: () => void }) {
               </label>
             </div>
             <Segmented
+              quiet
               aria-label="Schedule kind"
               options={[
                 { id: "same", label: "Same every day" },
@@ -312,15 +370,7 @@ export function DietSchedule({ onGoBuild }: { onGoBuild: () => void }) {
                 ))}
               </div>
             )}
-            {confirming ? (
-              <div className="rounded-xl bg-warning/10 p-3 text-sm ring-1 ring-warning/25">
-                <p className="font-semibold">Replace your diet schedule?</p>
-                <p className="mt-1 text-muted-foreground">Days you have ticked, and days you set by hand, do not change.</p>
-                <Button className="mt-3 w-full" onClick={apply}>
-                  Replace
-                </Button>
-              </div>
-            ) : (
+            <div className={SHEET_FOOT}>
               <Button
                 className="w-full"
                 disabled={nothingChosen || badDates}
@@ -328,7 +378,24 @@ export function DietSchedule({ onGoBuild }: { onGoBuild: () => void }) {
               >
                 Save schedule
               </Button>
-            )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={confirming} onOpenChange={setConfirming}>
+        <DialogContent className={DRAWER_CONTENT}>
+          <DialogHeader className="pr-9">
+            <DialogTitle>Replace your diet schedule?</DialogTitle>
+            <DialogDescription>Days you have ticked, and days you set by hand, do not change.</DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 flex gap-2">
+            <Button variant="secondary" className="flex-1" onClick={() => setConfirming(false)}>
+              Cancel
+            </Button>
+            <Button className="flex-1" onClick={apply}>
+              Replace
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

@@ -84,7 +84,7 @@ export function WeightRepsCard({
                       onClick={() => setPicked(exercise.workoutId)}
                       className={cn(
                         "min-h-[44px] whitespace-nowrap rounded-full px-3.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                        active ? "bg-brand/15 text-brand ring-1 ring-brand/40" : "bg-muted text-muted-foreground"
+                        active ? "key" : "key-quiet text-muted-foreground"
                       )}
                     >
                       {exercise.name}
@@ -143,7 +143,7 @@ export function WeightRepsCard({
               <CartesianGrid {...gridProps} />
               <XAxis {...axisProps} dataKey="date" tickFormatter={formatDayKey} />
               <YAxis {...axisProps} width={44} allowDecimals={false} />
-              <Tooltip cursor={{ fill: "rgba(255,255,255,0.04)" }} content={<SetTooltip />} />
+              <Tooltip cursor={{ fill: CHART.wash }} content={<SetTooltip />} />
               <Bar
                 {...animationProps}
                 dataKey="reps"
@@ -173,7 +173,7 @@ function SetTooltip({ active, payload, label }: Partial<TooltipContentProps<numb
   }
 
   return (
-    <div className="plaque rounded-lg px-3 py-2">
+    <div className="plaque-solid rounded-lg px-3 py-2">
       <p className="text-xs font-semibold text-muted-foreground">{formatDayKey(String(label ?? point.date))}</p>
       <p className="mt-1 text-sm font-semibold tabular-nums">
         {point.weight} kg × {point.reps} {point.reps === 1 ? "rep" : "reps"}

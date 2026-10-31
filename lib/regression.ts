@@ -1,6 +1,6 @@
 /**
  * Ordinary least squares through a handful of points. The one place a slope is
- * fitted, so every "kg per week" on the Science tab is the same arithmetic.
+ * fitted, so every "kg per week" in the Progress science cards is the same arithmetic.
  *
  * `buildGoalEta` (lib/progress-extras) carries its own inline copy from before
  * this existed and is left alone: it is tested, and a shared helper is not a

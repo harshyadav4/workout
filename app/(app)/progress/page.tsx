@@ -5,7 +5,7 @@ import { ProgressDashboard } from "@/features/progress/progress-dashboard";
 
 export default function ProgressPage() {
   return (
-    <MobileShell title="Progress" wallpaper="progress">
+    <MobileShell title="Progress">
       <AreaView workout={<ProgressDashboard />} diet={<DietProgress />} />
     </MobileShell>
   );

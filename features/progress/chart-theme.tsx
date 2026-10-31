@@ -4,18 +4,14 @@ import { createContext, useContext } from "react";
 import type { TooltipContentProps } from "recharts";
 
 /**
- * Chart colours. Blue for the value you are reading, teal for the baseline it
- * is measured against, `quiet` for context — checked against the dark card
- * surface for lightness band, chroma floor, adjacent CVD separation and
- * contrast.
- *
- * Deliberately *not* the orange. Orange is the UI's one meaning — go, today,
- * the active thing — and a chart drawn in it reads as something to press. Data
- * gets a cool family instead.
+ * Chart colours. `accent` for the value you are reading (a section's own colour,
+ * see `SECTION_THEMES`), `series[1]`, a cool blue, for the baseline it is measured
+ * against, `quiet` for context. `series` is fixed: it passes the dataviz validator
+ * on both surfaces (lightness band, chroma floor, adjacent CVD and contrast).
  */
 export const CHART = {
-  series: ["#2f8deb", "#12a2b8", "#7b6ae0", "#2aa25e"],
-  accent: "#2f8deb",
+  series: ["#bf6e3e", "#5188cd", "#9d8d26", "#ae6aa8"],
+  accent: "rgb(var(--s-strength))",
   /**
    * Context marks — the ones the reader is meant to look past, but still has to
    * be able to see. These carry meaning (a rest day, an unselected muscle, a
@@ -26,28 +22,23 @@ export const CHART = {
   grid: "var(--chart-grid)",
   /** 5.98:1 on the card. Tick labels are 10px text and owe the full 4.5:1. */
   axis: "var(--chart-axis)",
-  surface: "hsl(var(--chart-surface))"
+  surface: "hsl(var(--chart-surface))",
+  /** A wash behind the marks: the column under a finger, the picked range, an empty bar. */
+  wash: "var(--chart-rest)"
 } as const;
 
-/**
- * The consistency calendar's ordinal ramp: one hue, quiet → hot.
- *
- * It runs mid-to-bright rather than dark-to-bright, which looks wrong written
- * down and is right on screen: the card is near-black, so a dark first step
- * lands in the surface's own luminance and a light training day becomes
- * indistinguishable from a rest day. The old ramp started at `#743a1b`, which
- * was 1.85:1 against `REST_CELL` — the single most important reading in the
- * chart ("did I show up") was the one you could not make. Step 1 now clears
- * 3.03:1 against the rest cell, and each step clears 1.29:1 against the step
- * below it.
- *
- * Those figures are the **dark** reading, and they are the binding one: the ramp
- * is fixed across both themes, and a rest cell on light is a dark wash on white,
- * so every step separates from it by more there, not less. The ramp is measured
- * where it is tightest.
- */
-export const HEAT = ["#2a5d9c", "#2f79c4", "#3a95e6", "#62b3f5"] as const;
 export const REST_CELL = "var(--chart-rest)";
+
+/**
+ * The ref for a calendar's sideways scroller: the newest days are what you came
+ * for, and they sit at the far end. Give the scroller a `key` of its column count,
+ * so a longer range lands there too.
+ */
+export function scrollToNewest(row: HTMLDivElement | null) {
+  if (row) {
+    row.scrollLeft = row.scrollWidth;
+  }
+}
 
 /**
  * Every mark on this page draws instantly.
@@ -63,23 +54,19 @@ export const animationProps = { isAnimationActive: false } as const;
 /**
  * Identity for the six muscle groups — the page's only categorical palette.
  *
- * Kept apart from `CHART.series` on purpose. Those three roles are *quantitative*
- * and mean the same thing on every chart: orange is the value you are reading,
- * `series[1]` teal is the baseline it is measured against, `quiet` is context.
- * Letting a group borrow teal would make "baseline" mean "back" on one card and
- * "your four-week average" on the next.
- *
- * A group's colour is a lookup, so the split and the drift chart agree with each
- * other. All six clear 3:1 against the card surface; every chart that uses them
- * also prints the value, so hue is never the only channel.
+ * Kept apart from `CHART.series` on purpose, so "baseline" never means "back".
+ * A group's colour is a lookup, so a lift, its split and the drift chart agree
+ * with each other. The fixed order passes the dataviz validator on both surfaces;
+ * every chart that uses them also prints the value or names the row, so hue is
+ * never the only channel.
  */
 export const GROUP_COLORS: Record<string, string> = {
-  chest: "#2f8deb",
-  back: "#12a2b8",
-  shoulders: "#e0b23c",
-  arms: "#7b6ae0",
-  core: "#2aa25e",
-  legs: "#e0619a"
+  chest: "#388cf0",
+  back: "#00a29b",
+  shoulders: "#b48400",
+  arms: "#a56cde",
+  core: "#37a643",
+  legs: "#d85891"
 };
 
 const COMPACT = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 });
@@ -136,7 +123,7 @@ export function ChartTooltip({
   const heading = typeof label === "string" && labelFormat ? labelFormat(label) : String(label ?? "");
 
   return (
-    <div className="plaque rounded-lg px-3 py-2">
+    <div className="plaque-solid rounded-xl px-3 py-2">
       <p className="text-xs font-semibold text-muted-foreground">
         {heading}
       </p>
@@ -162,43 +149,43 @@ export function ChartTooltip({
 
 /** Shown wherever a range holds no logs, in place of an empty axis. */
 export function EmptyChart({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="rounded-lg bg-muted px-4 py-6 text-center text-sm text-muted-foreground">
-      {children}
-    </div>
-  );
+  return <p className="px-1 py-5 text-center text-sm text-muted-foreground">{children}</p>;
 }
 
 /**
- * Each ring's own colour, so you always know which section a chart belongs to.
+ * Each card's own colour, so you always know which one you are inside. The tokens
+ * are bare channels (globals.css) because every shade is the one hue at another
+ * opacity, and each theme has its own steps: both trios pass the dataviz validator
+ * with no WARN, on their own surface.
  *
- * Validated as a categorical trio (dark #171b23 and light #fff surfaces: every
- * mark inside the lightness band, ≥ 3:1 against the card, worst adjacent CVD
- * ΔE 27.9) and each `heat` as an ordinal ramp (one hue, monotone lightness,
- * light end ≥ 2:1). Run the dataviz validator again before changing a value.
- *
- * Green, amber and red stay out: those are status, and the rings already use
- * them for "going well" and "needs work".
- *
- * Science is magenta, and not the teal it was first sketched in: every teal
- * sat within ΔE 6 of `CHART.series[1]`, the baseline colour a two-series chart
- * inside the section would draw next to it. Magenta is the one hue clear of
- * all four chart series and the three section accents (all-pairs, both
- * surfaces: its worst pair is ΔE 21 normal, 13 deutan); its ramp passes as an
- * ordinal on both surfaces.
+ * `heat` is a calendar's ordinal ramp, quiet to strong. As opacity it reads the
+ * same on both grounds: more training is always more contrast, and step 1 clears
+ * the rest cell, because "did I show up" is the most important thing a calendar
+ * says.
  */
-export type SectionId = "strength" | "consistency" | "body" | "science";
+export type SectionId = "strength" | "consistency" | "body" | "cardio" | "science";
 
 export interface SectionTheme {
   accent: string;
+  /** The selected card's fill. */
+  tint: string;
   heat: readonly string[];
 }
 
+function sectionTheme(token: string): SectionTheme {
+  return {
+    accent: `rgb(var(${token}))`,
+    tint: `rgb(var(${token}) / 0.14)`,
+    heat: [0.5, 0.66, 0.83, 1].map((alpha) => `rgb(var(${token}) / ${alpha})`)
+  };
+}
+
 export const SECTION_THEMES: Record<SectionId, SectionTheme> = {
-  strength: { accent: CHART.accent, heat: HEAT },
-  consistency: { accent: "#cf6f17", heat: ["#8a4a12", "#b35e15", "#d9771a", "#f29a4a"] },
-  body: { accent: "#8a5fe0", heat: ["#5d45ab", "#7556cf", "#8f6be6", "#b195f5"] },
-  science: { accent: "#d14f9a", heat: ["#7f2f5c", "#a83f7c", "#d14f9a", "#e27fb8"] }
+  strength: sectionTheme("--s-strength"),
+  consistency: sectionTheme("--s-consistency"),
+  body: sectionTheme("--s-body"),
+  cardio: sectionTheme("--s-cardio"),
+  science: sectionTheme("--s-science")
 };
 
 const SectionContext = createContext<SectionTheme>(SECTION_THEMES.strength);
@@ -208,7 +195,7 @@ export function SectionColors({ section, children }: { section: SectionId; child
   return <SectionContext.Provider value={SECTION_THEMES[section]}>{children}</SectionContext.Provider>;
 }
 
-/** The current section's colours — blue outside any section, as before. */
+/** The current section's colours. */
 export function useSection() {
   return useContext(SectionContext);
 }

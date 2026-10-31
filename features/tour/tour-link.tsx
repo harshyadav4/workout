@@ -4,7 +4,6 @@ import { X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { closeTourLink, readFirstOpen, readTourLinkClosed, showTourLink } from "@/features/tour/autostart-rule";
-import { GuideSprite } from "@/features/tour/guide-sprite";
 import { useStartTour } from "@/features/tour/tour";
 import { useTour } from "@/features/tour/tour-store";
 import { todayKey } from "@/lib/utils";
@@ -35,14 +34,13 @@ export function TourLink() {
   };
 
   return (
-    <div className="flex items-center gap-3 rounded-xl bg-card py-2 pl-3 pr-1 ring-1 ring-border">
-      <GuideSprite size={28} className="shrink-0" />
-      <p className="min-w-0 flex-1 text-sm">
+    <div className="notice-line">
+      <p className="min-w-0 flex-1">
         New here?{" "}
         <button
           type="button"
           onClick={startTour}
-          className="font-semibold text-brand underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="font-semibold underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           Take the tour
         </button>
@@ -51,7 +49,7 @@ export function TourLink() {
         type="button"
         aria-label="Hide this message"
         onClick={close}
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <X className="h-4 w-4" aria-hidden />
       </button>

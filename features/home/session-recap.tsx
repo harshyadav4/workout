@@ -6,7 +6,6 @@ import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 
-import { LevelUpGem, QuestScroll } from "@/features/home/artifacts";
 import { ExerciseDemoButton } from "@/features/workout/exercise-media-dialog";
 import { useDetailedTiming } from "@/features/workout/use-detailed-timing";
 import { useDistanceUnit } from "@/features/workout/use-distance-unit";
@@ -144,7 +143,7 @@ function ExerciseRecap({
               key={setItem.id}
               className={cn(
                 "grid grid-cols-[1.75rem_1fr_auto] items-center rounded-lg px-2 py-1.5 text-sm tabular-nums",
-                isTop ? "bg-brand/10" : "well"
+                isTop ? "bg-hi" : ""
               )}
             >
               <span
@@ -210,14 +209,13 @@ function SkillLevelUps({ written }: { written: WorkoutLog[] }) {
         <Link
           key={up.goal.id}
           href="/skills"
-          className="flex min-h-14 items-center gap-3 rounded-xl bg-brand/10 px-3 py-2.5 ring-1 ring-brand/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex min-h-14 items-center gap-3 rounded-2xl bg-hi px-3.5 py-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <LevelUpGem className="h-9 w-9 shrink-0" />
           <span className="min-w-0 flex-1">
-            <span className="block font-display text-base font-extrabold leading-tight tracking-tight text-brand">
+            <span className="block font-heading text-[22px] leading-tight">
               {up.mastered ? "Skill mastered!" : "Skill level up!"}
             </span>
-            <span className="block truncate text-xs text-muted-foreground">
+            <span className="block truncate text-[13px] text-muted-foreground">
               {up.goal.name} · Level {up.to} of {up.goal.levels.length}
               {up.next ? ` · next: ${up.next.name} ${levelTarget(up.next)}` : ""}
             </span>
@@ -317,7 +315,7 @@ export function SessionRecap({
   );
   if (!summary) {
     return (
-      <div className="mt-4 flex items-center gap-3 rounded-lg bg-muted px-4 py-3 text-sm">
+      <div className="flex items-center gap-3 text-sm">
         <Info className="h-4 w-4 shrink-0 text-muted-foreground" />
         <p className="text-muted-foreground">
           No sets logged, so nothing is saved.
@@ -348,18 +346,17 @@ export function SessionRecap({
   ];
 
   return (
-    // Part of the day card, not a box inside it: a card in a card spent the
-    // width on a second border and repeated the header's numbers.
-    <div className="system-pop mt-4">
+    // Part of the card, not a box inside it: a card in a card spent the width on
+    // a second border and repeated the header's numbers.
+    <div className="system-pop">
       <div className="flex items-center gap-2.5">
-        <QuestScroll className="h-9 w-[42px]" />
         <div className="min-w-0 flex-1">
-          <p className="font-display text-lg font-bold leading-tight tracking-tight">Workout done</p>
-          <p className="text-xs text-muted-foreground tabular-nums">
+          <p className="font-heading text-[28px] leading-tight">Workout done</p>
+          <p className="text-[13px] text-muted-foreground tabular-nums">
             {doneCount} {doneCount === 1 ? "exercise" : "exercises"} · saved to Progress
           </p>
           {session.startedAt && session.finishedAt ? (
-            <p className="text-xs font-semibold text-brand tabular-nums">
+            <p className="text-[13px] text-muted-foreground tabular-nums">
               {formatTimeOfDay(session.startedAt)} – {formatTimeOfDay(session.finishedAt)} ·{" "}
               {formatDuration(secondsBetween(session.startedAt, session.finishedAt))}
             </p>
@@ -375,9 +372,9 @@ export function SessionRecap({
         className={cn("mt-3 grid gap-2 text-center", stats.length >= 4 ? "grid-cols-4" : stats.length === 3 ? "grid-cols-3" : "grid-cols-2")}
       >
         {stats.map((stat) => (
-          <div key={stat.label} className="well rounded-lg px-2 py-2.5">
-            <p className="font-display text-xl font-extrabold tabular-nums tracking-tight">{stat.value}</p>
-            <p className="mt-0.5 text-[11px] font-semibold text-muted-foreground">{stat.label}</p>
+          <div key={stat.label} className="py-1">
+            <p className="text-2xl font-medium tabular-nums tracking-[-0.02em]">{stat.value}</p>
+            <p className="mt-px text-[12.5px] text-muted-foreground">{stat.label}</p>
           </div>
         ))}
       </div>
@@ -399,7 +396,7 @@ export function SessionRecap({
         </p>
       )}
 
-      <div className="mt-4 divide-y divide-border border-t border-border">
+      <div className="mt-4 divide-y divide-sep border-t border-sep">
         {exercises.map((exercise) => (
           <ExerciseRecap
             key={exercise.id}
@@ -414,13 +411,13 @@ export function SessionRecap({
       <SkillLevelUps written={logs} />
 
       {summary.muscles.length > 0 ? (
-        <div className="border-t border-border pt-3">
-          <p className="text-xs font-semibold text-muted-foreground">Muscles used</p>
+        <div className="border-t border-sep pt-3">
+          <p className="text-[13.5px] font-medium text-muted-foreground">Muscles used</p>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {summary.muscles.map((muscle) => (
               <span
                 key={muscle.muscleId}
-                className="rounded-full bg-muted px-3 py-1 text-xs font-medium tabular-nums"
+                className="rounded-full bg-hi px-3 py-1 text-xs font-medium tabular-nums"
               >
                 {muscle.name} {Math.round(muscle.share)}%
               </span>

@@ -89,7 +89,7 @@ export function StrengthGrowthCard({
               </div>
 
               <div className="relative mt-2 h-4">
-                <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-muted" />
+                <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-track" />
                 <div
                   className="absolute top-1/2 h-0.5 -translate-y-1/2 rounded-full"
                   style={{

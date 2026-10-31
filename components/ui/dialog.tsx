@@ -23,6 +23,14 @@ import { cn } from "@/lib/utils";
 export const DRAWER_CONTENT =
   "bottom-0 w-full rounded-b-none pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:bottom-0";
 
+/**
+ * The bar at the foot of a long sheet, holding its one action. Edge to edge, so
+ * rows that scroll beneath it cannot show past its ends or under it: a sticky bar
+ * stops at the sheet's padding, so it reaches through that to the real edge.
+ */
+export const SHEET_FOOT =
+  "sticky bottom-[calc(-1.25rem-env(safe-area-inset-bottom))] z-10 -mx-5 mb-[calc(-1.25rem-env(safe-area-inset-bottom))] border-t border-sep bg-card px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-3";
+
 /** How a sheet closes itself — the swipe below needs it; Radix gives Content no way. */
 const SheetClose = createContext<(() => void) | null>(null);
 
@@ -296,11 +304,11 @@ export function DialogContent({
 
   return (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay className="sheet-scrim fixed inset-0 z-50 bg-black/60" />
+      <DialogPrimitive.Overlay className="sheet-scrim fixed inset-0 z-50 bg-[var(--scrim)]" />
       <DialogPrimitive.Content
         ref={swipe.ref}
         className={cn(
-          "sheet plaque fixed bottom-4 left-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 overflow-y-auto overscroll-contain rounded-3xl p-5 outline-none transition-[bottom,max-height] duration-150 ease-out sm:bottom-6",
+          "sheet fixed bottom-4 left-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 overflow-y-auto overscroll-contain rounded-[30px] p-5 outline-none transition-[bottom,max-height] duration-150 ease-out sm:bottom-6",
           className
         )}
         style={{ ...style, ...lifted }}
@@ -322,7 +330,7 @@ export function DialogContent({
           aria-hidden
           {...swipe.grabber}
         >
-          <div className="h-1.5 w-10 rounded-full bg-border" />
+          <div className="h-1.5 w-10 rounded-full bg-track" />
         </div>
         {children}
         {/* aria-label, not the icon: lucide sets aria-hidden on <X> when no a11y
@@ -330,9 +338,12 @@ export function DialogContent({
         {hideClose ? null : (
           <DialogPrimitive.Close
             aria-label="Close"
-            className="absolute right-2 top-2 rounded-full p-3.5 text-muted-foreground transition-colors hover:text-foreground active:bg-secondary/60"
+            className="absolute right-1.5 top-1.5 flex h-11 w-11 items-center justify-center rounded-full text-foreground"
           >
-            <X className="h-4 w-4" />
+            {/* A small circle in a thumb-sized target. */}
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-hi">
+              <X className="h-4 w-4" />
+            </span>
           </DialogPrimitive.Close>
         )}
       </DialogPrimitive.Content>
@@ -353,7 +364,7 @@ export const DialogTitle = ({
   className,
   ...props
 }: DialogPrimitive.DialogTitleProps) => (
-  <DialogPrimitive.Title className={cn("font-display text-xl font-bold tracking-tight", className)} {...props} />
+  <DialogPrimitive.Title className={cn("font-heading text-[28px] leading-tight", className)} {...props} />
 );
 
 export const DialogDescription = ({
