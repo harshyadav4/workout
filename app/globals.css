@@ -5,7 +5,7 @@
 /*
  * Two skins, one set of tokens.
  *
- * Dusk is the palette in `:root`, so it is what renders if the theme script
+ * Teal is the palette in `:root`, so it is what renders if the theme script
  * fails. Dawn is a class. Every colour the UI touches is a token here — no
  * `white/5` hairlines, no hard-coded hex in components — so a skin is a block
  * of numbers and nothing else.
@@ -20,37 +20,37 @@
   --font-sans: var(--font-instrument-sans);
   --font-heading: var(--font-outfit);
 
-  --background: 232.9 54.8% 12.2%;
+  --background: 176.5 58.6% 5.7%;
   --foreground: 220 43% 97%;
-  --card: 235.4 43.8% 17.5%;
+  --card: 173.3 60.0% 8.8%;
   --card-foreground: 220 43% 97%;
-  --popover: 235.4 43.8% 17.5%;
+  --popover: 173.3 60.0% 8.8%;
   --popover-foreground: 220 43% 97%;
   /* The ring's empty track. */
-  --well: 234 38% 16%;
+  --well: 177.6 58.1% 8.4%;
 
   /* In the page: see-through, so the sky carries through a surface instead of
      stopping at its edge. Floating things use `--card`, which is solid. */
-  --surface: rgba(176, 178, 255, 0.085);
-  --surface-edge: rgba(196, 196, 255, 0.1);
+  --surface: rgba(194, 240, 236, 0.085);
+  --surface-edge: rgba(194, 240, 236, 0.1);
   --sep: rgba(255, 255, 255, 0.08);
   --field: rgba(255, 255, 255, 0.08);
   --hi: rgba(255, 255, 255, 0.11);
   --track: rgba(255, 255, 255, 0.14);
-  --scrim: rgba(6, 8, 30, 0.55);
-  --dock: rgb(34, 37, 78);
+  --scrim: rgba(5, 20, 19, 0.55);
+  --dock: #0c2e2b;
   --dock-edge: rgba(255, 255, 255, 0.1);
 
-  /* The sky at the top of every page: dusk, blue moving into indigo, with warm
-     light in one corner and violet on the other side. Static: one paint. */
-  --sky: radial-gradient(120% 52% at 78% -4%, rgba(255, 166, 122, 0.32) 0%, rgba(255, 128, 128, 0.1) 36%, rgba(255, 128, 128, 0) 62%),
-    radial-gradient(85% 42% at 4% 30%, rgba(124, 96, 224, 0.17) 0%, rgba(124, 96, 224, 0.133) 22%, rgba(124, 96, 224, 0.06) 43%, rgba(124, 96, 224, 0.01) 61%, rgba(124, 96, 224, 0) 72%),
-    linear-gradient(180deg, #283a8a 0%, #1e2b70 24%, #171f54 48%, #11163b 72%, #0e1230 100%);
+  /* The sky at the top of every page: Teal, with a soft blue neighbour.
+     Static: one paint. */
+  --sky: radial-gradient(120% 52% at 78% -4%, rgba(15, 159, 148, 0.34) 0%, rgba(15, 159, 148, 0.109) 36%, rgba(15, 159, 148, 0) 62%),
+    radial-gradient(85% 42% at 4% 30%, rgba(100, 171, 216, 0.17) 0%, rgba(100, 171, 216, 0.133) 22%, rgba(100, 171, 216, 0.059) 43%, rgba(100, 171, 216, 0.011) 61%, rgba(100, 171, 216, 0) 72%),
+    linear-gradient(180deg, #124944 0%, #0e3834 24%, #0a2a27 48%, #071e1c 72%, #061716 100%);
 
   /* Light low on the page, on screen as you scroll (`.app-glow`), so colour does
      not stop where the sky ends. */
-  --app-glow: radial-gradient(78% 44% at 4% 100%, rgba(122, 94, 222, 0.14) 0%, rgba(122, 94, 222, 0.11) 22%, rgba(122, 94, 222, 0.049) 43%, rgba(122, 94, 222, 0.009) 61%, rgba(122, 94, 222, 0) 72%),
-    radial-gradient(72% 40% at 100% 62%, rgba(70, 108, 226, 0.09) 0%, rgba(70, 108, 226, 0.071) 22%, rgba(70, 108, 226, 0.032) 43%, rgba(70, 108, 226, 0.005) 61%, rgba(70, 108, 226, 0) 72%);
+  --app-glow: radial-gradient(78% 44% at 4% 100%, rgba(100, 171, 216, 0.14) 0%, rgba(100, 171, 216, 0.11) 22%, rgba(100, 171, 216, 0.049) 43%, rgba(100, 171, 216, 0.009) 61%, rgba(100, 171, 216, 0) 72%),
+    radial-gradient(72% 40% at 100% 62%, rgba(15, 159, 148, 0.09) 0%, rgba(15, 159, 148, 0.071) 22%, rgba(15, 159, 148, 0.032) 43%, rgba(15, 159, 148, 0.006) 61%, rgba(15, 159, 148, 0) 72%);
   /* The noise on the sky and the glow, so the gradients do not band. */
   --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 
@@ -62,10 +62,10 @@
   /* Ink on that light, in both themes. */
   --on-warm: #2a1606;
 
-  /* The one thing on a screen you are meant to press: plain, no gradient, no
-     glow. White here, ink on Dawn. */
-  --primary: 220 43% 97%;
-  --primary-foreground: 217 37% 7%;
+  /* The one thing on a screen you are meant to press: plain deeper Teal, with no gradient or
+     glow. White words keep it readable in both themes. */
+  --primary: 175.5 84.4% 27.6%;
+  --primary-foreground: 0.0 0.0% 100.0%;
   /* `--l1` and `--l3` as hsl, for the code that fills a bar or a ring with them. */
   --key-top: 30 100% 89%;
   --key-bottom: 11 100% 74%;
@@ -73,14 +73,14 @@
      where this one on white sits under 3:1. `text-brand`, never `text-primary`. */
   --brand: 25 100% 74%;
 
-  --secondary: 234 30% 22%;
+  --secondary: 176.8 58.7% 12.4%;
   --secondary-foreground: 220 43% 97%;
-  --muted: 234 34% 17%;
-  --muted-foreground: 226 26% 77%;
+  --muted: 175.7 58.3% 9.4%;
+  --muted-foreground: 175.6 25.5% 68.4%;
   --accent: 25 100% 74%;
   --accent-foreground: 217 37% 7%;
-  --border: 234 28% 20%;
-  --input: 234 30% 22%;
+  --border: 176.5 58.6% 11.4%;
+  --input: 176.8 58.7% 12.4%;
   --ring: 220 43% 90%;
   --success: 153 55% 66%;
   --warning: 38 95% 62%;
@@ -94,7 +94,7 @@
   --shadow-well: 0 0 #0000;
   --shadow-dock: inset 0 0 0 1px var(--dock-edge), 0 12px 32px rgba(0, 0, 0, 0.22);
   /* The dock as glass, on iOS only (see `.dock` below). */
-  --glass-fill: rgba(34, 37, 78, 0.72);
+  --glass-fill: rgba(12, 46, 43, 0.72);
   /* S rank's rim on the crest. */
   --rank-gold: 42 90% 62%;
   --glass-edge: rgba(255, 255, 255, 0.1);
@@ -118,7 +118,7 @@
   --chart-grid: rgba(255, 255, 255, 0.08);
   --chart-axis: rgba(232, 238, 250, 0.62);
   --chart-rest: rgba(255, 255, 255, 0.05);
-  --chart-surface: 235.4 43.8% 17.5%;
+  --chart-surface: 173.3 60.0% 8.8%;
   /* Each Progress card's colour, as bare channels: every shade is this hue at
      another opacity (features/progress/chart-theme). */
   --s-strength: 232 128 62;
@@ -128,60 +128,59 @@
   --s-science: 228 118 165;
 }
 
-/* Dawn. The same sky at first light: pale periwinkle, a warm corner, white
-   surfaces with a soft shadow, and ink for the main action. */
+/* Light Teal: a pale ground, white surfaces, and the same deeper Teal CTA. */
 :root.light {
-  --background: 235 52% 96%;
+  --background: 175.1 72.5% 90.0%;
   --foreground: 222 36% 9%;
   --card: 0 0% 100%;
   --card-foreground: 222 36% 9%;
   --popover: 0 0% 100%;
   --popover-foreground: 222 36% 9%;
-  --well: 235 20% 92%;
+  --well: 176.1 71.8% 83.3%;
 
   --surface: #ffffff;
   --surface-edge: rgba(15, 20, 32, 0.03);
   --sep: rgba(15, 20, 32, 0.08);
-  --field: #f0f1f7;
+  --field: #f0f5f4;
   --hi: rgba(15, 20, 32, 0.07);
   --track: rgba(15, 20, 32, 0.12);
   --scrim: rgba(15, 20, 32, 0.32);
   --dock: rgb(255, 255, 255);
   --dock-edge: rgba(15, 20, 32, 0.06);
 
-  --sky: radial-gradient(120% 52% at 78% -6%, rgba(255, 176, 138, 0.6) 0%, rgba(255, 170, 170, 0.2) 36%, rgba(255, 170, 170, 0) 62%),
-    radial-gradient(85% 42% at 4% 26%, rgba(160, 140, 245, 0.22) 0%, rgba(160, 140, 245, 0.172) 22%, rgba(160, 140, 245, 0.077) 43%, rgba(160, 140, 245, 0.013) 61%, rgba(160, 140, 245, 0) 72%),
-    linear-gradient(180deg, #b2c0f0 0%, #ccd5f6 24%, #e3e6f9 50%, #eff0fa 78%);
+  --sky: radial-gradient(120% 52% at 78% -6%, rgba(15, 159, 148, 0.5) 0%, rgba(15, 159, 148, 0.165) 36%, rgba(15, 159, 148, 0) 62%),
+    radial-gradient(85% 42% at 4% 26%, rgba(141, 199, 236, 0.22) 0%, rgba(141, 199, 236, 0.173) 22%, rgba(141, 199, 236, 0.077) 43%, rgba(141, 199, 236, 0.014) 61%, rgba(141, 199, 236, 0) 72%),
+    linear-gradient(180deg, #23d7ca 0%, #75e8e0 24%, #b3f3ee 50%, #d3f8f5 78%);
 
-  --app-glow: radial-gradient(78% 42% at 4% 100%, rgba(160, 140, 245, 0.16) 0%, rgba(160, 140, 245, 0.125) 22%, rgba(160, 140, 245, 0.056) 43%, rgba(160, 140, 245, 0.01) 61%, rgba(160, 140, 245, 0) 72%),
-    radial-gradient(72% 38% at 100% 64%, rgba(255, 190, 150, 0.16) 0%, rgba(255, 190, 150, 0.125) 22%, rgba(255, 190, 150, 0.056) 43%, rgba(255, 190, 150, 0.01) 61%, rgba(255, 190, 150, 0) 72%);
+  --app-glow: radial-gradient(78% 42% at 4% 100%, rgba(141, 199, 236, 0.16) 0%, rgba(141, 199, 236, 0.126) 22%, rgba(141, 199, 236, 0.056) 43%, rgba(141, 199, 236, 0.01) 61%, rgba(141, 199, 236, 0) 72%),
+    radial-gradient(72% 38% at 100% 64%, rgba(15, 159, 148, 0.14) 0%, rgba(15, 159, 148, 0.11) 22%, rgba(15, 159, 148, 0.049) 43%, rgba(15, 159, 148, 0.009) 61%, rgba(15, 159, 148, 0) 72%);
 
   --l1: #f2a35c;
   --l2: #e4733a;
   --l3: #bd3a18;
   --sun: #bd3a18;
 
-  --primary: 222 36% 9%;
-  --primary-foreground: 0 0% 100%;
+  --primary: 175.5 84.4% 27.6%;
+  --primary-foreground: 0.0 0.0% 100.0%;
   --key-top: 28 85% 65%;
   --key-bottom: 12 77% 42%;
   --brand: 20 75% 38%;
 
-  --secondary: 235 20% 92%;
+  --secondary: 176.1 71.8% 83.3%;
   --secondary-foreground: 222 36% 9%;
-  --muted: 235 20% 94%;
-  --muted-foreground: 230 12% 32%;
+  --muted: 175.9 71.0% 87.8%;
+  --muted-foreground: 176.0 11.6% 25.3%;
   --accent: 20 75% 38%;
   --accent-foreground: 0 0% 100%;
-  --border: 235 15% 90%;
-  --input: 235 20% 92%;
+  --border: 175.2 72.8% 79.8%;
+  --input: 176.1 71.8% 83.3%;
   --ring: 222 36% 30%;
   --success: 156 66% 33%;
   --warning: 35 90% 38%;
   --danger: 4 63% 48%;
   --danger-foreground: 0 0% 100%;
 
-  --shadow-plaque: inset 0 0 0 1px var(--surface-edge), 0 1px 2px rgba(60, 50, 130, 0.05), 0 10px 28px rgba(60, 50, 130, 0.09);
+  --shadow-plaque: inset 0 0 0 1px var(--surface-edge), 0 1px 2px rgba(42, 111, 106, 0.05), 0 10px 28px rgba(42, 111, 106, 0.09);
   --shadow-float: inset 0 0 0 1px var(--surface-edge), 0 2px 6px rgba(16, 24, 40, 0.06), 0 16px 48px rgba(16, 24, 40, 0.14);
   --shadow-dock: inset 0 0 0 1px var(--dock-edge), 0 2px 4px rgba(16, 24, 40, 0.05), 0 12px 32px rgba(16, 24, 40, 0.12);
   --glass-fill: rgba(255, 255, 255, 0.76);

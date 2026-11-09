@@ -13,11 +13,13 @@
  */
 
 export const THEME_COLORS_KEY = "gymflow.theme-colors";
+export const DEFAULT_THEME_PAGE = "#0f9f94";
+export const DEFAULT_THEME_BUTTON = "#0b8279";
 
 export interface ThemePicks {
-  /** The page's colour, as #rrggbb. Absent: Dusk, from globals.css. */
+  /** The page's colour, as #rrggbb. Absent: Teal, from globals.css. */
   page?: string;
-  /** The main button's colour, as #rrggbb. Absent: plain white or ink. */
+  /** The main button's colour, as #rrggbb. Absent: deeper Teal. */
   button?: string;
   /** A key of TEXT_FONTS. Absent: Instrument Sans. */
   textFont?: string;
@@ -273,8 +275,11 @@ export function fitButton(hex: string, ground: string, mode: ThemeMode) {
   return hex;
 }
 
-/** The grounds of Dusk and Dawn, for a button when the page keeps its own colour. */
-const DEFAULT_GROUND: Record<ThemeMode, string> = { dark: "#0e1230", light: "#eff0fa" };
+/** Default page grounds, also used when only the button is customised. */
+const DEFAULT_GROUND: Record<ThemeMode, string> = {
+  dark: pageTokens(DEFAULT_THEME_PAGE, "dark")["--theme-color"],
+  light: pageTokens(DEFAULT_THEME_PAGE, "light")["--theme-color"]
+};
 
 /** Both themes' tokens for these picks. */
 export function buildThemeColors(picks: ThemePicks): StoredThemeColors {
@@ -285,6 +290,9 @@ export function buildThemeColors(picks: ThemePicks): StoredThemeColors {
   };
   return { picks, dark: tokensFor("dark"), light: tokensFor("light") };
 }
+
+/** The same palette is written to globals.css for first paint and offline fallback. */
+export const DEFAULT_THEME_COLORS = buildThemeColors({ page: DEFAULT_THEME_PAGE, button: DEFAULT_THEME_BUTTON });
 
 export function readThemeColors(): StoredThemeColors | undefined {
   try {

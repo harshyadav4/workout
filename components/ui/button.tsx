@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 
 /**
  * Pills. The default is the plain one: the one thing on the screen you are meant
- * to press, white on Dusk and ink on Dawn, with no gradient and no glow.
+ * to press, deeper Teal by default, with no gradient and no glow.
  * `secondary` is a quiet pill in a soft tint. `ghost` and `outline` are flat —
  * for actions that should not look like a button until you need them.
  */

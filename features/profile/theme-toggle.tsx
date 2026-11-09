@@ -10,6 +10,9 @@ import { setDistanceUnit, useDistanceUnit } from "@/features/workout/use-distanc
 import { applyTheme, isTheme, THEME_KEY, type Theme } from "@/lib/theme";
 import {
   buildThemeColors,
+  DEFAULT_THEME_PAGE,
+  DEFAULT_THEME_BUTTON,
+  DEFAULT_THEME_COLORS,
   fitButton,
   HEADING_FONTS,
   isHexColor,
@@ -33,7 +36,6 @@ const SKIN_LABELS: Record<Theme, string> = {
 /** Ready-made colours. The first choice in each list is the default, with no colour of its own. */
 const PAGE_COLORS = [
   { name: "Ocean", hex: "#2f6fde" },
-  { name: "Teal", hex: "#0f9f94" },
   { name: "Forest", hex: "#2e9e5b" },
   { name: "Ember", hex: "#ff5f00" },
   { name: "Rose", hex: "#e0457b" },
@@ -230,9 +232,9 @@ export function ThemeRow() {
     });
   };
 
-  const custom = Boolean(picks.page || picks.button || picks.textFont || picks.headingFont);
+  const custom = Boolean((picks.page && picks.page !== DEFAULT_THEME_PAGE) || (picks.button && picks.button !== DEFAULT_THEME_BUTTON) || picks.textFont || picks.headingFont);
   const dark = typeof document === "undefined" || !document.documentElement.classList.contains("light");
-  const ground = buildThemeColors(picks)[dark ? "dark" : "light"]["--theme-color"] ?? (dark ? "#0e1230" : "#eff0fa");
+  const ground = buildThemeColors(picks)[dark ? "dark" : "light"]["--theme-color"] ?? DEFAULT_THEME_COLORS[dark ? "dark" : "light"]["--theme-color"];
   const moved = picks.button !== undefined && fitButton(picks.button, ground, dark ? "dark" : "light") !== picks.button;
 
   return (
@@ -245,18 +247,18 @@ export function ThemeRow() {
       />
       <ColourChoice
         title="Background"
-        defaultName="Dusk"
-        defaultDot="linear-gradient(160deg, #283a8a, #7c60e0)"
+        defaultName="Teal"
+        defaultDot={DEFAULT_THEME_PAGE}
         colors={PAGE_COLORS}
-        value={picks.page}
+        value={picks.page === DEFAULT_THEME_PAGE ? undefined : picks.page}
         onChange={(page) => choosePicks({ ...picks, page })}
       />
       <ColourChoice
         title="Main button"
-        defaultName={dark ? "White" : "Black"}
-        defaultDot={dark ? "#f4f6fb" : "#0f141f"}
-        colors={BUTTON_COLORS}
-        value={picks.button}
+        defaultName="Deep teal"
+        defaultDot={DEFAULT_THEME_BUTTON}
+        colors={[{ name: dark ? "White" : "Black", hex: dark ? "#f4f6fb" : "#0f141f" }, ...BUTTON_COLORS]}
+        value={picks.button === DEFAULT_THEME_BUTTON ? undefined : picks.button}
         note={moved ? "Changed a little so it stays easy to see." : undefined}
         onChange={(button) => choosePicks({ ...picks, button })}
       />

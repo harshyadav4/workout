@@ -8,6 +8,13 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     optimizePackageImports: ["lucide-react", "recharts"]
+  },
+  images: {
+    // Version About screenshots without enabling arbitrary image query strings.
+    localPatterns: [
+      { pathname: "/**", search: "" },
+      { pathname: "/screenshots/**", search: "?v=teal" }
+    ]
   }
 };
 

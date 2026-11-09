@@ -3,6 +3,10 @@ import assert from "node:assert/strict";
 
 import {
   buildThemeColors,
+  DEFAULT_THEME_PAGE,
+  DEFAULT_THEME_BUTTON,
+  DEFAULT_THEME_COLORS,
+  luminance,
   buttonTokens,
   HEADING_FONTS,
   TEXT_FONTS,
@@ -125,4 +129,11 @@ for (const tokens of [pageTokens("#ff5f00", "dark"), pageTokens("#ff5f00", "ligh
   }
 }
 
+// Default CTA is deeper than Teal and has readable words in both modes.
+assert.ok(luminance(DEFAULT_THEME_BUTTON) < luminance(DEFAULT_THEME_PAGE));
+for (const mode of MODES) {
+  const palette = DEFAULT_THEME_COLORS[mode];
+  assert.ok(contrast(hexOf(palette["--primary"]), hexOf(palette["--primary-foreground"])) >= 4.5);
+  assert.ok(contrast(hexOf(palette["--primary"]), palette["--theme-color"]) >= 3);
+}
 console.log("theme-custom ok");

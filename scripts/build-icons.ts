@@ -23,11 +23,11 @@ const COLORS = {
   /** `--background` in dark. The launch screen's ground has to be exactly this. */
   ground: THEME_COLORS.dark,
   /** The land under the sky on a tile: a stop of `--sky`, so it holds its edge on a black wallpaper. */
-  land: "#11163b",
+  land: "#071e1c",
   /** Three more stops of `--sky`, turned over: a real dawn is lightest at the horizon. */
-  skyTop: "#171f54",
-  skyMiddle: "#1e2b70",
-  skyHorizon: "#283a8a",
+  skyTop: "#0a2a27",
+  skyMiddle: "#0e3834",
+  skyHorizon: "#124944",
   /** `--l1`, `--l2`, `--l3`: the arc, faint to full. */
   light1: "#ffe4c9",
   light2: "#ffb68c",

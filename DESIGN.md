@@ -59,7 +59,7 @@ Delete must never look stronger than the common action near it. Sign out is used
 
 **Colour.** Use tokens from `app/globals.css`, so that You → Theme reaches your work.
 
-- The main button is plain `--primary`, through `<Button>`: white on Dark, black on Light. No gradient and no glow.
+- The main button is plain `--primary`, through `<Button>`: deeper Teal by default, with white text in Dark and Light. No gradient and no glow.
 - Warm light (`--l1`, `--l2`, `--l3`, `text-brand`) marks progress and nothing else.
 - A card on Progress or Intake keeps its colour for all its charts (`--s-*`, through `SectionColors`).
 - Red means a limit was passed or something is being deleted.
@@ -145,8 +145,7 @@ Change this file only with the owner's approval, and in the same commit as the c
 
 Decisions the owner has made:
 
-- The main button stays plain white or black by default. `#FF5F00` was tried as the default and not chosen. Anyone can choose it in You → Theme.
-- The colour is Dusk, with the white button.
+- The owner changed the default background from Dusk to Teal (`#0f9f94`) and the main button to a slightly darker Teal (`#0b8279`), with white text in both themes. The button stays flat, without a gradient or glow. Personal colour choices in You → Theme still apply.
 - Headings are Outfit and text is Instrument Sans. Instrument Sans has no rupee sign, so the browser borrows one. The owner kept the font.
 - Progress and Intake use 3 cards and no tabs. Science has no page of its own; it sits inside the cards.
 - Delete stays quieter than Sign out.

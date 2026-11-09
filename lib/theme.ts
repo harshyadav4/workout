@@ -1,4 +1,4 @@
-import { applyThemeTokens, readThemeColors, THEME_COLORS_KEY } from "@/lib/theme-custom";
+import { applyThemeTokens, DEFAULT_THEME_COLORS, readThemeColors, THEME_COLORS_KEY } from "@/lib/theme-custom";
 
 export type Theme = "system" | "dark" | "light";
 
@@ -14,7 +14,10 @@ export const THEME_LABELS: Record<Theme, string> = {
  * The status bar colour behind each palette: `--background` from globals.css,
  * as hex because `<meta name="theme-color">` does not take hsl() everywhere.
  */
-export const THEME_COLORS = { dark: "#0E1230", light: "#EFF0FA" } as const;
+export const THEME_COLORS = {
+  dark: DEFAULT_THEME_COLORS.dark["--theme-color"],
+  light: DEFAULT_THEME_COLORS.light["--theme-color"]
+} as const;
 
 export function isTheme(value: unknown): value is Theme {
   return value === "system" || value === "dark" || value === "light";

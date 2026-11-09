@@ -21,10 +21,10 @@ export const contentType = "image/png";
  * written out because this cannot read CSS variables; that script's check fails
  * when they disagree.
  */
-const LAND = "#11163b";
-const SKY_TOP = "#171f54";
-const SKY_MIDDLE = "#1e2b70";
-const SKY_HORIZON = "#283a8a";
+const LAND = "#071e1c";
+const SKY_TOP = "#0a2a27";
+const SKY_MIDDLE = "#0e3834";
+const SKY_HORIZON = "#124944";
 const LIGHT_1 = "#ffe4c9";
 const LIGHT_2 = "#ffb68c";
 const LIGHT_3 = "#ff9078";

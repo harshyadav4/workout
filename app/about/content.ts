@@ -68,7 +68,7 @@ export const FEATURES: Feature[] = [
       "A live clock shows how long the workout runs.",
       "Progression rules can raise the weight when you are ready."
     ],
-    image: "/screenshots/home.png",
+    image: "/screenshots/home.png?v=teal",
     alt: "Arise Today screen: the week on an arc, today's workout with a Start workout button, and its exercises"
   },
   {
@@ -80,7 +80,7 @@ export const FEATURES: Feature[] = [
       "The Muscles card on Progress shows which muscles are ready to train.",
       "Weekly sets per muscle group show where your training goes."
     ],
-    image: "/screenshots/muscles.png",
+    image: "/screenshots/muscles.png?v=teal",
     alt: "Arise muscle map: front and back body figures with the trained muscles shaded by number of sets"
   },
   {
@@ -92,7 +92,7 @@ export const FEATURES: Feature[] = [
       "Paste its plan back into Arise.",
       "Your workouts and your calendar fill in."
     ],
-    image: "/screenshots/plan-ai.png",
+    image: "/screenshots/plan-ai.png?v=teal",
     alt: "Arise Plan screen: Add workout and Build with AI buttons above a list of your workouts"
   },
   {
@@ -105,7 +105,7 @@ export const FEATURES: Feature[] = [
       "Cardio: distance, pace and records for runs, rides and swims.",
       "The science inside each card: strength standards, body composition and race times."
     ],
-    image: "/screenshots/progress.png",
+    image: "/screenshots/progress.png?v=teal",
     alt: "Arise Progress screen: Strength, Consistency and Muscles cards above your wins and the weight you lifted"
   },
   {
@@ -117,7 +117,7 @@ export const FEATURES: Feature[] = [
       "Diet plan: build your days by hand or with AI, and put them on a calendar.",
       "Intake: Eating, Money and Body goals cards show what you eat, what you spend and the path to your target weight."
     ],
-    image: "/screenshots/diet.png",
+    image: "/screenshots/diet.png?v=teal",
     alt: "Arise Meals screen: calories eaten on an arc, bars for protein, carbs and fat, and today's meals to tick, each with its cost"
   }
 ];
