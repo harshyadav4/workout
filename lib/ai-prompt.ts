@@ -13,6 +13,7 @@
  */
 import { AI_PLAN_VERSION } from "@/lib/ai-plan";
 import { formatPace } from "@/lib/cardio";
+import { sectionLabel } from "@/lib/workout-structure";
 import type { Exercise } from "@/lib/exercises";
 import type { ProfileInfo, SessionTemplate, SetLog, WorkoutLog } from "@/lib/types";
 
@@ -110,7 +111,7 @@ function existingSessions(sessions: SessionTemplate[]): string[] {
             ? `${exercise.sets} x ${exercise.durationSeconds ?? 0}s`
             : `${exercise.sets} x ${exercise.reps}`;
       const load = exercise.weight > 0 ? ` @ ${exercise.weight} kg` : "";
-      return `    - ${exercise.name}: ${target}${load}`;
+      return `    - ${exercise.name}: ${target}${load} · ${sectionLabel(exercise.section)}${exercise.optional ? " · optional" : ""}`;
     });
     return [`- "${session.name}"`, ...lines].join("\n");
   });
@@ -142,13 +143,13 @@ const EXAMPLE = `{
       "progression": "double",
       "exercises": [
         { "name": "dumbbell seated shoulder press", "equipment": "dumbbell", "target": "delts",
-          "sets": 4, "reps": 8, "weightKg": 20, "restSeconds": 180,
+          "sets": 4, "reps": 8, "weightKg": 20, "restSeconds": 180, "section": "main",
           "notes": "RIR 2. Elbows slightly forward, lower to ear level." },
         { "name": "cable lateral raise", "equipment": "cable", "target": "delts",
           "sets": 3, "reps": 15, "weightKg": 5, "restSeconds": 60,
           "notes": "RIR 1. Lead with the elbow, no shrug." },
         { "name": "front plank with twist", "equipment": "body weight", "target": "abs",
-          "sets": 3, "seconds": 40, "restSeconds": 60, "notes": "Ribs down, squeeze glutes." }
+          "sets": 3, "seconds": 40, "restSeconds": 60, "section": "skill", "optional": true, "notes": "Ribs down, squeeze glutes." }
       ]
     },
     { "name": "Lower A", "progression": "double", "exercises": [ ... ] },
@@ -198,6 +199,7 @@ Before writing any plan, ask me these in one short message and wait for my answe
 3. My equipment (full gym, home dumbbells, bodyweight only).
 4. Injuries, movements to avoid, or hard rules.
 5. My experience, and when the plan should start and for how many weeks.
+6. If my plan has Full / Core / Minimum versions, which ONE I want scheduled. Ask which extras and separate training days should be optional.
 Skip any question that what the app knows about me (below) already answers. Then propose the plan in plain words in at most 10 lines, ask "Shall I generate the JSON?", and only after I say yes, reply with the JSON.`,
 
     `## What the app already knows about me
@@ -234,7 +236,12 @@ Then give exactly ONE JSON object in ONE \`\`\`json code block, and nothing afte
 - "restSeconds" between sets. "perSide": true when reps are the total for both sides (lunges, single-arm rows).
 - "notes": the cue, the rep range and RIR, in under 120 characters. FST-7, deload or tier instructions go here too.
 - "progression" per session: "double" (reps then weight), "linear", "time" (for holds) or "off".
-- At most 8 exercises per session and at most 14 sessions. Every session name must be unique.
+- Each exercise may have "section": "warmup", "skill", "main" or "stretching" (default main), "optional": true, and "progression": "off", "double", "linear" or "time" as an override. Warm-up, skills and stretching in one gym visit belong INSIDE that session, not in separate sessions. Preserve fillers and finishers with notes such as "during rest" or "finish".
+- "optional": true on a SESSION means an extra training day (e.g. optional Saturday kickboxing), outside the required weekly target. This differs from an optional exercise inside a workout.
+- At most 32 exercises per session and at most 48 sessions, including phase variants. Do not drop preparation or accessories to fit an eight-exercise limit. Each session name must be unique. The same exercise may appear once per section.
+- Full / Core / Minimum are ALTERNATIVES. Ask which tier to schedule; never put all three on the same week. You may include the other versions as unscheduled templates.
+- For deloads, exercise swaps starting in a later week, or deliberate tier changes, create explicitly named session variants with exact targets. Use "progression": "off" for fixed deload targets so history cannot raise them. Schedule those variants using dated phases; do not hide a future change only in notes.
+- Optional "schedule.phases": a list of { "name": "Week 7 deload", "startDate": "YYYY-MM-DD", "endDate": "YYYY-MM-DD", "days": { "mon": "Upper A deload", "tue": "Lower A deload", "sun": "rest" } }. Each phase is a COMPLETE weekly pattern (or uses "rotation" and "restDays"), replacing the base pattern only for those dates. Phase dates must be inside the schedule and must not overlap. Dates are inclusive. Off days remain off; choose one workout per day. Keep the base pattern for dates outside phases. Use a phase starting in week 5 to introduce optional Saturday kickboxing, instead of scheduling it too early.
 - "schedule": "startDate" and "endDate" as YYYY-MM-DD (today is ${today}). Either "days" mapping mon/tue/wed/thu/fri/sat/sun to a session name or "rest", or "rotation": an ordered list of session names that repeats. Every name used must exist in "sessions".
 
 Before you send the JSON, check every point and fix any that fails:
@@ -243,7 +250,7 @@ Before you send the JSON, check every point and fix any that fails:
 3. Every session name in "schedule" exists in "sessions", and no two sessions share a name.
 4. Dates are YYYY-MM-DD and "endDate" is after "startDate".
 5. Any "gifUrl" ends in .gif and starts with https://.
-6. Deload weeks, if any, are written in the notes of the first exercise of each session.
+6. Deloads and dated exercise swaps, if any, use explicit session variants and schedule.phases. The scheduled tier is the one I chose, not all alternatives.
 7. The reply is one \`\`\`json block, valid JSON, no comments, no trailing commas, nothing after it.
 
 Example of the shape (yours will be longer):

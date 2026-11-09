@@ -54,12 +54,14 @@ async function todaySession(supabase: SupabaseClient, userId: string, date: stri
     .eq("user_id", userId)
     .eq("date", date)
     .eq("type", "workout")
+    .eq("optional", false)
     .limit(1)
     .maybeSingle();
   if (!data) {
     return undefined;
   }
-  const exercises = (data.exercises as { sets?: unknown[] }[] | null) ?? [];
+  const exercises = ((data.exercises as { sets?: unknown[]; optional?: boolean; included?: boolean }[] | null) ?? [])
+    .filter((exercise) => !exercise.optional || exercise.included === true);
   return {
     name: data.session_name as string,
     status: data.status as TodaySession["status"],
@@ -129,6 +131,7 @@ async function nextPlanned(supabase: SupabaseClient, userId: string, today: stri
     .eq("user_id", userId)
     .eq("type", "workout")
     .eq("status", "planned")
+    .eq("optional", false)
     .gte("date", today)
     .order("date")
     .limit(1)

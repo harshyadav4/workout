@@ -101,6 +101,8 @@ export interface WorkoutTemplate {
  */
 export type ExerciseMetric = "reps" | "time" | "distance";
 
+export type WorkoutSection = "warmup" | "skill" | "main" | "stretching";
+
 export interface PlannedSet {
   id: string;
   /** Always present. Zero for a `time` set — see ExerciseMetric. */
@@ -153,6 +155,11 @@ export interface PlannedExercise {
   perSide?: boolean;
   /** Put in for this one day by Swap, so the day no longer follows its workout. */
   swapped?: boolean;
+  /** Absent means main work, for workouts saved before sections existed. */
+  section?: WorkoutSection;
+  optional?: boolean;
+  /** A choice for this dated session only; optional exercises start left out. */
+  included?: boolean;
 }
 
 export interface WorkoutLog {
@@ -221,6 +228,8 @@ export interface SessionTemplateExercise {
    * the display and the target stepping change. See `lib/per-side`.
    */
   perSide?: boolean;
+  section?: WorkoutSection;
+  optional?: boolean;
 }
 
 export interface SessionTemplate {
@@ -230,6 +239,8 @@ export interface SessionTemplate {
   exercises: SessionTemplateExercise[];
   /** The default rule for every exercise in the session. Overridable per lift. */
   progression?: ProgressionSettings;
+  /** An extra training day, rather than a required weekly target. */
+  optional?: boolean;
   summary: {
     totalSets: number;
     totalReps: number;
@@ -263,17 +274,30 @@ export interface ScheduledSession {
   startedAt?: string;
   /** When it really ended (lib/session-time finishTime) — not a Finish tapped hours late. */
   finishedAt?: string;
+  optional?: boolean;
+  phaseName?: string;
 }
 
 export type ScheduleMode = "weekly" | "rotation";
 
-export interface ScheduleConfig {
-  startDate: string; // YYYY-MM-DD
-  endDate: string; // YYYY-MM-DD
+export interface SchedulePattern {
   mode: ScheduleMode;
   weekly: Record<number, string>; // weekday 0-6 -> sessionTemplateId
   rotationOrder: string[]; // ordered sessionTemplateIds
   restWeekdays: number[]; // 0-6
+}
+
+/** Explicit dated patterns, for deloads, tiers and exercise changes. */
+export interface SchedulePhase extends SchedulePattern {
+  name: string;
+  startDate: string;
+  endDate: string;
+}
+
+export interface ScheduleConfig extends SchedulePattern {
+  startDate: string;
+  endDate: string;
+  phases?: SchedulePhase[];
 }
 
 /**

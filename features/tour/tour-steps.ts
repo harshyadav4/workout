@@ -41,7 +41,7 @@ export const TOUR_STEPS: TourStep[] = [
     route: "/",
     target: "home-work",
     title: "Log each set",
-    body: "Do a set, then tap it to log it. The app fills in your weight and reps from last time."
+    body: "Work from warm-up through stretching in one workout. Include optional exercises when you want them, then log each set."
   },
   {
     route: "/",

@@ -4,6 +4,7 @@ import { AlertTriangle, ChevronRight } from "lucide-react";
 import { useEffect, useRef } from "react";
 
 import { Button } from "@/components/ui/button";
+import { isExerciseIncluded } from "@/lib/workout-structure";
 import type { PlannedExercise } from "@/lib/types";
 
 /**
@@ -29,6 +30,7 @@ export function FinishConfirm({
   onPick: (exercise: PlannedExercise) => void;
 }) {
   const unfinished = exercises
+    .filter(isExerciseIncluded)
     .map((exercise) => ({
       exercise,
       done: exercise.sets.filter((setItem) => setItem.completed).length

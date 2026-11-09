@@ -181,7 +181,7 @@ export function plannedThisWeek(scheduled: ScheduledSession[], today: string) {
   const end = shiftKey(start, 6);
   const days = new Set(
     scheduled
-      .filter((item) => item.type === "workout" && item.date >= start && item.date <= end)
+      .filter((item) => item.type === "workout" && !item.optional && item.date >= start && item.date <= end)
       .map((item) => item.date)
   );
   return days.size > 0 ? days.size : undefined;

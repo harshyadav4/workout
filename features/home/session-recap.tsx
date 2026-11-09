@@ -4,6 +4,7 @@ import { ArrowDownRight, ArrowUpRight, ChevronRight, Info, Share2, Trophy } from
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
+import { isTrainingExercise, sectionLabel } from "@/lib/workout-structure";
 import { Button } from "@/components/ui/button";
 
 import { ExerciseDemoButton } from "@/features/workout/exercise-media-dialog";
@@ -82,17 +83,17 @@ function ExerciseRecap({
   const setTimes = new Map((timing?.sets ?? []).map((item) => [item.setId, item]));
   const unit = useDistanceUnit();
   // "Top set" is a lifting idea; a run's rows are read by pace, shown on each.
-  const top = isDistance ? undefined : topSetId(done);
-  const skipped = exercise.sets.length - done.length;
+  const top = isDistance || !isTrainingExercise(exercise) ? undefined : topSetId(done);
+  const skipped = exercise.optional && exercise.included !== true ? 0 : exercise.sets.length - done.length;
 
   if (done.length === 0) {
     return (
       <div className="flex items-center justify-between gap-3 py-3">
         <div className="flex min-w-0 items-center">
-          <p className="truncate text-[15px] font-semibold text-muted-foreground">{exercise.templateName}</p>
+          <p className="truncate text-[15px] font-semibold text-muted-foreground">{exercise.templateName}{exercise.section && exercise.section !== "main" ? ` · ${sectionLabel(exercise.section)}` : ""}</p>
           <ExerciseDemoButton workoutId={exercise.workoutId} name={exercise.templateName} />
         </div>
-        <p className="shrink-0 text-xs text-muted-foreground">Skipped</p>
+        <p className="shrink-0 text-xs text-muted-foreground">{exercise.optional ? "Optional · left out" : "Skipped"}</p>
       </div>
     );
   }
@@ -107,7 +108,7 @@ function ExerciseRecap({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center">
-            <p className="truncate text-[15px] font-semibold leading-tight">{exercise.templateName}</p>
+            <p className="truncate text-[15px] font-semibold leading-tight">{exercise.templateName}{exercise.section && exercise.section !== "main" ? ` · ${sectionLabel(exercise.section)}` : ""}</p>
             <ExerciseDemoButton workoutId={exercise.workoutId} name={exercise.templateName} />
           </div>
           {/* Icon and words, not colour alone — the record has to read without the blue. */}
@@ -313,6 +314,14 @@ export function SessionRecap({
     () => (detailed ? new Map(sessionBreakdown(session).map((item) => [item.exerciseId, item])) : undefined),
     [detailed, session]
   );
+  if (!summary && exercises.some((exercise) => exercise.sets.some((set) => set.completed))) {
+    return <div>
+      <p className="text-sm text-muted-foreground">Preparation saved in this workout. No training sets logged.</p>
+      {exercises.filter((exercise) => exercise.sets.some((set) => set.completed)).map((exercise) => (
+        <ExerciseRecap key={exercise.id} exercise={exercise} isRecord={false} timing={breakdown?.get(exercise.id)} />
+      ))}
+    </div>;
+  }
   if (!summary) {
     return (
       <div className="flex items-center gap-3 text-sm">
@@ -401,8 +410,8 @@ export function SessionRecap({
           <ExerciseRecap
             key={exercise.id}
             exercise={exercise}
-            volume={volumeByWorkout.get(exercise.workoutId)}
-            isRecord={records.has(exercise.workoutId)}
+            volume={isTrainingExercise(exercise) ? volumeByWorkout.get(exercise.workoutId) : undefined}
+            isRecord={isTrainingExercise(exercise) && records.has(exercise.workoutId)}
             timing={breakdown?.get(exercise.id)}
           />
         ))}

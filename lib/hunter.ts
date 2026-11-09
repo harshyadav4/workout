@@ -112,7 +112,7 @@ export function rankParts(logs: WorkoutLog[], scheduled: ScheduledSession[], day
   const trained = new Set(current.map((log) => log.date)).size;
   const planned = new Set(
     scheduled
-      .filter((session) => session.type === "workout" && session.exercises.length > 0 && inRange(session.date, start, day))
+      .filter((session) => session.type === "workout" && !session.optional && session.exercises.length > 0 && inRange(session.date, start, day))
       .map((session) => session.date)
   ).size;
   const expected = planned > 0 ? planned : (WINDOW_DAYS / 7) * DEFAULT_DAYS_PER_WEEK;

@@ -10,6 +10,8 @@ import { Card } from "@/components/ui/card";
 import { ListSheet } from "@/components/ui/list";
 import { HORIZON_WIDTH, HorizonArc } from "@/components/ui/progress-arc";
 import { SignInNudge } from "@/features/auth/sign-in-nudge";
+import { WorkoutSections } from "@/features/home/workout-sections";
+import { isExerciseIncluded, isTrainingExercise, orderExercises } from "@/lib/workout-structure";
 import { ExerciseLedger } from "@/features/home/exercise-ledger";
 import { FinishConfirm } from "@/features/home/finish-confirm";
 import { useLiveTimer } from "@/features/home/live-timer";
@@ -241,6 +243,7 @@ export function HomeDashboard() {
   const setSelectedMuscle = useWorkoutStore((state) => state.setSelectedMuscle);
   const selectSession = useWorkoutStore((state) => state.selectSession);
   const startSession = useWorkoutStore((state) => state.startSession);
+  const setExerciseIncluded = useWorkoutStore((state) => state.setExerciseIncluded);
   const updateSessionSet = useWorkoutStore((state) => state.updateSessionSet);
   const addSetToSession = useWorkoutStore((state) => state.addSetToSession);
   const logs = useWorkoutStore((state) => state.logs);
@@ -312,7 +315,7 @@ export function HomeDashboard() {
   const visibleSession = session
     ? {
         ...session,
-        exercises: session.exercises
+        exercises: orderExercises(session.exercises)
           .filter((exercise) => !removal.hidden.has(exercise.id))
           .map((exercise) => ({ ...exercise, sets: exercise.sets.filter((setItem) => !removal.hidden.has(setItem.id)) }))
       }
@@ -320,7 +323,7 @@ export function HomeDashboard() {
 
   // A picked set only survives while it still exists in today's session.
   const pickedExists = visibleSession?.exercises.some((exercise) =>
-    exercise.sets.some((setItem) => setItem.id === pickedSetId)
+    isExerciseIncluded(exercise) && exercise.sets.some((setItem) => setItem.id === pickedSetId)
   );
   const openSetId = pickedExists ? pickedSetId : firstPendingSetId(visibleSession);
 
@@ -335,7 +338,7 @@ export function HomeDashboard() {
     const focused = exercises.find((exercise) =>
       exercise.sets.some((setItem) => setItem.id === focusedSetId)
     );
-    return focused ? [focused.workoutId] : exercises.map((exercise) => exercise.workoutId);
+    return focused ? [focused.workoutId] : exercises.filter((exercise) => isExerciseIncluded(exercise) && isTrainingExercise(exercise)).map((exercise) => exercise.workoutId);
   }, [focusedSetId, next, session]);
 
   const muscleHighlights = useMemo(
@@ -381,7 +384,7 @@ export function HomeDashboard() {
       rest.start(exercise?.restSeconds, nextSetSummary(visibleSession ?? session, setId));
 
       const setItem = exercise?.sets.find((item) => item.id === setId);
-      if (exercise && setItem && setItem.type !== "warmup") {
+      if (exercise && isTrainingExercise(exercise) && setItem && setItem.type !== "warmup") {
         const todayBest = exercise.sets
           .filter((item) => item.completed && item.id !== setId && item.type !== "warmup")
           .reduce((peak, item) => Math.max(peak, item.weight), 0);
@@ -585,7 +588,7 @@ export function HomeDashboard() {
       ) : (
         <DayHero
           tourId="home-today"
-          tag={isDone ? "Cleared" : "Daily quest"}
+          tag={isDone ? "Cleared" : day.session.optional ? "Optional workout" : "Daily quest"}
           title={day.session.sessionName}
           detail={
             // Done: the recap's numbers say it; a line here only repeated them.
@@ -622,8 +625,10 @@ export function HomeDashboard() {
       {day.session.exercises.length > 0 && !isDone ? (
         <section className="space-y-2" data-tour="home-work">
           <h3 className="px-1 text-[13.5px] font-semibold text-muted-foreground">Today's exercises</h3>
-          <div className="plaque overflow-hidden rounded-3xl">
-            {(visibleSession ?? day.session).exercises.map((exercise) => (
+          <WorkoutSections
+            exercises={(visibleSession ?? day.session).exercises}
+            onInclude={(exercise) => setExerciseIncluded(day.session.id, exercise.id, true)}
+            renderExercise={(exercise) => (
               <ExerciseLedger
                 key={exercise.id}
                 exercise={exercise}
@@ -634,6 +639,10 @@ export function HomeDashboard() {
                 onPatchSet={(setId, patch) => patchSet(exercise.id, setId, patch)}
                 onLogSet={(setId) => logSet(exercise.id, setId)}
                 onAddSet={() => addSetToSession(day.session.id, exercise.id)}
+                onLeaveOut={exercise.optional ? () => {
+                  if (live.setId && exercise.sets.some((set) => set.id === live.setId)) live.cancel();
+                  setExerciseIncluded(day.session.id, exercise.id, false);
+                } : undefined}
                 onRemoveSet={(setId) => removeSet(exercise, setId)}
                 onPick={() => setPickedSetId(exerciseEntrySetId(exercise))}
                 onRemove={
@@ -650,7 +659,8 @@ export function HomeDashboard() {
                   onCancel: live.cancel
                 }}
               />
-            ))}
+            )}
+          >
 
           {/* The rack was taken, or you felt like one more. Without this the
               only options were skip it or leave the app. */}
@@ -674,7 +684,7 @@ export function HomeDashboard() {
               )}
             </div>
           ) : null}
-          </div>
+          </WorkoutSections>
         </section>
       ) : null}
 

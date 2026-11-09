@@ -19,14 +19,15 @@ import { ListGroup, ListRow, ListSheet, SheetRows } from "@/components/ui/list";
 import { Segmented } from "@/components/ui/segmented";
 import { ThemedSelect } from "@/components/ui/select";
 import { usePendingRemoval } from "@/components/ui/use-pending-removal";
+import { SchedulePhases } from "@/features/planner/schedule-phases";
 import { SessionPreview } from "@/features/planner/session-preview";
 import { MuscleMapCard } from "@/features/home/muscle-map-card";
 import { useExercisesFromSessionTemplate, useWorkoutStore } from "@/features/workout/workout-store";
 import { activeInjuries, injuryWorkoutIds, injuryWorkoutLine, isInjurySession } from "@/lib/injuries";
 import { formatDayKey } from "@/lib/progress-metrics";
-import { REST_SLOT, buildScheduleSessions, daysOfScheduleLeft, maxScheduleEnd } from "@/lib/schedule";
+import { REST_SLOT, schedulePhaseError, buildScheduleSessions, daysOfScheduleLeft, maxScheduleEnd } from "@/lib/schedule";
 import { muscles } from "@/lib/seed-data";
-import type { MuscleId, ScheduleConfig, ScheduleMode, ScheduledSession } from "@/lib/types";
+import type { MuscleId, ScheduleConfig, ScheduleMode, SchedulePhase, ScheduledSession } from "@/lib/types";
 import { addDays, buildWeekDates, cn, dateKey, todayKey } from "@/lib/utils";
 import { buildMuscleHighlightsFromWorkoutIds } from "@/lib/workout-helpers";
 
@@ -83,6 +84,7 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
   const [weekly, setWeekly] = useState<Record<number, string>>({});
   const [rotationOrder, setRotationOrder] = useState<string[]>([]);
   const [restWeekdays, setRestWeekdays] = useState<number[]>([]);
+  const [phases, setPhases] = useState<SchedulePhase[]>([]);
   const [selectedDate, setSelectedDate] = useState(todayKey);
   const [confirmation, setConfirmation] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
@@ -106,6 +108,7 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
     setWeekly(scheduleConfig.weekly);
     setRotationOrder(scheduleConfig.rotationOrder);
     setRestWeekdays(scheduleConfig.restWeekdays);
+    setPhases(scheduleConfig.phases ?? []);
   }, [scheduleConfig]);
 
   const weekDates = buildWeekDates(weekOffset);
@@ -206,11 +209,12 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
   );
   const hasWorkouts = mode === "weekly" ? Object.keys(weekly).length > 0 : rotationEffective.length > 0;
   const validRange = Boolean(startDate) && Boolean(endDate) && startDate <= endDate;
-  const canGenerate = hasWorkouts && validRange;
+  const phaseError = schedulePhaseError(phases, startDate, endDate);
+  const canGenerate = hasWorkouts && validRange && !phaseError;
 
   // A disabled button with no stated reason is a dead end — say which of the
   // two conditions is missing, in place of the generic helper line.
-  const blockedReason = !hasWorkouts
+  const blockedReason = phaseError ?? (!hasWorkouts
     ? mode === "weekly"
       ? "Put a workout on a weekday first."
       : "Add a workout to the rotation first."
@@ -218,7 +222,7 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
       ? "Set a start and an end date."
       : !validRange
         ? "The end date is before the start date."
-        : null;
+        : null);
 
   // Only what the generator made can be replaced. A day moved by hand stays, and so
   // does each day of an injury's workout (`mergeGeneratedSessions`). Days outside
@@ -244,7 +248,8 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
       mode,
       weekly: mode === "weekly" ? weekly : {},
       rotationOrder: mode === "rotation" ? rotationEffective : [],
-      restWeekdays
+      restWeekdays,
+      phases: phases.length ? phases : undefined
     };
     const workouts = buildScheduleSessions(config, sessionTemplates, () => []).filter(
       (session) => session.type === "workout"
@@ -482,7 +487,7 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
               }
               // "Planned" would be on every row, so it says nothing. Only the
               // exceptions are named.
-              hint={session.status === "completed" ? "Done" : session.status === "active" ? "In progress" : undefined}
+              hint={[session.optional ? "Optional" : "", session.phaseName ?? "", session.status === "completed" ? "Done" : session.status === "active" ? "In progress" : ""].filter(Boolean).join(" · ") || undefined}
               value={`${WEEKDAY.format(new Date(`${session.date}T00:00:00`))}, ${formatDayKey(session.date)}`}
             />
           ))}
@@ -681,6 +686,7 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
               </div>
             )}
 
+            <SchedulePhases phases={phases} onChange={setPhases} templates={planTemplates} startDate={startDate} endDate={endDate} />
             <div className={SHEET_FOOT}>
               <Button
                 className="w-full"

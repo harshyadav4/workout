@@ -77,33 +77,35 @@ function rowToTemplate(row: Row): WorkoutTemplate {
   };
 }
 
-function sessionTemplateToRow(template: SessionTemplate, userId: string): Row {
+export function sessionTemplateToRow(template: SessionTemplate, userId: string): Row {
   return {
     id: template.id,
     user_id: userId,
     name: template.name,
     exercises: template.exercises,
     summary: template.summary,
+    optional: template.optional ?? false,
     // null, not undefined: writing undefined leaves the column untouched on an
     // update, so turning a rule back off would never actually clear it.
     progression: template.progression ?? null
   };
 }
 
-function rowToSessionTemplate(row: Row): SessionTemplate {
+export function rowToSessionTemplate(row: Row): SessionTemplate {
   const exercises = (row.exercises as SessionTemplate["exercises"]) ?? [];
   return {
     id: row.id as string,
     name: row.name as string,
     exercises,
     summary: row.summary as SessionTemplate["summary"],
+    optional: row.optional === true || undefined,
     progression: (row.progression as SessionTemplate["progression"]) ?? undefined,
     // Derived rather than stored — it is exactly the exercises' workout ids.
     workoutIds: [...new Set(exercises.map((exercise) => exercise.workoutId))]
   };
 }
 
-function sessionToRow(session: ScheduledSession, userId: string): Row {
+export function sessionToRow(session: ScheduledSession, userId: string): Row {
   return {
     id: session.id,
     user_id: userId,
@@ -116,11 +118,13 @@ function sessionToRow(session: ScheduledSession, userId: string): Row {
     source: session.source,
     exercises: session.exercises,
     started_at: session.startedAt ?? null,
-    finished_at: session.finishedAt ?? null
+    finished_at: session.finishedAt ?? null,
+    optional: session.optional ?? false,
+    phase_name: session.phaseName ?? null
   };
 }
 
-function rowToSession(row: Row): ScheduledSession {
+export function rowToSession(row: Row): ScheduledSession {
   return {
     id: row.id as string,
     date: row.date as string,
@@ -132,7 +136,9 @@ function rowToSession(row: Row): ScheduledSession {
     source: row.source as ScheduledSession["source"],
     exercises: (row.exercises as ScheduledSession["exercises"]) ?? [],
     startedAt: (row.started_at as string) ?? undefined,
-    finishedAt: (row.finished_at as string) ?? undefined
+    finishedAt: (row.finished_at as string) ?? undefined,
+    optional: row.optional === true || undefined,
+    phaseName: (row.phase_name as string) ?? undefined
   };
 }
 

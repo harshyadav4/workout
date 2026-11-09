@@ -118,6 +118,7 @@ interface WorkoutState {
     setId: string,
     patch: Partial<PlannedSet>
   ) => void;
+  setExerciseIncluded: (sessionId: string, exerciseId: string, included: boolean) => void;
   addSetToSession: (sessionId: string, exerciseId: string) => void;
   /** The rack was taken. Adds to a session already under way. */
   addExerciseToSession: (sessionId: string, exercises: PlannedExercise[]) => void;
@@ -316,6 +317,7 @@ function createInitialState(): Omit<
   | "generateSchedule"
   | "selectSession"
   | "startSession"
+  | "setExerciseIncluded"
   | "updateSessionSet"
   | "addSetToSession"
   | "addExerciseToSession"
@@ -747,6 +749,7 @@ export function createWorkoutStore() {
             dayIndex: weekdayIndex(new Date(`${targetDate}T00:00:00`)),
             sessionTemplateId,
             sessionName,
+            optional: state.sessionTemplates.find((template) => template.id === sessionTemplateId)?.optional,
             exercises: exercises.map(cloneExercise),
             type,
             status: "planned" as const,
@@ -892,6 +895,17 @@ export function createWorkoutStore() {
             )
           };
         }),
+      setExerciseIncluded: (sessionId, exerciseId, included) =>
+        setAndPersist((state) => ({
+          ...state,
+          scheduledSessions: state.scheduledSessions.map((session) =>
+            session.id === sessionId && session.status !== "completed"
+              ? { ...session, exercises: session.exercises.map((exercise) =>
+                  exercise.id === exerciseId && exercise.optional ? { ...exercise, included } : exercise
+                ) }
+              : session
+          )
+        })),
       updateSessionSet: (sessionId, exerciseId, setId, patch) =>
         setAndPersist((state) => ({
           ...state,
@@ -1050,14 +1064,22 @@ export function createWorkoutStore() {
           });
         }),
       setActiveDate: (date) =>
-        setAndPersist((state) => ({
-          ...state,
-          activeDate: date,
-          selectedSessionId:
-            state.scheduledSessions.find(
-              (session) => session.date === date && !isInjurySession(session, injuryWorkoutIds(state.injuries))
-            )?.id ?? state.selectedSessionId
-        })),
+        setAndPersist((state) => {
+          // A session belongs to the day it started, even after midnight or a
+          // reload. Prefer the one already selected; recover an active session
+          // if the selection was lost (for example by an older app version).
+          const active = state.scheduledSessions.find(
+            (session) => session.id === state.selectedSessionId && session.status === "active"
+          ) ?? state.scheduledSessions.find((session) => session.status === "active");
+          const activeDate = active?.date ?? date;
+          const selectedSessionId = active?.id ?? state.scheduledSessions.find(
+            (session) => session.date === date && !isInjurySession(session, injuryWorkoutIds(state.injuries))
+          )?.id ?? state.selectedSessionId;
+          if (state.activeDate === activeDate && state.selectedSessionId === selectedSessionId) {
+            return state;
+          }
+          return { ...state, activeDate, selectedSessionId };
+        }),
       setProfile: (patch) =>
         setAndPersist((state) => ({
           ...state,
@@ -1223,7 +1245,7 @@ export function createWorkoutStore() {
               ? {
                   ...session,
                   exercises: session.exercises.flatMap((exercise) =>
-                    exercise.id === exerciseId ? exercises.map((item) => ({ ...item, swapped: true })) : [exercise]
+                    exercise.id === exerciseId ? exercises.map((item) => ({ ...item, section: exercise.section, optional: exercise.optional, included: exercise.included, swapped: true })) : [exercise]
                   )
                 }
               : session
@@ -1364,20 +1386,22 @@ export function WorkoutStoreProvider({ children }: { children: React.ReactNode }
     storeRef.current = createWorkoutStore();
   }
 
-  // activeDate is persisted; re-sync it to today on mount so Home shows today's
+  // activeDate is persisted; re-sync it on mount so Home shows today's
   // scheduled session after the store was saved on an earlier day — and again
   // every time the app comes back to the front. An installed app stays open
   // for days: opened from the switcher the morning after, it used to keep
   // yesterday's date, show yesterday's session as done, and write a new
-  // session's logs under yesterday.
+  // session's logs under yesterday. An unfinished session keeps its original
+  // date and selection until Finish; the next resync then returns to today.
   useEffect(() => {
     const resync = () => {
       const store = storeRef.current;
       if (!store) {
         return;
       }
-      if (store.getState().activeDate !== todayKey()) {
-        store.getState().setActiveDate(todayKey());
+      const previousDate = store.getState().activeDate;
+      store.getState().setActiveDate(todayKey());
+      if (store.getState().activeDate !== previousDate) {
         // Sessions planned for the days since catch up with the latest logs.
         store.getState().refreshUpcoming();
       }

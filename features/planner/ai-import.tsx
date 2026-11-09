@@ -1,5 +1,7 @@
 "use client";
 
+import { sectionLabel } from "@/lib/workout-structure";
+
 import { AlertTriangle, Check, ClipboardCopy, ClipboardPaste, Upload } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -460,7 +462,7 @@ export function AiImportSheet({
                 return (
                   <section key={session.name}>
                     <div className="flex items-baseline justify-between gap-2">
-                      <h3 className="font-heading text-[23px] leading-tight">{session.name}</h3>
+                      <h3 className="font-heading text-[23px] leading-tight">{session.name}{session.optional ? " · Optional" : ""}</h3>
                       <p className="shrink-0 text-xs text-muted-foreground">
                         {session.exercises.length} exercises
                         {session.progression && session.progression !== "off" ? ` · ${session.progression}` : ""}
@@ -501,7 +503,7 @@ export function AiImportSheet({
                                   {exercise ? exercise.name : item.name}
                                 </p>
                                 <p className="truncate text-[13px] text-muted-foreground tabular-nums">
-                                  {item.sets} × {item.seconds ? `${item.seconds}s` : item.reps}
+                                  {sectionLabel(item.section)}{item.optional ? " · Optional" : ""} · {item.sets} × {item.seconds ? `${item.seconds}s` : item.reps}
                                   {item.weightKg ? ` · ${item.weightKg} kg` : ""}
                                   {exercise && normalize(exercise.name) !== normalize(item.name) ? ` · AI name: "${item.name}"` : ""}
                                 </p>
@@ -564,6 +566,18 @@ export function AiImportSheet({
                 );
               })}
 
+              {plan.schedule?.phases?.length ? (
+                <section>
+                  <p className="mb-2 px-1 text-[13.5px] font-semibold text-muted-foreground">Dated phases</p>
+                  <SheetRows>
+                    {plan.schedule.phases.map((phase) => <div key={phase.startDate} className="list-row px-4 py-3">
+                      <p className="text-[15px]">{phase.name}</p>
+                      <p className="text-[13px] text-muted-foreground tabular-nums">{formatDayKey(phase.startDate)} to {formatDayKey(phase.endDate)}</p>
+                      <p className="text-[13px] text-muted-foreground">{phase.mode === "rotation" ? phase.rotation?.join(" → ") : Object.entries(phase.days ?? {}).map(([day, name]) => `${day}: ${name}`).join(" · ")}</p>
+                    </div>)}
+                  </SheetRows>
+                </section>
+              ) : null}
               {plan.schedule ? (
                 <section>
                   <SheetRows>

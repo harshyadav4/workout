@@ -11,10 +11,12 @@
  * so every rule here is testable without React or a network.
  */
 import { deriveEngagement, type Exercise } from "@/lib/exercises";
-import { REST_SLOT } from "@/lib/schedule";
+import { REST_SLOT, schedulePhaseError } from "@/lib/schedule";
 import { addDays, dateKey } from "@/lib/utils";
 import type {
   MuscleId,
+  WorkoutSection,
+  SchedulePattern,
   ProgressionRule,
   ProgressionSettings,
   ScheduleConfig,
@@ -53,12 +55,16 @@ export interface AiExercise {
   /** Lunges, single-arm rows: `reps` is the total across both sides. */
   perSide?: boolean;
   notes?: string;
+  section?: WorkoutSection;
+  optional?: boolean;
+  progression?: ProgressionRule;
   /** A public .gif demo, only for an exercise that is not in the library. */
   gifUrl?: string;
 }
 
 export interface AiSession {
   name: string;
+  optional?: boolean;
   progression?: ProgressionRule;
   exercises: AiExercise[];
 }
@@ -76,6 +82,7 @@ export interface AiSchedule {
   /** Session names in order, one per training day, looping. */
   rotation?: string[];
   restDays?: Weekday[];
+  phases?: (Omit<AiSchedule, "phases"> & { name: string; startDate: string; endDate: string })[];
 }
 
 export interface AiPlan {
@@ -185,9 +192,22 @@ function parseExercise(raw: unknown, path: string): AiExercise {
         )
       : undefined;
   const gifUrl = optionalText(raw.gifUrl, `${label}.gifUrl`);
+  const sections = ["warmup", "skill", "main", "stretching"];
+  if (raw.section !== undefined && !sections.includes(String(raw.section))) {
+    throw new AiPlanError(`${label}.section must be warmup, skill, main or stretching.`);
+  }
+  if (raw.optional !== undefined && typeof raw.optional !== "boolean") {
+    throw new AiPlanError(`${label}.optional must be true or false.`);
+  }
+  if (raw.progression !== undefined && !RULES.includes(raw.progression as ProgressionRule)) {
+    throw new AiPlanError(`${label}.progression is not a supported rule.`);
+  }
 
   return {
     name,
+    section: raw.section as WorkoutSection | undefined,
+    optional: raw.optional === true || undefined,
+    progression: raw.progression as ProgressionRule | undefined,
     equipment: optionalText(raw.equipment, `${label}.equipment`)?.toLowerCase(),
     target: optionalText(raw.target, `${label}.target`)?.toLowerCase(),
     sets: Math.min(sets, 20),
@@ -218,7 +238,7 @@ function parseWeekday(value: unknown, path: string): Weekday {
   return day as Weekday;
 }
 
-function parseSchedule(raw: unknown, sessionNames: Set<string>): AiSchedule | undefined {
+function parseSchedule(raw: unknown, sessionNames: Set<string>, allowPhases = true): AiSchedule | undefined {
   if (raw === undefined || raw === null) {
     return undefined;
   }
@@ -229,7 +249,7 @@ function parseSchedule(raw: unknown, sessionNames: Set<string>): AiSchedule | un
     if (value === undefined || value === null || value === "") {
       return undefined;
     }
-    if (typeof value !== "string" || !DATE.test(value) || Number.isNaN(Date.parse(`${value}T00:00:00Z`))) {
+    if (typeof value !== "string" || !DATE.test(value) || Number.isNaN(Date.parse(`${value}T00:00:00Z`)) || new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) !== value) {
       throw new AiPlanError(`${path} must be a date like 2026-11-02.`);
     }
     return value;
@@ -287,7 +307,23 @@ function parseSchedule(raw: unknown, sessionNames: Set<string>): AiSchedule | un
     throw new AiPlanError("schedule.endDate is before schedule.startDate.");
   }
 
-  return { startDate, endDate, mode, days, rotation, restDays };
+  let phases: AiSchedule["phases"];
+  if (raw.phases !== undefined) {
+    if (!allowPhases || !Array.isArray(raw.phases) || raw.phases.length > 32) {
+      throw new AiPlanError("Use at most 32 dated phases, without nested phases.");
+    }
+    phases = raw.phases.map((item, index) => {
+      if (!isRecord(item)) throw new AiPlanError(`Phase ${index + 1} must be an object.`);
+      const name = optionalText(item.name, `phase ${index + 1}.name`);
+      const phase = parseSchedule(item, sessionNames, false)!;
+      if (!name || !phase.startDate || !phase.endDate) throw new AiPlanError("Each phase needs a name, startDate and endDate.");
+      return { ...phase, name, startDate: phase.startDate, endDate: phase.endDate };
+    });
+    if (!startDate || !endDate) throw new AiPlanError("A phased schedule needs startDate and endDate.");
+    const issue = schedulePhaseError(phases.map((p) => ({ ...p, mode: p.mode ?? "weekly", weekly: {}, rotationOrder: [], restWeekdays: [] })), startDate, endDate);
+    if (issue) throw new AiPlanError(issue);
+  }
+  return { startDate, endDate, mode, days, rotation, restDays, phases };
 }
 
 /** The pasted text, checked and normalised. Throws AiPlanError with a reason. */
@@ -299,8 +335,8 @@ export function parseAiPlan(text: string): AiPlan {
   if (!Array.isArray(decoded.sessions) || decoded.sessions.length === 0) {
     throw new AiPlanError("The JSON has no sessions.");
   }
-  if (decoded.sessions.length > 14) {
-    throw new AiPlanError("That is more than 14 sessions. Ask the AI for a smaller plan.");
+  if (decoded.sessions.length > 48) {
+    throw new AiPlanError("That is more than 48 sessions. Ask the AI for a smaller plan.");
   }
 
   const seen = new Set<string>();
@@ -324,17 +360,19 @@ export function parseAiPlan(text: string): AiPlan {
       typeof raw.progression === "string" && (RULES as string[]).includes(raw.progression)
         ? (raw.progression as ProgressionRule)
         : undefined;
+    if (raw.exercises.length > 32) throw new AiPlanError(`"${name}" has more than 32 exercises.`);
+    if (raw.optional !== undefined && typeof raw.optional !== "boolean") throw new AiPlanError(`"${name}".optional must be true or false.`);
     const exercises = raw.exercises.map((item, exerciseIndex) =>
       parseExercise(item, `"${name}" exercise ${exerciseIndex + 1}`)
     );
     const names = new Set<string>();
     for (const exercise of exercises) {
-      if (names.has(normalize(exercise.name))) {
+      if (names.has(`${exercise.section ?? "main"}:${normalize(exercise.name)}`)) {
         throw new AiPlanError(`"${name}" lists "${exercise.name}" twice.`);
       }
-      names.add(normalize(exercise.name));
+      names.add(`${exercise.section ?? "main"}:${normalize(exercise.name)}`);
     }
-    return { name, progression, exercises };
+    return { name, progression, exercises, optional: raw.optional === true || undefined };
   });
 
   return {
@@ -607,6 +645,9 @@ export function buildPlanImport(plan: AiPlan, options: ImportOptions): PlanImpor
         weights,
         restSeconds: item.restSeconds ?? DEFAULT_REST,
         notes: item.notes,
+        section: item.section,
+        optional: item.optional,
+        progression: item.progression ? { rule: item.progression } : undefined,
         metric: isDistance ? "distance" : isTime ? "time" : undefined,
         durationSeconds: isTime ? item.seconds : undefined,
         distanceKm: isDistance ? item.distanceKm : undefined,
@@ -620,12 +661,13 @@ export function buildPlanImport(plan: AiPlan, options: ImportOptions): PlanImpor
     taken.add(normalize(name));
 
     const progression: ProgressionSettings | undefined =
-      session.progression && session.progression !== "off" ? { rule: session.progression } : undefined;
+      session.progression ? { rule: session.progression } : undefined;
     const draft: SessionTemplate = {
       id: replaces ?? freeId(`session-ai-${slug(name)}-${sessionIndex}`),
       name,
       workoutIds: exercises.map((exercise) => exercise.workoutId),
       exercises,
+      optional: session.optional,
       progression,
       summary: { totalSets: 0, totalReps: 0, totalWeight: 0 }
     };
@@ -654,6 +696,18 @@ export function buildPlanImport(plan: AiPlan, options: ImportOptions): PlanImpor
         restWeekdays.delete(index);
       }
     }
+    const patternFor = (source: AiSchedule): SchedulePattern => {
+      const patternWeekly: Record<number, string> = {};
+      const rest = new Set((source.restDays ?? []).map((d) => WEEKDAYS.indexOf(d)));
+      for (const [d, name] of Object.entries(source.days ?? {})) {
+        const day = WEEKDAYS.indexOf(d as Weekday);
+        if (name === "rest") rest.add(day);
+        else if (name && idInApp.has(name)) { patternWeekly[day] = idInApp.get(name)!; rest.delete(day); }
+      }
+      return { mode: source.mode ?? "weekly", weekly: patternWeekly,
+        rotationOrder: (source.rotation ?? []).map((n) => n === "rest" ? REST_SLOT : idInApp.get(n)!).filter(Boolean),
+        restWeekdays: [...rest].sort() };
+    };
     scheduleConfig = {
       startDate,
       endDate,
@@ -665,6 +719,10 @@ export function buildPlanImport(plan: AiPlan, options: ImportOptions): PlanImpor
               .map((name) => (name === "rest" ? REST_SLOT : idInApp.get(name)))
               .filter((id): id is string => Boolean(id))
           : [],
+      phases: schedule.phases?.filter((phase) => phase.endDate >= startDate).map((phase) => ({
+        ...patternFor(phase), name: phase.name,
+        startDate: phase.startDate < startDate ? startDate : phase.startDate, endDate: phase.endDate
+      })),
       restWeekdays: [...restWeekdays].sort()
     };
   }

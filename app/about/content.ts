@@ -63,6 +63,7 @@ export const FEATURES: Feature[] = [
     title: "Log a workout in one tap per set",
     lead: "Start today's workout and log each set with one tap. Arise fills in the weight and reps from last time.",
     points: [
+      "Warm-up, skill practice, main work and stretching share one workout. Include optional exercises when you want them.",
       "A rest timer times your rest between sets.",
       "A live clock shows how long the workout runs.",
       "Progression rules can raise the weight when you are ready."

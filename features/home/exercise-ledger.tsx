@@ -1,5 +1,7 @@
 "use client";
 
+import { isTrainingExercise } from "@/lib/workout-structure";
+
 import { useEffect, useRef, useState } from "react";
 import { Check, Minus, Plus, Trash2, TriangleAlert } from "lucide-react";
 
@@ -98,10 +100,10 @@ function Drum({
   // `null` means "show the committed value".
   const [draft, setDraft] = useState<string | null>(null);
 
-  // Snapped to the step first: a per-side lift steps by 2 and must stay even
-  // (lib/per-side), and neither the minus key nor a typed 7 kept it so.
+  // Whole-number counts follow their step (per-side reps must stay even).
+  // Decimal measurements accept exact entries; their step is a button increment.
   const clamp = (next: number) => {
-    const snapped = step > 1 ? Math.round(next / step) * step : next;
+    const snapped = !decimal && step > 1 ? Math.round(next / step) * step : next;
     return Math.min(max, Math.max(min, snapped));
   };
 
@@ -137,7 +139,7 @@ function Drum({
           <input
             type="number"
             inputMode={decimal ? "decimal" : "numeric"}
-            step={step}
+            step={decimal ? "any" : step}
             min={min}
             max={max}
             value={draft ?? value}
@@ -231,6 +233,7 @@ interface ExerciseLedgerProps {
   onPick: () => void;
   /** Drop this exercise from today. Absent on the last one left. */
   onRemove?: () => void;
+  onLeaveOut?: () => void;
   /** A hint that this exercise may load an injury. It never blocks the workout. */
   warning?: string;
   /** Change this exercise for today. Goes with `warning`. */
@@ -259,6 +262,7 @@ export function ExerciseLedger({
   onRemoveSet,
   onPick,
   onRemove,
+  onLeaveOut,
   warning,
   onSwap,
   timer
@@ -350,7 +354,7 @@ export function ExerciseLedger({
               ) : null}
             </div>
             <p className="mt-0.5 text-[13px] text-muted-foreground tabular-nums">
-              {planLine}
+              {exercise.optional ? "Optional · " : ""}{planLine}
               {restLine}
             </p>
             {warning ? (
@@ -509,7 +513,7 @@ export function ExerciseLedger({
                 chips, not a drum: it is a judgement, and 0–5 is the whole range
                 anyone can judge. Optional, and tapping the chosen chip clears
                 it: a guess forced out of someone is worse than no answer. */}
-            {!isTime && !isDistance ? (
+            {isTrainingExercise(exercise) && !isTime && !isDistance ? (
               <div className="mt-3">
                 <p className="mb-1.5 text-[12.5px] font-medium text-muted-foreground">
                   Reps left in the tank
@@ -568,7 +572,7 @@ export function ExerciseLedger({
               {/* A warm-up is logged so the ledger is honest about what happened,
                   then kept out of every total. Off by default: most sets are work.
                   Not on a run: an easy first km is just a slower row. */}
-              {isDistance ? null : (
+              {isDistance || !isTrainingExercise(exercise) ? null : (
                 <button
                   type="button"
                   role="switch"
@@ -600,6 +604,11 @@ export function ExerciseLedger({
                 </button>
               ) : null}
               {/* One tap. It used to arm and ask for a second; the Undo bar is the guard now. */}
+              {onLeaveOut ? (
+                <button type="button" onClick={onLeaveOut} className={QUIET_ACTION}>
+                  Leave optional exercise out
+                </button>
+              ) : null}
               {onRemove ? (
                 <button
                   type="button"

@@ -1,3 +1,4 @@
+import { isExerciseIncluded, isTrainingExercise, orderExercises } from "@/lib/workout-structure";
 import { resolveMuscleIds } from "@/features/body/body-map-shared";
 import { isDistanceExercise } from "@/lib/cardio";
 import { muscles } from "@/lib/seed-data";
@@ -18,7 +19,7 @@ import type {
 
 /** The set Home opens by default: the first one not yet logged, in session order. */
 export function firstPendingSetId(session?: ScheduledSession) {
-  for (const exercise of session?.exercises ?? []) {
+  for (const exercise of orderExercises(session?.exercises ?? []).filter(isExerciseIncluded)) {
     const pending = exercise.sets.find((setItem) => !setItem.completed);
     if (pending) {
       return pending.id;
@@ -44,7 +45,7 @@ export function nextPendingSetId(
   session: ScheduledSession | undefined,
   afterSetId: string
 ): string | undefined {
-  const sets = (session?.exercises ?? []).flatMap((exercise) => exercise.sets);
+  const sets = orderExercises(session?.exercises ?? []).filter(isExerciseIncluded).flatMap((exercise) => exercise.sets);
   const index = sets.findIndex((setItem) => setItem.id === afterSetId);
 
   if (index < 0) {
@@ -152,7 +153,7 @@ export function refreshUpcomingSessions(
   const next = sessions.map((session) => {
     const template = templates.find((item) => item.id === session.sessionTemplateId);
     const untouched = session.exercises.every(
-      (exercise) => !exercise.swapped && exercise.sets.every((setItem) => !setItem.completed)
+      (exercise) => !exercise.swapped && exercise.included !== true && exercise.sets.every((setItem) => !setItem.completed)
     );
     if (
       !template ||
@@ -176,11 +177,11 @@ export function refreshUpcomingSessions(
       };
     });
 
-    if (JSON.stringify(fresh) === JSON.stringify(session.exercises)) {
+    if (JSON.stringify(fresh) === JSON.stringify(session.exercises) && Boolean(session.optional) === Boolean(template.optional)) {
       return session;
     }
     changed = true;
-    return { ...session, exercises: fresh };
+    return { ...session, exercises: fresh, optional: template.optional };
   });
 
   return changed ? next : sessions;
@@ -199,7 +200,8 @@ export function sessionTotals(
   bodyweightKg = 0
 ) {
   const pairs = (session?.exercises ?? []).flatMap((exercise) =>
-    exercise.sets.map((setItem) => ({
+    exercise.sets.filter((setItem) => isExerciseIncluded(exercise) || setItem.completed).map((setItem) => ({
+      training: isTrainingExercise(exercise),
       setItem,
       bodyweight: usesBodyweight(templates.find((item) => item.id === exercise.workoutId))
     }))
@@ -209,7 +211,7 @@ export function sessionTotals(
   const completed = working.filter(({ setItem }) => setItem.completed);
   const volumeOf = (items: typeof pairs) =>
     items.reduce(
-      (sum, { setItem, bodyweight }) => sum + setVolume(setItem, { bodyweightKg, bodyweight }),
+      (sum, { setItem, bodyweight, training }) => sum + (training ? setVolume(setItem, { bodyweightKg, bodyweight }) : 0),
       0
     );
 
@@ -219,7 +221,7 @@ export function sessionTotals(
     volume: volumeOf(completed),
     /** Every working set at the weight written on it — what the day asks for. */
     planned: volumeOf(working),
-    loggedSets: completed.length,
+    loggedSets: completed.filter(({ training }) => training).length,
     loggedVolume: volumeOf(completed)
   };
 }
@@ -277,6 +279,7 @@ export function buildLogFromSession(
   // what every set row points at. Deriving the sets separately would have to
   // re-correlate them by `workoutId`, which is not unique within a session.
   const performed = session.exercises
+    .filter(isTrainingExercise)
     .map((exercise) => ({
       exercise,
       // Completed *and* working. A warm-up happened, but it is scaffolding for
@@ -523,15 +526,16 @@ export function plannedExercisesFromTemplate(
   // template's own numbers dressed up as a record.
   history: PerformanceHistory = { logs: [], setLogs: [] }
 ): PlannedExercise[] {
-  return template.exercises.map((exercise) => {
+  return orderExercises(template.exercises).map((exercise) => {
     // A hold and a run both carry seconds and no reps; only a run has distance.
     const isTimed = exercise.metric === "time" || exercise.metric === "distance";
     const isDistance = exercise.metric === "distance";
-    const last = lastPerformance(exercise.workoutId, history.logs, history.setLogs);
+    const exerciseHistory = isTrainingExercise(exercise) ? history : { logs: [], setLogs: [] };
+    const last = lastPerformance(exercise.workoutId, exerciseHistory.logs, exerciseHistory.setLogs);
 
     // Per-exercise beats per-session, and the whole thing is optional — a
     // template with no rule set behaves exactly as it did before this existed.
-    const settings = exercise.progression ?? template.progression;
+    const settings = isTrainingExercise(exercise) ? exercise.progression ?? template.progression : { rule: "off" as const };
 
     // The *heaviest* planned set, not set 0. A rule judges the top set (see
     // `sessionTops`), so the number it returns is a top-set number and has to be
@@ -577,6 +581,9 @@ export function plannedExercisesFromTemplate(
       targetNotes: exercise.notes,
       metric: exercise.metric,
       perSide: exercise.perSide,
+      section: exercise.section,
+      optional: exercise.optional,
+      included: exercise.optional ? false : undefined,
       progressionNote: target.reason || undefined,
       sets: Array.from({ length: setCount }).map((_, index) => {
         const from = carried[index];
@@ -692,13 +699,13 @@ export function plannedExercisesFromWorkouts(
 }
 
 export function buildSessionSummary(template: SessionTemplate) {
-  return template.exercises.reduce(
+  return template.exercises.filter((exercise) => !exercise.optional).reduce(
     (summary, exercise) => ({
       totalSets: summary.totalSets + exercise.sets,
-      totalReps: summary.totalReps + exercise.sets * exercise.reps,
+      totalReps: summary.totalReps + (isTrainingExercise(exercise) ? exercise.sets * exercise.reps : 0),
       totalWeight:
         summary.totalWeight +
-        Array.from({ length: exercise.sets }, (_, index) => weightForSet(exercise, index)).reduce(
+        Array.from({ length: exercise.sets }, (_, index) => isTrainingExercise(exercise) ? weightForSet(exercise, index) : 0).reduce(
           (sum, value) => sum + value,
           0
         )

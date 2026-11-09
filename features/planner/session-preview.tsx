@@ -13,7 +13,8 @@ import { formatDayKey } from "@/lib/progress-metrics";
 import { formatDuration, formatTimeOfDay, secondsBetween, sessionBreakdown } from "@/lib/session-time";
 import { formatClock } from "@/lib/timer";
 import type { PlannedExercise, PlannedSet, ScheduledSession } from "@/lib/types";
-import { lastPerformance } from "@/lib/workout-helpers";
+import { isExerciseIncluded, orderExercises, sectionLabel } from "@/lib/workout-structure";
+import { lastPerformance, sessionTotals } from "@/lib/workout-helpers";
 
 /** "30 kg × 5", "12 reps", "45 s" — one set in the units it is done in. */
 function setLabel(setItem: PlannedSet, exercise: PlannedExercise, unit: DistanceUnit) {
@@ -89,23 +90,20 @@ export function SessionPreview({ session, action }: { session: ScheduledSession;
       logs: logs.filter((log) => log.date < session.date),
       setLogs: setLogs.filter((row) => row.date < session.date)
     };
-    return session.exercises.map((exercise) => ({
+    return orderExercises(session.exercises).map((exercise) => ({
       exercise,
       lastDate: lastPerformance(exercise.workoutId, before.logs, before.setLogs)?.date
     }));
   }, [logs, setLogs, session]);
 
-  const setCount = session.exercises.reduce(
-    (sum, exercise) => sum + exercise.sets.filter((setItem) => setItem.type !== "warmup").length,
-    0
-  );
+  const setCount = sessionTotals(session).total;
 
   return (
     <>
       <div className="list-row flex items-start gap-3 py-3.5 pl-4 pr-3.5">
         <div className="min-w-0 flex-1">
           <h3 className="break-words font-heading text-[28px] leading-[1.12]">
-            {session.sessionName}
+            {session.sessionName}{session.optional ? " · Optional" : ""}
           </h3>
           {rows.length > 0 ? (
             <p className="mt-1 text-[13.5px] text-muted-foreground tabular-nums">
@@ -122,7 +120,7 @@ export function SessionPreview({ session, action }: { session: ScheduledSession;
         {action ? <div className="shrink-0">{action}</div> : null}
       </div>
       {rows.map(({ exercise, lastDate }) => {
-        const working = exercise.sets.filter((setItem) => setItem.type !== "warmup");
+        const working = exercise.sets.filter((setItem) => session.status !== "completed" || setItem.completed);
         const timing = breakdown?.get(exercise.id);
         // With detailed timing on, a logged set has a clock time, so it needs its own line.
         const timed = Boolean(breakdown) && working.some((setItem) => setItem.completedAt);
@@ -139,6 +137,7 @@ export function SessionPreview({ session, action }: { session: ScheduledSession;
           <div key={exercise.id} className="list-row flex items-start gap-1 py-2.5 pl-4 pr-1.5">
             <div className="min-w-0 flex-1">
               <p className="text-[15.5px] font-medium capitalize">{exercise.templateName}</p>
+              <p className="text-[13px] text-muted-foreground">{sectionLabel(exercise.section)}{exercise.optional ? isExerciseIncluded(exercise) ? " · Optional, included" : " · Optional, left out" : ""}</p>
               <p className="mt-px text-[13px] text-muted-foreground tabular-nums">
                 {!timed && working.length > 0 ? <>{setsLine(working, exercise, unit)} · </> : null}
                 <span className="whitespace-nowrap">{lastDate ? `last done ${formatDayKey(lastDate)}` : "first time"}</span>

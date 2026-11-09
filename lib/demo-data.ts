@@ -20,7 +20,7 @@ import type {
   WorkoutLog,
   WorkoutTemplate
 } from "@/lib/types";
-import { buildLogFromSession, plannedExercisesFromTemplate } from "@/lib/workout-helpers";
+import { buildLogFromSession, plannedExercisesFromTemplate, buildSessionSummary } from "@/lib/workout-helpers";
 
 /**
  * The tour's sample account: "Alex", six months into a sensible programme.
@@ -293,6 +293,7 @@ function skillExercise(date: string, weeksBack: number, done: boolean, clock: { 
     id: `${PREFIX}${date}-${level.workoutId}`,
     workoutId: level.workoutId,
     templateName: level.name,
+    section: "skill",
     restSeconds: 90,
     sets: Array.from({ length: level.sets }, (_, index) => {
       clock.at += 150 * 1000;
@@ -320,6 +321,13 @@ function liftingSession(calendar: Calendar, date: string, key: SplitKey): Schedu
     exercises.push(skill);
   }
 
+  if (!done) {
+    const base = exercises[0];
+    exercises.unshift({ ...base, id: `${base.id}-prep`, section: "warmup", sets: [{
+      id: `${base.id}-prep-s1`, reps: 10, weight: Math.round(base.sets[0].weight / 2), type: "normal"
+    }] });
+    exercises[exercises.length - 1] = { ...exercises[exercises.length - 1], optional: true, included: false };
+  }
   return {
     id: `${PREFIX}${date}`,
     date,
@@ -409,6 +417,9 @@ function sessionTemplates(calendar: Calendar): SessionTemplate[] {
         restSeconds: item.restSeconds
       };
     });
+    const first = exercises[0];
+    exercises.unshift({ ...first, id: `${first.id}-prep`, section: "warmup", sets: 1, reps: 10, weight: Math.round(first.weight / 2), progression: { rule: "off" } });
+    exercises[exercises.length - 1] = { ...exercises[exercises.length - 1], optional: true };
     return {
       id: `${PREFIX}tpl-${key}`,
       name: SPLITS[key].name,
@@ -636,7 +647,7 @@ export function buildDemoState(today: string): DemoState {
 
   return {
     templates: DEMO_TEMPLATES,
-    sessionTemplates: [...sessionTemplates(calendar), hipTemplate],
+    sessionTemplates: [...sessionTemplates(calendar), hipTemplate].map((template) => ({ ...template, summary: buildSessionSummary(template) })),
     scheduledSessions: [...sessions, ...hipSessions].sort((a, b) => a.date.localeCompare(b.date)),
     logs,
     setLogs,

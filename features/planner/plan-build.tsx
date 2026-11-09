@@ -1,5 +1,7 @@
 "use client";
 
+import { WORKOUT_SECTIONS, orderExercises, sectionLabel } from "@/lib/workout-structure";
+
 import { ChevronDown, ChevronLeft, ChevronRight, Dumbbell, PlayCircle, Plus, Sparkles } from "lucide-react";
 import { useState, useEffect } from "react";
 
@@ -34,6 +36,7 @@ import { activeInjuries, injuryName } from "@/lib/injuries";
 import { buildSessionSummary } from "@/lib/workout-helpers";
 import type {
   ExerciseMetric,
+  WorkoutSection,
   Injury,
   ProgressionSettings,
   MuscleId,
@@ -61,6 +64,9 @@ type BuilderExercise = {
   /** km, when metric is "distance". Shown in the device's unit. */
   distanceKm?: number;
   perSide?: boolean;
+  section?: WorkoutSection;
+  optional?: boolean;
+  progression?: ProgressionSettings;
 };
 
 const DEFAULT_HOLD_SECONDS = 45;
@@ -107,7 +113,7 @@ function workoutLine(session: SessionTemplate): string {
   const count = session.exercises.length;
   const load = Math.round(session.summary.totalWeight);
   const sets = session.summary.totalSets;
-  return `${count} exercise${count === 1 ? "" : "s"} · ${sets} set${sets === 1 ? "" : "s"}${load > 0 ? ` · ${load.toLocaleString("en-US")} kg` : ""}`;
+  return `${session.optional ? "Optional · " : ""}${count} exercise${count === 1 ? "" : "s"} · ${sets} set${sets === 1 ? "" : "s"}${load > 0 ? ` · ${load.toLocaleString("en-US")} kg` : ""}`;
 }
 
 function toBuilderExercise(exercise: SessionTemplateExercise): BuilderExercise {
@@ -127,6 +133,9 @@ function toBuilderExercise(exercise: SessionTemplateExercise): BuilderExercise {
     metric: exercise.metric,
     durationSeconds: exercise.durationSeconds,
     distanceKm: exercise.distanceKm,
+    section: exercise.section,
+    optional: exercise.optional,
+    progression: exercise.progression,
     perSide: exercise.perSide
   };
 }
@@ -208,6 +217,7 @@ export function PlanBuild({
     }
   }, [sharedText]);
   const [sessionName, setSessionName] = useState("");
+  const [optionalSession, setOptionalSession] = useState(false);
   // ponytail: session-level only. The model also honours a per-exercise
   // override (see SessionTemplateExercise.progression) — expose it when
   // someone actually needs +5kg on deadlift and +1.25 on curls.
@@ -252,6 +262,7 @@ export function PlanBuild({
     setPlanning(undefined);
     setEditingId(null);
     setSessionName("");
+    setOptionalSession(false);
     setProgression({ rule: "off" });
     const first = createEmptyExercise();
     setBuilderExercises([first]);
@@ -270,6 +281,7 @@ export function PlanBuild({
     resetBuilder();
     setLabelFor(injury.id);
     setSessionName(`${injuryName(injury)} exercises`);
+    setOptionalSession(false);
     // A doctor's exercise rarely has a weight, so none is suggested.
     setBuilderExercises((current) => current.map((exercise) => ({ ...exercise, weight: 0 })));
     setDrawerOpen(true);
@@ -282,6 +294,7 @@ export function PlanBuild({
     setLabelFor("");
     setEditingId(session.id);
     setSessionName(session.name);
+    setOptionalSession(Boolean(session.optional));
     setProgression(session.progression ?? { rule: "off" });
     setBuilderExercises(session.exercises.map(toBuilderExercise));
     // Editing a saved session opens folded: you came to change one thing.
@@ -386,7 +399,7 @@ export function PlanBuild({
     if (exercise.workoutId) {
       return exercise.workoutId;
     }
-    const normalized = normalizeName(exercise.name);
+    const normalized = `${exercise.section ?? "main"}:${normalizeName(exercise.name)}`;
     const existing = templates.find((item) => normalizeName(item.name) === normalized);
     if (existing) {
       return existing.id;
@@ -457,7 +470,7 @@ export function PlanBuild({
 
     const seen = new Set<string>();
     for (const exercise of preparedExercises) {
-      const normalized = normalizeName(exercise.name);
+      const normalized = `${exercise.section ?? "main"}:${normalizeName(exercise.name)}`;
       if (seen.has(normalized)) {
         setError({
           field: "form",
@@ -486,6 +499,9 @@ export function PlanBuild({
         metric: exercise.metric,
         durationSeconds: exercise.durationSeconds,
         distanceKm: exercise.distanceKm,
+        section: exercise.section,
+        optional: exercise.optional,
+        progression: exercise.progression,
         perSide: exercise.perSide
       };
     });
@@ -514,13 +530,14 @@ export function PlanBuild({
       id: editingId ?? uniqueSessionId(trimmedName),
       name: trimmedName,
       workoutIds: exercises.map((exercise) => exercise.workoutId),
-      exercises,
+      exercises: orderExercises(exercises),
+      optional: optionalSession || undefined,
       summary,
-      // Undefined rather than `{ rule: "off" }` — off is the absence of a rule,
-      // and storing it would write a field onto every session ever saved.
+      // Preserve an explicit off rule on imported fixed-target variants (deloads).
+      // Older workouts without a rule keep carrying their last logged targets.
       progression:
         progression.rule === "off"
-          ? undefined
+          ? sessionTemplates.find((item) => item.id === editingId)?.progression?.rule === "off" ? { rule: "off" } : undefined
           : progression.rule === "time"
             ? {
                 ...progression,
@@ -676,7 +693,11 @@ export function PlanBuild({
                   </label>
 
                   <SheetRows>
-                    {builderExercises.map((exercise, exerciseIndex) =>
+                    <ListSwitch label="Optional workout" hint="An extra day, outside your weekly target"
+                      on={optionalSession} onToggle={() => setOptionalSession((current) => !current)} />
+                  </SheetRows>
+                  <SheetRows>
+                    {orderExercises(builderExercises).map((exercise, exerciseIndex) =>
                       openExerciseId !== exercise.id ? (
                         <SwipeRow
                           key={exercise.id}
@@ -693,7 +714,7 @@ export function PlanBuild({
                             }
                             hint={
                               <>
-                                <span className="tabular-nums">{targetLine(exercise, unit)}</span>
+                                <span className="tabular-nums">{exercise.section && exercise.section !== "main" ? `${sectionLabel(exercise.section)} · ` : ""}{exercise.optional ? "Optional · " : ""}{targetLine(exercise, unit)}</span>
                                 {exercise.notes?.trim() ? <span className="block italic">{exercise.notes}</span> : null}
                               </>
                             }
@@ -761,6 +782,21 @@ export function PlanBuild({
                             </span>
                             <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/60" aria-hidden />
                           </button>
+                          <label className="block text-xs text-muted-foreground">
+                            Section
+                            <ThemedSelect
+                              className="mt-1"
+                              value={exercise.section ?? "main"}
+                              aria-label="Exercise section"
+                              options={WORKOUT_SECTIONS.map(({ id, label }) => ({ value: id, label }))}
+                              onValueChange={(section) => updateExercise(exercise.id, { section: section as WorkoutSection, ...(section === "stretching" && !exercise.metric ? { metric: "time", durationSeconds: 30, reps: 0, weight: 0, weights: undefined } : {}) })}
+                            />
+                          </label>
+                          <div className="-mx-4">
+                            <ListSwitch label="Optional exercise" hint="Include it when you want to do it"
+                              on={Boolean(exercise.optional)}
+                              onToggle={() => updateExercise(exercise.id, { optional: !exercise.optional })} />
+                          </div>
                           {/* A plank and a carry are measured in seconds; a run in
                               distance and time. */}
                           <Segmented

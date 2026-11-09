@@ -1,4 +1,4 @@
-import type { PlannedExercise, ScheduleConfig, ScheduledSession, SessionTemplate } from "@/lib/types";
+import type { PlannedExercise, ScheduleConfig, SchedulePhase, SchedulePattern, ScheduledSession, SessionTemplate } from "@/lib/types";
 
 const DAY_MS = 86_400_000;
 /** The most days one schedule generates; see `scheduleHorizonEnd`. */
@@ -196,9 +196,8 @@ export function buildScheduleSessions(
   }
 
   const byId = new Map(templates.map((template) => [template.id, template]));
-  const restWeekdays = new Set(config.restWeekdays);
   const sessions: ScheduledSession[] = [];
-  let pointer = 0;
+  const pointers = new Map<SchedulePattern, number>();
 
   const restDay = (key: string, weekday: number): ScheduledSession => ({
     id: crypto.randomUUID(),
@@ -212,23 +211,26 @@ export function buildScheduleSessions(
   });
 
   for (const { key, weekday } of eachDay(config.startDate, config.endDate)) {
-    if (restWeekdays.has(weekday)) {
+    const phase = config.phases?.find((item) => key >= item.startDate && key <= item.endDate);
+    const pattern = phase ?? config;
+    if (pattern.restWeekdays.includes(weekday)) {
       sessions.push(restDay(key, weekday));
       continue;
     }
 
     let templateId: string | undefined;
-    if (config.mode === "weekly") {
-      templateId = config.weekly[weekday];
+    if (pattern.mode === "weekly") {
+      templateId = pattern.weekly[weekday];
       if (!templateId) {
         continue; // off day
       }
     } else {
-      if (config.rotationOrder.length === 0) {
+      if (pattern.rotationOrder.length === 0) {
         continue;
       }
-      templateId = config.rotationOrder[pointer % config.rotationOrder.length];
-      pointer += 1;
+      const pointer = pointers.get(pattern) ?? 0;
+      templateId = pattern.rotationOrder[pointer % pattern.rotationOrder.length];
+      pointers.set(pattern, pointer + 1);
       if (templateId === REST_SLOT) {
         sessions.push(restDay(key, weekday));
         continue;
@@ -246,6 +248,8 @@ export function buildScheduleSessions(
       dayIndex: weekday,
       sessionTemplateId: template.id,
       sessionName: template.name,
+      optional: template.optional,
+      phaseName: phase?.name,
       exercises: buildExercises(template),
       type: "workout",
       status: "planned",
@@ -377,4 +381,20 @@ export function moveSession(
       vacated
     ].sort((a, b) => a.date.localeCompare(b.date))
   };
+}
+
+/** Shared by import and the schedule sheet; phases must be unambiguous. */
+export function schedulePhaseError(phases: SchedulePhase[], start: string, end: string): string | undefined {
+  const validDate = (key: string) => /^\d{4}-\d{2}-\d{2}$/.test(key) &&
+    Number.isFinite(Date.parse(`${key}T00:00:00Z`)) && new Date(`${key}T00:00:00Z`).toISOString().slice(0, 10) === key;
+  const ordered = [...phases].sort((a, b) => a.startDate.localeCompare(b.startDate));
+  for (let i = 0; i < ordered.length; i++) {
+    const phase = ordered[i];
+    if (!phase.name.trim()) return "Give each phase a name.";
+    if (!validDate(phase.startDate) || !validDate(phase.endDate) || phase.startDate > phase.endDate)
+      return `Set valid start and end dates for ${phase.name}.`;
+    if (phase.startDate < start || phase.endDate > end) return `${phase.name} must be inside the schedule dates.`;
+    if (i > 0 && ordered[i - 1].endDate >= phase.startDate) return "Phase dates overlap. Give each day one phase.";
+  }
+  return undefined;
 }
