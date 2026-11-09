@@ -381,7 +381,7 @@ export function ExerciseLedger({
         </div>
 
         {/* The note the session was built with: a cue you read before the set. */}
-        {exercise.targetNotes ? (
+        {interactive && exercise.targetNotes ? (
           <p className="mt-1.5 text-[13px] italic text-muted-foreground">{exercise.targetNotes}</p>
         ) : null}
 
