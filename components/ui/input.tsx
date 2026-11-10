@@ -26,6 +26,9 @@ export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttribute
         // that a 2-up grid item (Plan tab's Start/End) blew out past the viewport
         // edge instead of shrinking to its column.
         "well flex h-12 w-full min-w-0 rounded-lg px-4 py-3 text-base text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring",
+        // iOS dates have native intrinsic sizing. A block with explicit bounds
+        // keeps that control inside the field while preserving its native picker.
+        type === "date" && "block max-w-full appearance-none [min-inline-size:0]",
         className
       )}
       {...props}

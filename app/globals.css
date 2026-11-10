@@ -337,6 +337,18 @@ button:not(.key):not(.key-quiet):not(:disabled):active,
   opacity: 0.72;
 }
 
+/* iPhone Safari draws a native date value inside the input. Let it shrink
+   with the field instead of widening a narrow sheet or a phase date row. */
+input[type="date"].well::-webkit-date-and-time-value {
+  min-inline-size: 0;
+  text-align: start;
+}
+
+input[type="date"].well::-webkit-datetime-edit {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
 /* No up/down arrows in number fields: a desktop widget, and the fields set the
    numeric keypad already. */
 input[type="number"] {
