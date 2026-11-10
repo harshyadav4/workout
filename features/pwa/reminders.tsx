@@ -100,8 +100,8 @@ export function RemindersRow() {
       value={loaded ? (anyOn ? "On" : "Off") : undefined}
       description="Sent to this phone at the times below, even when it is locked."
     >
-      <div className="grid grid-cols-2 gap-3">
-        <label className="text-[13.5px] font-medium text-muted-foreground">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="block min-w-0 text-[13.5px] font-medium text-muted-foreground">
           Morning
           <Input
             type="time"
@@ -111,7 +111,7 @@ export function RemindersRow() {
             onChange={(event) => event.target.value && void save({ ...settings, morningTime: event.target.value })}
           />
         </label>
-        <label className="text-[13.5px] font-medium text-muted-foreground">
+        <label className="block min-w-0 text-[13.5px] font-medium text-muted-foreground">
           Evening
           <Input
             type="time"

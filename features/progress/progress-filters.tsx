@@ -13,6 +13,7 @@ import {
 } from "@/lib/progress-metrics";
 import { ListRow, ListSheet, SheetDone, SheetRows } from "@/components/ui/list";
 import { Segmented } from "@/components/ui/segmented";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 /**
@@ -130,7 +131,7 @@ function DateFields({
 }) {
   return (
     <div>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid gap-3 sm:grid-cols-2">
         <DateField
           label="From"
           value={window.start}
@@ -205,12 +206,13 @@ function DateField({
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="well block rounded-lg px-3 py-2">
+    <label className="block min-w-0">
       <span className="block text-xs font-semibold text-muted-foreground">
         {label}
       </span>
-      <input
+      <Input
         type="date"
+        aria-label={label}
         value={value}
         max={max}
         onChange={(event) => {
@@ -219,7 +221,7 @@ function DateField({
             onChange(event.target.value);
           }
         }}
-        className="mt-1 w-full bg-transparent text-base font-semibold tabular-nums text-foreground focus-visible:outline-none"
+        className="mt-1 font-semibold tabular-nums"
       />
     </label>
   );
