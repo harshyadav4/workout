@@ -2,7 +2,7 @@
 
 import { sectionLabel } from "@/lib/workout-structure";
 
-import { AlertTriangle, Check, ClipboardCopy, ClipboardPaste, Upload } from "lucide-react";
+import { AlertTriangle, Check, ClipboardCopy, ClipboardPaste, PlayCircle, Upload } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -17,8 +17,10 @@ import {
   SHEET_FOOT
 } from "@/components/ui/dialog";
 import { ListSwitch, SheetRows } from "@/components/ui/list";
+import { useSheetNavigation } from "@/components/ui/use-sheet-navigation";
 import { useAuth } from "@/features/auth/use-auth";
 import { ExercisePicker } from "@/features/planner/exercise-picker";
+import { ExerciseMediaView } from "@/features/workout/exercise-media-dialog";
 import { useWorkoutStore, useWorkoutStoreApi } from "@/features/workout/workout-store";
 import {
   AiPlanError,
@@ -111,6 +113,8 @@ export function AiImportSheet({
   const [replace, setReplace] = useState<Set<string>>(new Set());
   const [applySchedule, setApplySchedule] = useState(true);
   const [picking, setPicking] = useState<string | null>(null);
+  const [preview, setPreview] = useState<{ key: string; exercise: Exercise } | null>(null);
+  const navigation = useSheetNavigation(!open ? "closed" : picking ? `library:${picking}` : preview ? `preview:${preview.key}:${preview.exercise.id}` : view);
   const [media, setMedia] = useState<{ done: number; failed: number; total: number; guest?: boolean }>({ done: 0, failed: 0, total: 0 });
   // Storing a GIF needs an account: the file lives in the account's own folder.
   const { user } = useAuth();
@@ -155,6 +159,7 @@ export function AiImportSheet({
     setReplace(new Set());
     setApplySchedule(true);
     setPicking(null);
+    setPreview(null);
     setMedia({ done: 0, failed: 0, total: 0 });
     setShowBox(false);
     setFixCopied(false);
@@ -304,20 +309,46 @@ export function AiImportSheet({
       )
     : [];
 
+  const exerciseContext = (key: string) => {
+    const [sessionIndex, exerciseIndex] = key.split(":").map(Number);
+    const session = plan?.sessions[sessionIndex];
+    return `For ${session?.name ?? "this workout"} · ${session?.exercises[exerciseIndex]?.name ?? "this exercise"}`;
+  };
+
   return (
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
     >
-      <DialogContent className={`${DRAWER_CONTENT} max-h-[88dvh] overflow-y-auto`} hideClose={Boolean(picking)}>
+      <DialogContent className={`${DRAWER_CONTENT} max-h-[88dvh] overflow-y-auto`} hideClose={Boolean(picking || preview)}>
+        <div {...navigation}>
         {picking ? (
           <ExercisePicker
+            key={picking}
+            context={exerciseContext(picking)}
             onBack={() => setPicking(null)}
             onPick={(exercise) => {
               setChoices((current) => ({ ...current, [picking]: { exercise } }));
               setPicking(null);
+              setPreview(null);
             }}
           />
+        ) : preview ? (
+          <>
+            <ExerciseMediaView
+              datasetId={preview.exercise.id}
+              name={preview.exercise.name}
+              context={exerciseContext(preview.key)}
+              onBack={() => setPreview(null)}
+            />
+            <div className={`${SHEET_FOOT} mt-4 flex gap-2`}>
+              <Button variant="secondary" className="min-w-0 flex-1" onClick={() => setPicking(preview.key)}>Library…</Button>
+              <Button className="min-w-0 flex-1" onClick={() => {
+                setChoices((current) => ({ ...current, [preview.key]: { exercise: preview.exercise } }));
+                setPreview(null);
+              }}>Use this exercise</Button>
+            </div>
+          </>
         ) : view === "start" ? (
           <>
             <DialogHeader className="pr-9">
@@ -491,13 +522,20 @@ export function AiImportSheet({
                         const decided = key in choices;
                         const status = decided ? (exercise ? "picked" : "custom") : match?.status;
                         return (
-                          <div key={key} className="list-row py-2.5 pl-4 pr-3.5">
+                          <div key={key} data-sheet-anchor={`ai-exercise-${key}`} tabIndex={-1} className="list-row py-2.5 pl-4 pr-3.5">
                             <div className="flex items-center gap-3">
-                              <div className="well h-11 w-11 shrink-0 overflow-hidden rounded-xl">
+                              <button
+                                type="button"
+                                disabled={!exercise}
+                                aria-label={`Preview ${exercise?.name ?? item.name} for ${item.name}`}
+                                onClick={() => exercise && setPreview({ key, exercise })}
+                                className="well relative h-11 w-11 shrink-0 overflow-hidden rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                              >
                                 {exercise ? (
                                   <img src={exerciseImageUrl(exercise)} alt="" className="h-full w-full object-cover" loading="lazy" />
                                 ) : null}
-                              </div>
+                                {exercise ? <span className="absolute inset-0 flex items-center justify-center bg-black/25"><PlayCircle className="h-5 w-5 text-white" aria-hidden /></span> : null}
+                              </button>
                               <div className="min-w-0 flex-1">
                                 <p className="truncate text-[15px] font-medium capitalize">
                                   {exercise ? exercise.name : item.name}
@@ -536,7 +574,8 @@ export function AiImportSheet({
                                     <button
                                       key={candidate.id}
                                       type="button"
-                                      onClick={() => setChoices((current) => ({ ...current, [key]: { exercise: candidate } }))}
+                                      aria-label={`Preview ${candidate.name} for ${item.name}`}
+                                      onClick={() => setPreview({ key, exercise: candidate })}
                                       className="key-quiet h-11 max-w-full truncate rounded-full px-3 text-xs font-semibold capitalize"
                                     >
                                       {candidate.name}
@@ -664,6 +703,7 @@ export function AiImportSheet({
             </Button>
           </>
         ) : null}
+        </div>
       </DialogContent>
     </Dialog>
   );

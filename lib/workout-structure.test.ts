@@ -5,7 +5,7 @@ import { buildScheduleSessions, mergeGeneratedSessions, schedulePhaseError } fro
 import { sessionTemplateToRow, rowToSessionTemplate, sessionToRow, rowToSession } from "@/lib/sync";
 import { plannedThisWeek } from "@/lib/progress-scores";
 import { buildLogFromSession, firstPendingSetId, nextPendingSetId, plannedExercisesFromTemplate, refreshUpcomingSessions, sessionTotals } from "@/lib/workout-helpers";
-import { isExerciseIncluded, orderExercises } from "@/lib/workout-structure";
+import { isExerciseIncluded, moveExerciseInSection, orderExercises } from "@/lib/workout-structure";
 import { createWorkoutStore, flushPersist } from "@/features/workout/workout-store";
 import type { ScheduledSession } from "@/lib/types";
 
@@ -38,6 +38,26 @@ assert.equal(full.summary.totalSets, 6, "optional sets start outside the target"
 assert.equal(exercises.find((e) => e.templateName === "Wrist curl")?.optional, true);
 assert.equal(isExerciseIncluded(exercises.find((e) => e.optional)!), false);
 assert.deepEqual(orderExercises([{ section: "stretching" as const }, {}, { section: "warmup" as const }]).map((e) => e.section), ["warmup", undefined, "stretching"]);
+
+// Moving to a numbered position works in both directions without changing
+// targets, ids, or section order. The saved template and generated days agree.
+{
+  const press = full.exercises.find((item) => item.name === "Press")!;
+  const wrist = full.exercises.find((item) => item.name === "Wrist curl")!;
+  const reordered = moveExerciseInSection(full.exercises, press.id, wrist.id);
+  assert.ok(reordered.indexOf(wrist) < reordered.indexOf(press));
+  assert.equal(reordered.find((item) => item.id === press.id), press, "all exercise targets stay intact");
+  assert.deepEqual(moveExerciseInSection(reordered, press.id, wrist.id), orderExercises(full.exercises), "moving back restores section order");
+  assert.equal(moveExerciseInSection(full.exercises, press.id, full.exercises.find((item) => item.section === "warmup")!.id), full.exercises, "cannot cross sections");
+  assert.equal(moveExerciseInSection(full.exercises, "missing", press.id), full.exercises);
+  assert.equal(moveExerciseInSection(full.exercises, press.id, press.id), full.exercises);
+  const saved = rowToSessionTemplate(sessionTemplateToRow({ ...full, exercises: reordered }, "user"));
+  const generated = buildScheduleSessions({
+    startDate: "2026-11-02", endDate: "2026-11-02", mode: "weekly", weekly: { 1: full.id },
+    rotationOrder: [], restWeekdays: []
+  }, [saved], plannedExercisesFromTemplate);
+  assert.deepEqual(generated[0].exercises.map((item) => item.templateName), reordered.map((item) => item.name));
+}
 
 const session: ScheduledSession = {
   id: "session", date: "2026-11-02", dayIndex: 1, sessionName: full.name,

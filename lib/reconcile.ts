@@ -1,4 +1,5 @@
-import { mergeInjury, staleInjuryDays } from "@/lib/injuries";
+import { injuryWorkoutIds, mergeInjury, staleInjuryDays } from "@/lib/injuries";
+import { scheduleHorizonEnd } from "@/lib/schedule";
 import type { RemoteState, SyncableState } from "@/lib/sync";
 import type { BodyMeasurement, PainLog, ScheduledSession } from "@/lib/types";
 
@@ -17,9 +18,11 @@ import type { BodyMeasurement, PainLog, ScheduledSession } from "@/lib/types";
  * **Deliberately deletion-blind.** A row deleted on another device comes back.
  * Resurrecting one session is a far cheaper mistake than losing one, and the fix
  * for it is a `deleted_at` tombstone rather than a narrower merge. Injuries are
- * the exception: a health record someone deleted must not come back, so they
+ * an exception: a health record someone deleted must not come back, so they
  * have that tombstone (`deletedInjuries`), and a day of their workout that the
  * account has moved past goes too (`staleInjuryDays`).
+ * Generated calendars also record their latest replacement's row ids, so an
+ * old planned row cannot return beside its replacement during account sync.
  *
  * Safe only because the caller has already established that the local copy
  * belongs to the signed-in user — see `claimFor` in the store. Merging a
@@ -150,11 +153,36 @@ export function reconcile(local: SyncableState, remote: RemoteState, from: Incom
     remote.templates
   );
 
+  // A backup adds data; only account sync can authoritatively replace a plan.
+  // A newer offline regeneration must also survive a read of the old account.
+  const scheduleConfig = from === "account" && local.scheduleConfig?.generatedAt &&
+    (!remote.scheduleConfig?.generatedAt || local.scheduleConfig.generatedAt > remote.scheduleConfig.generatedAt)
+    ? local.scheduleConfig
+    : remote.scheduleConfig ?? local.scheduleConfig;
+  const generatedIds = from === "account" && scheduleConfig?.generatedSessionIds
+    ? new Set(scheduleConfig.generatedSessionIds)
+    : undefined;
+  const besideThePlan = injuryWorkoutIds(injuries ?? []);
+  const sessions = unionById(local.scheduledSessions, remote.scheduledSessions, furtherAlong)
+    .filter((session) => !staleDays.has(session.id))
+    .filter((session) => !generatedIds || !scheduleConfig || session.status !== "planned" ||
+      session.source !== "repeat" ||
+      Boolean(session.sessionTemplateId && besideThePlan.has(session.sessionTemplateId)) ||
+      session.date < scheduleConfig.startDate || session.date > scheduleHorizonEnd(scheduleConfig) ||
+      generatedIds.has(session.id));
+  // A started/completed record or a manual decision claims its date. Do not
+  // resurrect a generated alternative beside it from another device.
+  const protectedDates = new Set(sessions.filter((session) =>
+    (session.status !== "planned" || session.source !== "repeat") &&
+    !(session.sessionTemplateId && besideThePlan.has(session.sessionTemplateId))
+  ).map((session) => session.date));
+
   return {
     templates: [...presets, ...added.filter((item) => !presets.some((p) => p.id === item.id))],
     sessionTemplates: unionById(local.sessionTemplates, remote.sessionTemplates),
-    scheduledSessions: unionById(local.scheduledSessions, remote.scheduledSessions, furtherAlong)
-      .filter((session) => !staleDays.has(session.id))
+    scheduledSessions: sessions
+      .filter((session) => !generatedIds || session.status !== "planned" || session.source !== "repeat" ||
+        Boolean(session.sessionTemplateId && besideThePlan.has(session.sessionTemplateId)) || !protectedDates.has(session.date))
       .sort(byDateAscending),
     // Newest first, the order `loadUserState` asks Postgres for and the order
     // the store prepends in.
@@ -170,9 +198,9 @@ export function reconcile(local: SyncableState, remote: RemoteState, from: Incom
     injuries: injuries?.filter((item) => !deletedIds.has(item.id)),
     painLogs: painLogs?.filter((item) => !deletedIds.has(item.injuryId)),
     deletedInjuries,
-    // Both are one small object that the next push rewrites whole, so there is
-    // no partial local edit to lose. The account is the authority on them.
+    // The profile takes the account copy. The calendar takes the newer
+    // generation, including a replacement made offline on this device.
     profile: remote.profile ?? local.profile,
-    scheduleConfig: remote.scheduleConfig ?? local.scheduleConfig
+    scheduleConfig
   };
 }

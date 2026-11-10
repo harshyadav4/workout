@@ -19,6 +19,7 @@ import { NumberInput } from "@/components/ui/number-input";
 import { Segmented } from "@/components/ui/segmented";
 import { SwipeRow } from "@/components/ui/swipe-row";
 import { usePendingRemoval } from "@/components/ui/use-pending-removal";
+import { useSheetNavigation } from "@/components/ui/use-sheet-navigation";
 import { ExercisePicker } from "@/features/planner/exercise-picker";
 import { useMarkSkillsFound } from "@/features/skills/skill-doors";
 import { ExerciseDemoButton } from "@/features/workout/exercise-media-dialog";
@@ -312,6 +313,7 @@ function CustomSkillBuilder({
 }) {
   const addSkillGoal = useWorkoutStore((state) => state.addSkillGoal);
   const [picking, setPicking] = useState(false);
+  const navigation = useSheetNavigation(picking ? "library" : "builder");
   const [error, setError] = useState<string>();
 
   // Back from the picker, the level just added is what you came to see. The
@@ -365,11 +367,11 @@ function CustomSkillBuilder({
 
   // The picker swaps in place, not as a second dialog (see ExercisePicker).
   if (picking) {
-    return <ExercisePicker onBack={() => setPicking(false)} onPick={addFromLibrary} />;
+    return <div {...navigation}><ExercisePicker context={`For ${name || "this skill"} · new level`} onBack={() => setPicking(false)} onPick={addFromLibrary} /></div>;
   }
 
   return (
-    <div className="space-y-4">
+    <div {...navigation} className="space-y-4">
       <div className="space-y-2">
         <div className="flex items-center gap-2">
           <button

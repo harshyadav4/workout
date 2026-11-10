@@ -1,6 +1,6 @@
 "use client";
 
-import { WORKOUT_SECTIONS, orderExercises, sectionLabel } from "@/lib/workout-structure";
+import { WORKOUT_SECTIONS, moveExerciseInSection, orderExercises, sectionLabel } from "@/lib/workout-structure";
 
 import { ChevronDown, ChevronLeft, ChevronRight, Dumbbell, PlayCircle, Plus, Sparkles } from "lucide-react";
 import { useState, useEffect } from "react";
@@ -15,6 +15,7 @@ import { SwipeRow } from "@/components/ui/swipe-row";
 import { usePendingRemoval } from "@/components/ui/use-pending-removal";
 import { NumberInput } from "@/components/ui/number-input";
 import { ThemedSelect } from "@/components/ui/select";
+import { useSheetNavigation } from "@/components/ui/use-sheet-navigation";
 import { AiImportSheet } from "@/features/planner/ai-import";
 import { InjuryWorkoutForm } from "@/features/injuries/injury-workout-form";
 import { ExercisePicker } from "@/features/planner/exercise-picker";
@@ -237,6 +238,7 @@ export function PlanBuild({
   // Swapped into the open drawer instead of a nested dialog — see ExercisePicker.
   const [media, setMedia] = useState<{ datasetId: string; name: string } | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const navigation = useSheetNavigation(!drawerOpen ? "closed" : pickerCardId ? `library:${pickerCardId}` : muscleCardId ? `muscles:${muscleCardId}` : media ? `media:${media.datasetId}` : planning ? "planning" : "builder");
   // Deleted workouts hide at once and commit after the Undo bar (components/ui/undo-bar).
   const removal = usePendingRemoval();
   const deleteWithUndo = (session: { id: string; name: string }) =>
@@ -615,6 +617,7 @@ export function PlanBuild({
             className={`${DRAWER_CONTENT} max-h-[88dvh] overflow-y-auto`}
             hideClose={Boolean(pickerCardId || muscleCardId || media || planning)}
           >
+            <div {...navigation}>
             {planning && labelledInjury ? (
               <>
                 <div className="mb-3 flex items-center gap-2">
@@ -647,6 +650,8 @@ export function PlanBuild({
               </>
             ) : pickerCardId ? (
               <ExercisePicker
+                key={pickerCardId}
+                context={`For ${sessionName || "this workout"} · ${builderExercises.find((item) => item.id === pickerCardId)?.name || "new exercise"}`}
                 onBack={() => setPickerCardId(null)}
                 onPick={(exercise) => applyPick(pickerCardId, exercise)}
               />
@@ -722,7 +727,7 @@ export function PlanBuild({
                           />
                         </SwipeRow>
                       ) : (
-                        <div key={exercise.id} className="list-row space-y-3 px-4 py-3.5">
+                        <div key={exercise.id} data-sheet-anchor={`builder-${exercise.id}`} tabIndex={-1} className="list-row space-y-3 px-4 py-3.5">
                           <div className="flex items-center justify-between gap-2">
                             <p className="font-heading text-[22px] leading-tight">
                               Exercise {exerciseIndex + 1}
@@ -792,6 +797,20 @@ export function PlanBuild({
                               onValueChange={(section) => updateExercise(exercise.id, { section: section as WorkoutSection, ...(section === "stretching" && !exercise.metric ? { metric: "time", durationSeconds: 30, reps: 0, weight: 0, weights: undefined } : {}) })}
                             />
                           </label>
+                          {builderExercises.filter((item) => (item.section ?? "main") === (exercise.section ?? "main")).length > 1 ? (
+                            <label className="block text-xs text-muted-foreground">
+                              Position in section
+                              <ThemedSelect
+                                className="mt-1 tabular-nums"
+                                aria-label={`Position of ${exercise.name || "exercise"} in section`}
+                                value={exercise.id}
+                                options={builderExercises
+                                  .filter((item) => (item.section ?? "main") === (exercise.section ?? "main"))
+                                  .map((item, index) => ({ value: item.id, label: `${index + 1}. ${item.name || "Unnamed exercise"}` }))}
+                                onValueChange={(positionId) => setBuilderExercises((current) => moveExerciseInSection(current, exercise.id, positionId))}
+                              />
+                            </label>
+                          ) : null}
                           <div className="-mx-4">
                             <ListSwitch label="Optional exercise" hint="Include it when you want to do it"
                               on={Boolean(exercise.optional)}
@@ -1076,6 +1095,7 @@ export function PlanBuild({
                 </div>
               </>
             )}
+            </div>
           </DialogContent>
         </Dialog>
         <Button variant="secondary" className="w-full px-3" onClick={() => setAiOpen(true)} data-tour="plan-ai">

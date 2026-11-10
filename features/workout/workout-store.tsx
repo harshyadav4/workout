@@ -45,6 +45,7 @@ import type { RemoteState } from "@/lib/sync";
 import {
   buildScheduleSessions,
   mergeGeneratedSessions,
+  recordGeneratedSchedule,
   moveSession,
   type MoveResult
 } from "@/lib/schedule";
@@ -711,16 +712,18 @@ export function createWorkoutStore() {
           }
           // The same path as "Generate schedule": planned days in the range are
           // replaced, started and finished ones are kept.
+          const scheduledSessions = mergeGeneratedSessions(
+            base.scheduledSessions,
+            buildScheduleSessions(scheduleConfig, sessionTemplates, (template) =>
+              plannedExercisesFromTemplate(template, base)
+            ),
+            injuryWorkoutIds(state.injuries),
+            scheduleConfig
+          );
           return {
             ...base,
-            scheduleConfig,
-            scheduledSessions: mergeGeneratedSessions(
-              base.scheduledSessions,
-              buildScheduleSessions(scheduleConfig, sessionTemplates, (template) =>
-                plannedExercisesFromTemplate(template, base)
-              ),
-              injuryWorkoutIds(state.injuries)
-            ),
+            scheduleConfig: recordGeneratedSchedule(scheduleConfig, scheduledSessions, state.scheduleConfig),
+            scheduledSessions,
             selectedSessionId: undefined
           };
         }),
@@ -865,18 +868,22 @@ export function createWorkoutStore() {
           };
         }),
       generateSchedule: (config) =>
-        setAndPersist((state) => ({
-          ...state,
-          scheduleConfig: config,
-          scheduledSessions: mergeGeneratedSessions(
+        setAndPersist((state) => {
+          const scheduledSessions = mergeGeneratedSessions(
             state.scheduledSessions,
             buildScheduleSessions(config, state.sessionTemplates, (template) =>
               plannedExercisesFromTemplate(template, state)
             ),
-            injuryWorkoutIds(state.injuries)
-          ),
-          selectedSessionId: undefined
-        })),
+            injuryWorkoutIds(state.injuries),
+            config
+          );
+          return {
+            ...state,
+            scheduleConfig: recordGeneratedSchedule(config, scheduledSessions, state.scheduleConfig),
+            scheduledSessions,
+            selectedSessionId: undefined
+          };
+        }),
       selectSession: (sessionId) =>
         setAndPersist((state) => ({ ...state, selectedSessionId: sessionId })),
       // Re-planned on the way in, so the numbers you start with are current

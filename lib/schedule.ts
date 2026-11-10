@@ -149,7 +149,8 @@ export function scheduleHorizonEnd(config: Pick<ScheduleConfig, "startDate" | "e
  * Two things survive regeneration: work already done (`active`/`completed`, a
  * record rather than a plan) and anything the user put on the calendar
  * themselves. Only what this generator produced last time — `source: "repeat"`,
- * still `planned` — is its to replace.
+ * still `planned` — is its to replace inside the requested window. Dates
+ * outside that window and workouts running beside the plan stay in place.
  *
  * The source clause is why an ad-hoc session started from Home does not need a
  * third `source` value to survive: it is `manual`, like a hand-scheduled
@@ -163,10 +164,13 @@ export function mergeGeneratedSessions(
    * do not claim their date: a daily one would otherwise cost every generated
    * workout in its range.
    */
-  besideThePlan: ReadonlySet<string> = new Set()
+  besideThePlan: ReadonlySet<string> = new Set(),
+  window?: Pick<ScheduleConfig, "startDate" | "endDate">
 ): ScheduledSession[] {
   const kept = existing.filter(
-    (session) => session.status !== "planned" || session.source !== "repeat"
+    (session) => session.status !== "planned" || session.source !== "repeat" ||
+      Boolean(session.sessionTemplateId && besideThePlan.has(session.sessionTemplateId)) ||
+      Boolean(window && (session.date < window.startDate || session.date > scheduleHorizonEnd(window)))
   );
   const keptDates = new Set(
     kept
@@ -177,6 +181,23 @@ export function mergeGeneratedSessions(
   return [...kept, ...generated.filter((session) => !keptDates.has(session.date))].sort((a, b) =>
     a.date.localeCompare(b.date)
   );
+}
+
+/** Stamp only the generated rows that survived protected days in the merge. */
+export function recordGeneratedSchedule(
+  config: ScheduleConfig,
+  sessions: ScheduledSession[],
+  previous?: ScheduleConfig
+): ScheduleConfig {
+  const previousTime = Date.parse(previous?.generatedAt ?? "");
+  const generatedTime = Math.max(Date.now(), Number.isFinite(previousTime) ? previousTime + 1 : 0);
+  return {
+    ...config,
+    generatedAt: new Date(generatedTime).toISOString(),
+    generatedSessionIds: sessions
+      .filter((session) => session.source === "repeat" && session.date >= config.startDate && session.date <= scheduleHorizonEnd(config))
+      .map((session) => session.id)
+  };
 }
 
 /**

@@ -534,7 +534,7 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className={`${DRAWER_CONTENT} max-h-[88dvh] overflow-y-auto`}>
-          <DialogHeader>
+          <DialogHeader className="pr-9">
             <DialogTitle>Your schedule</DialogTitle>
             <DialogDescription>
               Choose dates, then weekdays or a rotation.
@@ -598,6 +598,7 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
                       {label}
                     </span>
                     <ThemedSelect
+                      className="min-w-0 flex-1"
                       aria-label={`Workout for ${label}`}
                       value={restWeekdays.includes(day) ? "rest" : weekly[day] ?? ""}
                       onValueChange={(next) => setWeekdayAssignment(day, next)}
@@ -656,10 +657,10 @@ export function PlanSchedule({ onGoBuild }: PlanScheduleProps) {
                         key={template.id}
                         type="button"
                         onClick={() => toggleRotation(template.id)}
-                        className="key-quiet flex h-11 items-center gap-1 rounded-full pl-3 pr-3.5 text-sm font-semibold"
+                        className="key-quiet flex min-h-11 max-w-full items-center gap-1 rounded-full py-2 pl-3 pr-3.5 text-left text-sm font-semibold"
                       >
-                        <Plus className="h-3.5 w-3.5" />
-                        {template.name}
+                        <Plus className="h-3.5 w-3.5 shrink-0" />
+                        <span className="min-w-0 break-words">{template.name}</span>
                       </button>
                     ))}
                 </div>

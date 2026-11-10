@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SheetRows } from "@/components/ui/list";
 import { ThemedSelect } from "@/components/ui/select";
+import { useSheetNavigation } from "@/components/ui/use-sheet-navigation";
 import { ExerciseMediaView } from "@/features/workout/exercise-media-dialog";
 import {
   distinctValues,
@@ -22,11 +23,12 @@ const RESULT_LIMIT = 40;
 interface ExercisePickerProps {
   onBack: () => void;
   onPick: (exercise: Exercise) => void;
+  context?: string;
 }
 
 // Rendered as a view inside the builder dialog (not a nested dialog) to avoid
 // stacked-modal focus/pointer-events issues.
-export function ExercisePicker({ onBack, onPick }: ExercisePickerProps) {
+export function ExercisePicker({ onBack, onPick, context }: ExercisePickerProps) {
   const [list, setList] = useState<Exercise[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [query, setQuery] = useState("");
@@ -37,6 +39,7 @@ export function ExercisePicker({ onBack, onPick }: ExercisePickerProps) {
   // search and filters survive the round trip because this component stays
   // mounted.
   const [preview, setPreview] = useState<Exercise | null>(null);
+  const navigation = useSheetNavigation(preview ? `preview:${preview.id}` : "list");
 
   useEffect(() => {
     let active = true;
@@ -89,10 +92,11 @@ export function ExercisePicker({ onBack, onPick }: ExercisePickerProps) {
 
   if (preview) {
     return (
-      <div className="space-y-4">
+      <div {...navigation} className="space-y-4">
         <ExerciseMediaView
           datasetId={preview.id}
           name={preview.name}
+          context={context}
           onBack={() => setPreview(null)}
         />
         <div className={`${SHEET_FOOT} flex gap-2`}>
@@ -109,7 +113,7 @@ export function ExercisePicker({ onBack, onPick }: ExercisePickerProps) {
   }
 
   return (
-    <div className="space-y-3">
+    <div {...navigation} className="space-y-3">
       <div className="flex items-center gap-2">
         <button
           type="button"
@@ -121,7 +125,7 @@ export function ExercisePicker({ onBack, onPick }: ExercisePickerProps) {
         </button>
         <div className="min-w-0">
           <DialogTitle>Add exercise</DialogTitle>
-          <DialogDescription>Search by name, or filter by body part.</DialogDescription>
+          <DialogDescription>{context ?? "Search by name, or filter by body part."}</DialogDescription>
         </div>
       </div>
 
@@ -223,7 +227,7 @@ function ExerciseRow({
   // Two buttons side by side, never one inside the other: the thumbnail and
   // the play key open the demo, the name and the + add it.
   return (
-    <div className="list-row flex items-center gap-3 py-2 pl-4 pr-2">
+    <div data-sheet-anchor={`library-${exercise.id}`} tabIndex={-1} className="list-row flex items-center gap-3 py-2 pl-4 pr-2">
       <button
         type="button"
         onClick={() => onPreview(exercise)}

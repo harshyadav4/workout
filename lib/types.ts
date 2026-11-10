@@ -298,6 +298,10 @@ export interface ScheduleConfig extends SchedulePattern {
   startDate: string;
   endDate: string;
   phases?: SchedulePhase[];
+  /** Latest calendar replacement, persisted in the existing schedule JSON. */
+  generatedAt?: string;
+  /** Authoritative generated rows in this window; prevents stale sync resurrection. */
+  generatedSessionIds?: string[];
 }
 
 /**

@@ -61,6 +61,19 @@ assert.deepEqual(
 // A planned-only schedule is replaced wholesale.
 assert.deepEqual(mergeGeneratedSessions([session("2026-07-22", "Legs", "planned")], generated), generated);
 
+// Replacing three months must leave dates outside that chosen window alone.
+{
+  const before = session("2026-06-01", "Earlier plan", "planned");
+  const after = session("2026-11-01", "Later plan", "planned");
+  const old = session("2026-07-22", "Old", "planned");
+  const rehabilitation = { ...old, id: "rehab", sessionTemplateId: "rehab" };
+  const next = session("2026-07-22", "New", "planned");
+  const result = mergeGeneratedSessions([before, old, after, rehabilitation], [next], new Set(["rehab"]), {
+    startDate: "2026-07-01", endDate: "2026-09-30"
+  });
+  assert.deepEqual(result.map((item) => item.id), [before.id, rehabilitation.id, next.id, after.id]);
+}
+
 // Nothing generated (no templates, bad range) still keeps the record.
 assert.deepEqual(mergeGeneratedSessions(existing, []), [existing[0], existing[1]]);
 

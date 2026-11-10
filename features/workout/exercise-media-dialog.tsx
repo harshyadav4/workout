@@ -178,13 +178,14 @@ interface ExerciseMediaViewProps {
   name: string;
   /** Shows a back arrow — for the Build drawer, which swaps views instead of stacking dialogs. */
   onBack?: () => void;
+  context?: string;
 }
 
 /**
  * Media panel without a Dialog wrapper, so it can either be swapped into an
  * open drawer (Build) or portalled into its own sheet (Home).
  */
-export function ExerciseMediaView({ datasetId, gifUrl, name, onBack }: ExerciseMediaViewProps) {
+export function ExerciseMediaView({ datasetId, gifUrl, name, onBack, context }: ExerciseMediaViewProps) {
   const { exercise, status } = useDatasetExercise(datasetId ?? "");
 
   return (
@@ -201,8 +202,9 @@ export function ExerciseMediaView({ datasetId, gifUrl, name, onBack }: ExerciseM
           </button>
         ) : null}
         <div className="min-w-0">
-          <DialogTitle className="truncate capitalize">{name}</DialogTitle>
+          <DialogTitle className="break-words capitalize">{name}</DialogTitle>
           <DialogDescription className="capitalize">
+            {context ? <span className="mb-1 block normal-case">{context}</span> : null}
             {exercise ? `${exercise.target} · ${exercise.equipment}` : "How to do it"}
           </DialogDescription>
         </div>

@@ -12,7 +12,9 @@
 ## Key features
 
 - Plan: build workouts from an exercise library with demo GIFs, and put them on your weekdays. Warm-up, skill practice, main work and stretching fit in one workout. Optional exercises can be included per day; optional workouts do not raise the required weekly target. Dated schedule phases support deload variants, tier changes and exercise swaps.
+- Exercise order: change an exercise's position within its section in a saved workout template. Regenerate the schedule to apply that order to planned sessions.
 - Build with AI: copy a prompt into any AI chat app (for example ChatGPT), paste the answer back, and your workouts and calendar fill in.
+- Exercise matching: preview suggested library matches before choosing one. Library and demo views return to the same exercise and scroll position in the import review and workout builder.
 - Today: start a workout and log each set in one tap. A rest timer and a live workout clock run. Arise fills in last time's weight and reps. Progression rules can raise the weight.
 - Muscle map: a front and back body figure shows the muscles today's workout trains. A darker color means more sets. Tap a muscle to see its name.
 - Recovery map: Progress shows which muscles are ready to train.

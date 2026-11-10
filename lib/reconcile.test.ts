@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 
 import { reconcile } from "@/lib/reconcile";
+import { createWorkoutStore } from "@/features/workout/workout-store";
+import { buildPlanImport, parseAiPlan } from "@/lib/ai-plan";
 import type { RemoteState, SyncableState } from "@/lib/sync";
 import type { ScheduledSession, WorkoutLog, WorkoutTemplate } from "@/lib/types";
 
@@ -55,6 +57,53 @@ const emptyRemote = (over: Partial<RemoteState> = {}): RemoteState => ({
   measurements: [],
   ...over
 });
+
+// Import -> regenerate -> re-read a stale account: one plan for the next three
+// months, even when the old rows had not been deleted from the server yet.
+{
+  const store = createWorkoutStore();
+  const config = {
+    startDate: "2026-11-10", endDate: "2027-02-09", mode: "weekly" as const,
+    weekly: {}, rotationOrder: [], restWeekdays: []
+  };
+  const old = { ...session("old", "planned", "2026-11-10"), source: "repeat" as const };
+  const done = session("done", "completed", "2026-11-11");
+  const active = session("active", "active", "2026-11-12");
+  const manual = session("manual", "planned", "2026-11-13");
+  const outside = { ...old, id: "outside", date: "2027-03-01" };
+  store.setState({ scheduledSessions: [old, done, active, manual, outside], scheduleConfig: config });
+  const plan = parseAiPlan(JSON.stringify({
+    sessions: [{ name: "New workout", exercises: [{ name: "Squat", sets: 3, reps: 8 }] }],
+    schedule: { startDate: config.startDate, endDate: config.endDate,
+      days: { mon: "New workout", tue: "New workout", wed: "New workout", thu: "New workout", fri: "New workout" } }
+  }));
+  store.getState().importAiPlan(buildPlanImport(plan, {
+    library: [], choices: {}, replace: new Set(), applySchedule: true,
+    existingTemplates: [], existingSessions: [], today: config.startDate
+  }));
+  const first = store.getState();
+  assert.ok(!first.scheduledSessions.some((item) => item.id === old.id));
+  assert.ok(first.scheduleConfig?.generatedSessionIds?.length);
+  store.getState().generateSchedule(first.scheduleConfig!);
+  const latest = store.getState();
+  assert.ok(latest.scheduleConfig!.generatedAt! > first.scheduleConfig!.generatedAt!);
+  const staleRemote = emptyRemote({
+    scheduledSessions: [old, ...first.scheduledSessions], scheduleConfig: first.scheduleConfig
+  });
+  const merged = reconcile(latest, staleRemote);
+  assert.deepEqual(merged.scheduledSessions.map((item) => item.id), latest.scheduledSessions.map((item) => item.id));
+  assert.equal(merged.scheduleConfig, latest.scheduleConfig, "newer local schedule survives stale account read");
+  for (const preserved of [done, active, manual, outside]) {
+    assert.ok(merged.scheduledSessions.some((item) => item.id === preserved.id));
+  }
+  // The other device gets the same result when the new plan is on the account.
+  const other = reconcile(emptyLocal({ scheduledSessions: [old], scheduleConfig: config }), {
+    ...emptyRemote(), scheduledSessions: merged.scheduledSessions, scheduleConfig: merged.scheduleConfig
+  });
+  assert.deepEqual(other.scheduledSessions, merged.scheduledSessions);
+  const copy = reconcile(latest, emptyRemote({ scheduledSessions: [old] }), "copy");
+  assert.ok(copy.scheduledSessions.some((item) => item.id === old.id), "backup import remains additive");
+}
 
 // 1. A local log the server has never seen survives the read. This is the one
 //    that used to be a lost workout.

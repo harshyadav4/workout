@@ -86,7 +86,7 @@ export const FEATURES: Feature[] = [
   {
     id: "plan",
     title: "Build a plan, or let AI build it",
-    lead: "Pick exercises from a library with demo GIFs and put workouts on your weekdays. Or use Build with AI.",
+    lead: "Pick exercises from a library with demo GIFs, set their order within each section, and put workouts on your weekdays. Or use Build with AI.",
     points: [
       "Copy the question into ChatGPT, Claude or Gemini.",
       "Paste its plan back into Arise.",
